@@ -52,3 +52,31 @@ the chart switches automatically from the approximate curve to the real one.
 
 Note: SQLite on Render is ephemeral (resets on redeploy). For snapshots that
 survive long term, add a Render Postgres instance and point DATABASE_URL at it.
+
+## Postgres (persistent ELO snapshots)
+
+On Render -> New + -> Postgres -> Free. Copy its "Internal Database URL".
+Then on your Web Service AND the Cron Job -> Environment -> add:
+  DATABASE_URL = <the internal database URL>
+Redeploy. Migrations create the tables automatically (build.sh runs migrate).
+Now ELO snapshots survive redeploys.
+
+## Per-player Open Graph (Discord previews)
+
+The share link is /p/<nickname> (handled by frontend/api/share.js).
+On Vercel -> Settings -> Environment Variables add:
+  BACKEND_URL = https://<your-service>.onrender.com
+Redeploy. Sharing faceit-lens.vercel.app/p/LorduKiki on Discord now shows
+the player's name, ELO and win rate. The "Share" button copies this link.
+
+## AI Analysis (Anthropic)
+
+The "AI Analysis" button calls the Anthropic API from the backend.
+On Render -> your Web Service -> Environment, add:
+  ANTHROPIC_API_KEY = <your Anthropic API key>
+Optional:
+  ANTHROPIC_MODEL = claude-haiku-4-5-20251001   (default; a small, cheap model)
+
+Each analysis is cached per player for 12h, so repeat views don't re-bill.
+The key stays on the backend and is never exposed to the browser.
+If ANTHROPIC_API_KEY is missing, the button returns a friendly "not configured" message.

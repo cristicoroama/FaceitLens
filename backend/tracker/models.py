@@ -2,10 +2,11 @@ from django.db import models
 
 
 class TrackedPlayer(models.Model):
-    """A player we've seen searched - used to know who to snapshot daily."""
+    """A player we've seen searched - used for the snapshot cron and recents."""
     player_id = models.CharField(max_length=64, unique=True)
     nickname = models.CharField(max_length=100)
     added_at = models.DateTimeField(auto_now_add=True)
+    last_searched = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.nickname

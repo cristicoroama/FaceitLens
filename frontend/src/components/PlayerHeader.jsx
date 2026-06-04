@@ -1,4 +1,5 @@
 import SkillBadge from "./SkillBadge.jsx";
+import CountUp from "./CountUp.jsx";
 
 export default function PlayerHeader({ player }) {
   return (
@@ -6,16 +7,9 @@ export default function PlayerHeader({ player }) {
       {player.avatar ? (
         <img src={player.avatar} alt={player.nickname} />
       ) : (
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 8,
-            background: "var(--bg-elev-2)",
-          }}
-        />
+        <div className="player-avatar-empty" />
       )}
-      <div>
+      <div className="player-head-info">
         <div className="player-name">
           {player.nickname}
           <SkillBadge level={player.skill_level} />
@@ -31,7 +25,7 @@ export default function PlayerHeader({ player }) {
       </div>
       <div className="elo-badge">
         <div className="lvl">ELO</div>
-        <div className="elo">{player.elo ?? "—"}</div>
+        <div className="elo"><CountUp value={player.elo} /></div>
       </div>
     </div>
   );

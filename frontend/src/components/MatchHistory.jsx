@@ -13,7 +13,39 @@ async function fetchMatch(id) {
   return resp.json();
 }
 
-function MatchRow({ m }) {
+function Team({ team, me }) {
+  return (
+    <div className={`mt ${team.win ? "win" : "loss"}`}>
+      <div className="mt-head">
+        <span className="mt-result">{team.win ? "WIN" : "LOSS"}</span>
+        <span className="mt-name">{team.name || "Team"}</span>
+        <span className="mt-score">{team.score}</span>
+      </div>
+      <div className="mt-cols">
+        <span>Player</span>
+        <span>K</span>
+        <span>D</span>
+        <span>A</span>
+        <span>K/D</span>
+        <span>HS%</span>
+        <span>ADR</span>
+      </div>
+      {team.players.map((p, i) => (
+        <div className={`mt-row ${p.nickname === me ? "me" : ""}`} key={i}>
+          <span className="mt-player">{p.nickname}</span>
+          <span>{p.kills}</span>
+          <span>{p.deaths}</span>
+          <span>{p.assists ?? "—"}</span>
+          <span>{p.kd}</span>
+          <span>{p.hs ?? "—"}</span>
+          <span>{p.adr ?? "—"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MatchRow({ m, me }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,10 +71,14 @@ function MatchRow({ m }) {
 
   return (
     <div className="match-block">
-      <div className="match clickable" onClick={toggle}>
+      <div
+        className={`match clickable ${m.won === true ? "won" : m.won === false ? "lost" : ""}`}
+        onClick={toggle}
+      >
         <span className="comp">{m.competition || "CS2"}</span>
         <span className="teams">{teamNames || "—"}</span>
         <span className="date">{formatDate(m.finished_at)}</span>
+        <span className="chev">{open ? "▴" : "▾"}</span>
       </div>
       {open && (
         <div className="match-detail">
@@ -52,20 +88,14 @@ function MatchRow({ m }) {
           )}
           {detail && !detail.error && (
             <>
-              <div className="match-detail-head">
-                {detail.map || "Map"} {detail.score ? `· ${detail.score}` : ""}
-              </div>
-              {detail.teams.map((t, ti) => (
-                <div key={ti} className={`match-team ${t.win ? "win" : ""}`}>
-                  {t.players.map((p, pi) => (
-                    <div className="match-player" key={pi}>
-                      <span>{p.nickname}</span>
-                      <span className="match-kd">
-                        {p.kills}/{p.deaths} ({p.kd})
-                      </span>
-                    </div>
-                  ))}
+              {detail.map && (
+                <div className="match-detail-head">
+                  {detail.map}
+                  {detail.score ? ` · ${detail.score}` : ""}
                 </div>
+              )}
+              {detail.teams.map((t, ti) => (
+                <Team team={t} me={me} key={ti} />
               ))}
             </>
           )}
@@ -75,7 +105,7 @@ function MatchRow({ m }) {
   );
 }
 
-export default function MatchHistory({ matches }) {
+export default function MatchHistory({ matches, me }) {
   if (!matches || matches.length === 0) {
     return <div className="state">No recent matches.</div>;
   }
@@ -83,7 +113,7 @@ export default function MatchHistory({ matches }) {
     <>
       <div className="section-title">Match History</div>
       {matches.map((m) => (
-        <MatchRow m={m} key={m.match_id} />
+        <MatchRow m={m} me={me} key={m.match_id} />
       ))}
     </>
   );

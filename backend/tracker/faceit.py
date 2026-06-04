@@ -38,6 +38,88 @@ def get_player_by_nickname(nickname):
     return _get("/players", params={"nickname": nickname})
 
 
+def _extract_steam_id(text):
+    """Pull a 17-digit SteamID64 out of a raw input or a Steam profile URL."""
+    import re
+    m = re.search(r"(7656\d{13})", text or "")
+    return m.group(1) if m else None
+
+
+def get_player_by_steam(steam_input):
+    """
+    Resolve a FACEIT player from a SteamID64 or a steamcommunity.com/profiles URL.
+    Vanity URLs (steamcommunity.com/id/<name>) can't be resolved without a Steam
+    API key, so those are rejected with a helpful message.
+    """
+    steam_id = _extract_steam_id(steam_input)
+    if not steam_id:
+        raise FaceitError(
+            "Couldn't read a SteamID64. Paste a steamcommunity.com/profiles/ link "
+            "or a 17-digit Steam ID (custom /id/ URLs aren't supported)."
+        )
+    return _get("/players", params={"game": GAME, "game_player_id": steam_id})
+
+
+def get_leaderboard(region, country=None, limit=20):
+    """Top players globally or by country for CS2."""
+    params = {"offset": 0, "limit": limit}
+    if country:
+        params["country"] = country
+    data = _get(f"/rankings/games/{GAME}/regions/{region}", params=params)
+    out = []
+    for item in data.get("items", []):
+        out.append({
+            "position": item.get("position"),
+            "nickname": item.get("nickname"),
+            "player_id": item.get("player_id"),
+            "elo": item.get("faceit_elo"),
+            "level": item.get("game_skill_level"),
+            "country": item.get("country"),
+        })
+    return out
+
+
+# Per-match multi-kill fields, if FACEIT exposes them in player_stats.
+MULTIKILL_FIELDS = {
+    "triple": "Triple Kills",
+    "quadro": "Quadro Kills",
+    "penta": "Penta Kills",
+}
+
+
+def build_multikills(items):
+    """
+    Aggregate multi-kills over recent matches IF the API exposes them.
+    Returns totals + per-match averages, or None when unavailable.
+    """
+    if not items:
+        return None
+    found = False
+    totals = {k: 0.0 for k in MULTIKILL_FIELDS}
+    for it in items:
+        s = it.get("stats", {})
+        for key, field in MULTIKILL_FIELDS.items():
+            v = s.get(field)
+            if v is not None:
+                found = True
+                try:
+                    totals[key] += float(v)
+                except (TypeError, ValueError):
+                    pass
+    if not found:
+        return None
+    n = len(items)
+    return {
+        "matches": n,
+        "triple_total": int(totals["triple"]),
+        "quadro_total": int(totals["quadro"]),
+        "penta_total": int(totals["penta"]),
+        "triple_avg": round(totals["triple"] / n, 2),
+        "quadro_avg": round(totals["quadro"] / n, 2),
+        "penta_avg": round(totals["penta"] / n, 2),
+    }
+
+
 def get_player_stats(player_id):
     """Lifetime + per-map stats for CS2."""
     return _get(f"/players/{player_id}/stats/{GAME}")
@@ -69,7 +151,7 @@ def _to_int(value):
         return None
 
 
-def build_elo_history(player_id, current_elo, limit=30):
+def build_elo_history(player_id, current_elo, limit=30, items=None):
     """
     Reconstruct the ELO curve by walking backwards from the current ELO.
     Each match moves the ELO by ~ELO_PER_MATCH (approximate).
@@ -78,7 +160,8 @@ def build_elo_history(player_id, current_elo, limit=30):
     if current_elo is None:
         return []
 
-    items = get_match_stats(player_id, limit=limit)
+    if items is None:
+        items = get_match_stats(player_id, limit=limit)
 
     # Extract (date, result) for each match.
     matches = []
@@ -161,18 +244,51 @@ def get_player_bans(player_id):
     return bans
 
 
+def build_recent_averages(items, n=30, map_filter=None):
+    """
+    Average performance over the last `n` matches (FACEIT profile style):
+    K/D, K/R, ADR, HS%, kills. Optionally filter by map (e.g. 'de_mirage').
+    `items` are per-match stats already fetched.
+    """
+    if map_filter:
+        items = [it for it in items if it.get("stats", {}).get("Map") == map_filter]
+    items = items[:n]
+
+    def mean(key_name, ndigits=2):
+        vals = []
+        for it in items:
+            try:
+                vals.append(float(it.get("stats", {}).get(key_name)))
+            except (TypeError, ValueError):
+                pass
+        return round(sum(vals) / len(vals), ndigits) if vals else None
+
+    return {
+        "matches": len(items),
+        "kd": mean("K/D Ratio"),
+        "kr": mean("K/R Ratio"),
+        "adr": mean("ADR", 0) or mean("Average Damage per Round", 0),
+        "hs": mean("Headshots %", 0),
+        "kills": mean("Kills", 1),
+    }
+
+
 def get_match_detail(match_id):
     """
-    Return a simplified scoreboard for a single match.
-    Combines /matches/{id} (teams, score) with /matches/{id}/stats (player K/D).
+    Simplified scoreboard for a single match (per-player in-match stats).
+    Cached 6h since a finished match never changes.
     """
+    cache_key = f"match:{match_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     detail = {"match_id": match_id, "map": None, "score": None, "teams": []}
 
     try:
         meta = _get(f"/matches/{match_id}")
     except FaceitError:
         meta = {}
-
     results = meta.get("results", {})
     score = results.get("score", {})
     if score:
@@ -188,8 +304,12 @@ def get_match_detail(match_id):
         return detail
 
     rnd = rounds[0]
-    detail["map"] = rnd.get("round_stats", {}).get("Map")
+    rstats = rnd.get("round_stats", {})
+    detail["map"] = rstats.get("Map")
+    detail["score"] = rstats.get("Score") or detail["score"]
+
     for team in rnd.get("teams", []):
+        tstats = team.get("team_stats", {})
         players = []
         for p in team.get("players", []):
             ps = p.get("player_stats", {})
@@ -197,13 +317,20 @@ def get_match_detail(match_id):
                 "nickname": p.get("nickname"),
                 "kills": ps.get("Kills"),
                 "deaths": ps.get("Deaths"),
+                "assists": ps.get("Assists"),
                 "kd": ps.get("K/D Ratio"),
+                "hs": ps.get("Headshots %"),
+                "adr": ps.get("ADR") or ps.get("Average Damage per Round"),
             })
+        players.sort(key=lambda x: float(x["kd"] or 0), reverse=True)
         detail["teams"].append({
-            "name": team.get("team_stats", {}).get("Team"),
-            "win": team.get("team_stats", {}).get("Team Win") == "1",
+            "name": tstats.get("Team"),
+            "score": tstats.get("Final Score"),
+            "win": tstats.get("Team Win") == "1",
             "players": players,
         })
+
+    cache.set(cache_key, detail, 6 * 60 * 60)
     return detail
 
 
@@ -261,6 +388,247 @@ def build_squad_stats(nicknames):
     }
 
 
+def search_players(query, limit=6):
+    """Autocomplete: return up to `limit` players matching a nickname prefix."""
+    if not query:
+        return []
+    try:
+        data = _get("/search/players", params={"nickname": query, "game": GAME, "limit": limit})
+    except FaceitError:
+        return []
+    out = []
+    for item in data.get("items", []):
+        out.append({
+            "nickname": item.get("nickname"),
+            "avatar": item.get("avatar"),
+            "country": item.get("country"),
+        })
+    return out
+
+
+SESSION_GAP = 3 * 60 * 60  # 3h gap starts a new session
+
+
+def build_sessions_and_streak(player_id, limit=50, items=None):
+    """
+    From recent matches compute:
+      - current streak (e.g. 3 wins in a row),
+      - the most recent play session (matches, W-L, approx ELO change, tilt).
+    """
+    if items is None:
+        items = get_match_stats(player_id, limit=limit)
+    matches = []
+    for item in items:
+        s = item.get("stats", {})
+        date = _to_int(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
+        result = _to_int(s.get("Result"))
+        if date is not None and result is not None:
+            matches.append({"date": date, "result": result})
+    if not matches:
+        return {"streak": None, "last_session": None}
+
+    matches.sort(key=lambda m: m["date"])  # chronological
+
+    # Current streak = trailing run of identical results.
+    last_result = matches[-1]["result"]
+    streak_count = 0
+    for m in reversed(matches):
+        if m["result"] == last_result:
+            streak_count += 1
+        else:
+            break
+    streak = {"type": "W" if last_result == 1 else "L", "count": streak_count}
+
+    # Split into sessions by time gap; take the most recent one.
+    sessions = [[matches[0]]]
+    for prev, cur in zip(matches, matches[1:]):
+        if cur["date"] - prev["date"] > SESSION_GAP:
+            sessions.append([cur])
+        else:
+            sessions[-1].append(cur)
+    last = sessions[-1]
+    wins = sum(1 for m in last if m["result"] == 1)
+    losses = len(last) - wins
+
+    # Tilt = 3+ losses in a row at the end of the session.
+    tilt_run = 0
+    for m in reversed(last):
+        if m["result"] == 0:
+            tilt_run += 1
+        else:
+            break
+
+    last_session = {
+        "matches": len(last),
+        "wins": wins,
+        "losses": losses,
+        "elo_change": (wins - losses) * ELO_PER_MATCH,
+        "tilt": tilt_run >= 3,
+    }
+    return {"streak": streak, "last_session": last_session}
+
+
+def build_form_and_trend(items):
+    """Recent form (last 10 W-L) and K/D trend (recent 10 vs previous 10)."""
+    results, kds = [], []
+    for item in items:
+        s = item.get("stats", {})
+        r = _to_int(s.get("Result"))
+        if r is not None:
+            results.append(r)
+        try:
+            kds.append(float(s.get("K/D Ratio")))
+        except (TypeError, ValueError):
+            pass
+
+    last10 = results[:10]
+    form = None
+    if last10:
+        w = sum(last10)
+        form = f"{w}-{len(last10) - w}"
+
+    trend = None
+    if len(kds) >= 6:
+        half = min(10, len(kds) // 2)
+        recent = sum(kds[:half]) / half
+        prev = sum(kds[half:half * 2]) / half
+        if recent > prev + 0.03:
+            trend = "up"
+        elif recent < prev - 0.03:
+            trend = "down"
+        else:
+            trend = "flat"
+    return {"form": form, "kd_trend": trend}
+
+
+def build_best_teammates(history_items, player_nickname):
+    """
+    From match history, find who the player wins with most often.
+    Returns up to 3 teammates with >=3 games together.
+    """
+    tally = {}  # nickname -> [games, wins]
+    for m in history_items:
+        teams = m.get("teams", {})
+        winner = (m.get("results", {}) or {}).get("winner")
+        my_faction = None
+        for side, t in teams.items():
+            names = [p.get("nickname") for p in t.get("players", [])]
+            if player_nickname in names:
+                my_faction = side
+                break
+        if my_faction is None:
+            continue
+        won = winner == my_faction
+        for p in teams[my_faction].get("players", []):
+            nick = p.get("nickname")
+            if not nick or nick == player_nickname:
+                continue
+            entry = tally.setdefault(nick, [0, 0])
+            entry[0] += 1
+            if won:
+                entry[1] += 1
+
+    mates = [
+        {
+            "nickname": nick,
+            "games": g,
+            "wins": w,
+            "win_rate": round(w / g * 100),
+        }
+        for nick, (g, w) in tally.items()
+        if g >= 3
+    ]
+    mates.sort(key=lambda x: (x["win_rate"], x["games"]), reverse=True)
+    return mates[:3]
+
+
+def _player_won(match, player_nickname):
+    """True if the player's faction won this history match, else False/None."""
+    teams = match.get("teams", {})
+    winner = (match.get("results", {}) or {}).get("winner")
+    for side, t in teams.items():
+        names = [p.get("nickname") for p in t.get("players", [])]
+        if player_nickname in names:
+            return winner == side if winner else None
+    return None
+
+
+def build_hltv_stats(items, n=30):
+    """
+    HLTV-style performance over the last `n` matches.
+    NOTE: a true HLTV Rating 2.0 needs per-round data (KAST, impact) that the
+    FACEIT API does not expose, so the rating here is an APPROXIMATION derived
+    from per-match kills/deaths/assists/ADR. Labelled 'approx' in the UI.
+    """
+    items = items[:n]
+    kpr_l, dpr_l, apr_l, adr_l, hs_l, kd_l = [], [], [], [], [], []
+
+    for it in items:
+        s = it.get("stats", {})
+        try:
+            kills = float(s.get("Kills"))
+            deaths = float(s.get("Deaths"))
+            kpr = float(s.get("K/R Ratio"))
+        except (TypeError, ValueError):
+            continue
+        if kpr <= 0:
+            continue
+        rounds = kills / kpr
+        if rounds <= 0:
+            continue
+        kpr_l.append(kpr)
+        dpr_l.append(deaths / rounds)
+        try:
+            apr_l.append(float(s.get("Assists", 0)) / rounds)
+        except (TypeError, ValueError):
+            pass
+        for key, lst in (("ADR", adr_l), ("Average Damage per Round", adr_l)):
+            v = s.get(key)
+            if v is not None:
+                try:
+                    lst.append(float(v)); break
+                except (TypeError, ValueError):
+                    pass
+        try:
+            hs_l.append(float(s.get("Headshots %")))
+        except (TypeError, ValueError):
+            pass
+        try:
+            kd_l.append(float(s.get("K/D Ratio")))
+        except (TypeError, ValueError):
+            pass
+
+    if not kpr_l:
+        return None
+
+    def avg(lst):
+        return sum(lst) / len(lst) if lst else 0.0
+
+    kpr, dpr, apr, adr = avg(kpr_l), avg(dpr_l), avg(apr_l), avg(adr_l)
+    hs, kd = avg(hs_l), avg(kd_l)
+
+    # Estimate KAST (no round data) from kill output + survival.
+    kast = max(0.0, min(100.0, (1 - dpr) * 100 * 0.55 + kpr * 100 * 0.45))
+    impact = 2.13 * kpr + 0.42 * apr - 0.41
+    rating = (
+        0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr
+        + 0.2372 * impact + 0.0032 * adr + 0.1587
+    )
+
+    return {
+        "matches": len(kpr_l),
+        "rating": round(max(0, rating), 2),
+        "kpr": round(kpr, 2),
+        "dpr": round(dpr, 2),
+        "apr": round(apr, 2),
+        "adr": round(adr, 0),
+        "kast": round(kast, 0),
+        "impact": round(max(0, impact), 2),
+        "hs": round(hs, 0),
+        "kd": round(kd, 2),
+    }
+
+
 def build_player_summary(nickname):
     """
     Aggregate everything the frontend needs into a single dict:
@@ -278,22 +646,36 @@ def build_player_summary(nickname):
     cs2 = player.get("games", {}).get(GAME, {})
     stats = get_player_stats(player_id)
     lifetime = stats.get("lifetime", {})
-    history = get_player_history(player_id)
+    history = get_player_history(player_id, limit=30)
+    match_items = get_match_stats(player_id, limit=50)
     current_elo = cs2.get("faceit_elo")
     region = cs2.get("region")
-    elo_history = build_elo_history(player_id, current_elo)
+    elo_history = build_elo_history(player_id, current_elo, items=match_items)
     ranking = get_player_ranking(player_id, region)
     map_stats = extract_map_stats(stats)
     bans = get_player_bans(player_id)
+    session_info = build_sessions_and_streak(player_id, items=match_items)
+    form_trend = build_form_and_trend(match_items)
+    best_teammates = build_best_teammates(history, player.get("nickname"))
+    recent_avg = build_recent_averages(match_items, n=30)
+    hltv = build_hltv_stats(match_items, n=30)
+    multikills = build_multikills(match_items)
+    # distinct maps in recent matches (for the filter dropdown)
+    maps_played = sorted({
+        it.get("stats", {}).get("Map")
+        for it in match_items
+        if it.get("stats", {}).get("Map")
+    })
 
     # Remember this player for the daily ELO snapshot cron, and pull any
     # real snapshots we've already collected.
     elo_snapshots = []
     try:
+        from django.utils import timezone
         from .models import TrackedPlayer, EloSnapshot
         TrackedPlayer.objects.update_or_create(
             player_id=player_id,
-            defaults={"nickname": player.get("nickname")},
+            defaults={"nickname": player.get("nickname"), "last_searched": timezone.now()},
         )
         elo_snapshots = [
             {"date": s.date.isoformat(), "elo": s.elo}
@@ -313,6 +695,15 @@ def build_player_summary(nickname):
         "skill_level": cs2.get("skill_level"),
         "ranking": ranking,
         "bans": bans,
+        "streak": session_info["streak"],
+        "last_session": session_info["last_session"],
+        "form": form_trend["form"],
+        "kd_trend": form_trend["kd_trend"],
+        "recent_avg": recent_avg,
+        "hltv": hltv,
+        "multikills": multikills,
+        "maps_played": maps_played,
+        "best_teammates": best_teammates,
         "elo_history": elo_history,
         "elo_snapshots": elo_snapshots,
         "map_stats": map_stats,
@@ -330,6 +721,7 @@ def build_player_summary(nickname):
                 "started_at": m.get("started_at"),
                 "finished_at": m.get("finished_at"),
                 "competition": m.get("competition_name"),
+                "won": _player_won(m, player.get("nickname")),
                 "teams": {
                     side: {
                         "nickname": t.get("nickname"),
@@ -338,7 +730,7 @@ def build_player_summary(nickname):
                     for side, t in m.get("teams", {}).items()
                 },
             }
-            for m in history
+            for m in history[:10]
         ],
     }
 

@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/p/:nick", "destination": "/api/share?nick=:nick" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
