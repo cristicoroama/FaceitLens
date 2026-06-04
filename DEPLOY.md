@@ -73,7 +73,7 @@ the player's name, ELO and win rate. The "Share" button copies this link.
 
 The "AI Analysis" button calls the Anthropic API from the backend.
 On Render -> your Web Service -> Environment, add:
-  ANTHROPIC_API_KEY = <your Anthropic API key>
+  ANTHROPIC_API_KEY = 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
 Optional:
   ANTHROPIC_MODEL = claude-haiku-4-5-20251001   (default; a small, cheap model)
 
