@@ -674,3 +674,5 @@ html[data-theme="light"] .lb-controls button { color: #fff; }
 
 /* SVG skill badge */
 .skill-badge-svg { display: inline-flex; vertical-align: middle; margin-left: 10px; }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
