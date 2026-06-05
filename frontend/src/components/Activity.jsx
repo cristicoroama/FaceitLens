@@ -1,11 +1,15 @@
+import { useState, useRef } from "react";
+
 export default function Activity({ activity }) {
+  const [tip, setTip] = useState(null); // {x, y, text}
+  const wrapRef = useRef(null);
+
   if (!activity || activity.length === 0) return null;
 
   const map = {};
   let max = 1;
   activity.forEach((a) => { map[a.date] = a.count; if (a.count > max) max = a.count; });
 
-  // build last 12 weeks (84 days) grid, oldest -> newest
   const days = [];
   const today = new Date();
   for (let i = 83; i >= 0; i--) {
@@ -18,24 +22,43 @@ export default function Activity({ activity }) {
   function shade(c) {
     if (!c) return "var(--bg-elev-2)";
     const t = Math.min(1, c / max);
-    const alpha = 0.25 + t * 0.75;
-    return `rgba(255, 85, 0, ${alpha})`;
+    return `rgba(255, 85, 0, ${0.25 + t * 0.75})`;
+  }
+
+  function fmt(key) {
+    return new Date(key).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  function onEnter(e, d) {
+    const rect = wrapRef.current.getBoundingClientRect();
+    const cell = e.currentTarget.getBoundingClientRect();
+    setTip({
+      x: cell.left - rect.left + cell.width / 2,
+      y: cell.top - rect.top,
+      text: `${fmt(d.key)} · ${d.count} ${d.count === 1 ? "match" : "matches"}`,
+    });
   }
 
   return (
     <>
       <div className="section-title">Activity (last 12 weeks)</div>
-      <div className="activity">
+      <div className="activity" ref={wrapRef} style={{ position: "relative" }}>
         <div className="activity-grid">
           {days.map((d) => (
             <div
               key={d.key}
               className="activity-cell"
               style={{ background: shade(d.count) }}
-              title={`${d.key}: ${d.count} ${d.count === 1 ? "match" : "matches"}`}
+              onMouseEnter={(e) => onEnter(e, d)}
+              onMouseLeave={() => setTip(null)}
             />
           ))}
         </div>
+        {tip && (
+          <div className="activity-tip" style={{ left: tip.x, top: tip.y }}>
+            {tip.text}
+          </div>
+        )}
       </div>
     </>
   );

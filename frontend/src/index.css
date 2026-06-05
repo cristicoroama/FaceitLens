@@ -592,3 +592,31 @@ body {
   .activity-grid { grid-template-columns: repeat(12, 1fr); }
   .ravg { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ---- Activity hover tooltip ---- */
+.activity-tip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: var(--shadow);
+}
+.activity-tip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--accent);
+}

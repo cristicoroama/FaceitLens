@@ -12,7 +12,10 @@ export default function LevelProgress({ elo, level }) {
   const isMax = lvl >= 10;
   const lower = THRESHOLDS[lvl - 1];
   const upper = isMax ? lower : THRESHOLDS[lvl];
-  const pct = isMax ? 100 : Math.max(0, Math.min(100, ((e - lower) / (upper - lower)) * 100));
+  const within = isMax ? 1 : Math.max(0, Math.min(1, (e - lower) / (upper - lower)));
+  // Ticks 1..10 are evenly spaced, so tick i sits at (i-1)/9 of the width.
+  // Fill reaches the current level's tick plus progress toward the next one.
+  const pct = isMax ? 100 : ((lvl - 1) + within) / 9 * 100;
   const need = isMax ? 0 : upper - e;
 
   return (
