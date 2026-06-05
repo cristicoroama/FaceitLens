@@ -860,6 +860,8 @@ def build_player_summary(nickname):
         "region": region,
         "elo": current_elo,
         "skill_level": cs2.get("skill_level"),
+        "verified": player.get("verified", False),
+        "memberships": player.get("memberships", []),
         "ranking": ranking,
         "bans": bans,
         "streak": session_info["streak"],

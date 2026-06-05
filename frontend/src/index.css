@@ -676,3 +676,28 @@ html[data-theme="light"] .lb-controls button { color: #fff; }
 .skill-badge-svg { display: inline-flex; vertical-align: middle; margin-left: 10px; }
 
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---- Account badges (verified / premium) ---- */
+.acct-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.acct-badge.verified {
+  color: #3b9eff;
+  background: rgba(59, 158, 255, 0.12);
+  border: 1px solid rgba(59, 158, 255, 0.4);
+}
+.acct-badge.premium {
+  color: #ff5500;
+  background: rgba(255, 85, 0, 0.12);
+  border: 1px solid rgba(255, 85, 0, 0.4);
+}

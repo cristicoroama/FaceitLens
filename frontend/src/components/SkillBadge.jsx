@@ -1,51 +1,67 @@
-// FACEIT-style level icon: a colored shield with chevrons + the level number.
+// FACEIT-style level icon: a shield whose horizontal bars fill up with the
+// level (1 bar at lvl 2 ... all bars at lvl 10), colored by tier + the number.
 const LEVEL_COLORS = {
-  1: "#1ca345", 2: "#1ca345",
-  3: "#ffc107", 4: "#ffc107", 5: "#ffc107",
-  6: "#ff9b1c", 7: "#ff9b1c",
-  8: "#ff5500", 9: "#ff5500",
-  10: "#fe1f00",
+  1: "#eaeaea",
+  2: "#48b748", 3: "#48b748",
+  4: "#ffc828", 5: "#ffc828",
+  6: "#ff9e1b", 7: "#ff9e1b",
+  8: "#ff6c0e", 9: "#ff6c0e",
+  10: "#fe1d1d",
 };
 
-export default function SkillBadge({ level, size = 30 }) {
-  const lvl = Number(level) || 0;
-  const color = LEVEL_COLORS[lvl] || "#8b9099";
-  // number of little chevrons grows with level (visual cue like FACEIT)
-  const chevrons = Math.max(1, Math.ceil(lvl / 2));
+export default function SkillBadge({ level, size = 32 }) {
+  const lvl = Math.max(1, Math.min(10, Number(level) || 1));
+  const color = LEVEL_COLORS[lvl];
+  const isMax = lvl === 10;
+
+  // 5 horizontal bars inside the shield; number filled scales with level.
+  const bars = 5;
+  const filled = Math.round((lvl / 10) * bars);
+  const barY = [13, 16.5, 20, 23.5, 27];
 
   return (
-    <span className="skill-badge-svg" title={`Level ${lvl || "?"}`} style={{ width: size, height: size }}>
-      <svg viewBox="0 0 32 36" width={size} height={size}>
+    <span className="skill-badge-svg" title={`Level ${lvl}`} style={{ width: size, height: size }}>
+      <svg viewBox="0 0 34 38" width={size} height={size}>
         <defs>
-          <linearGradient id={`lvl${lvl}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.7" />
+          <linearGradient id={`sh${lvl}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2a2e36" />
+            <stop offset="100%" stopColor="#1a1d23" />
           </linearGradient>
         </defs>
+
+        {/* shield body */}
         <path
-          d="M16 1 L30 6 V18 C30 27 24 32 16 35 C8 32 2 27 2 18 V6 Z"
-          fill={`url(#lvl${lvl})`}
+          d="M17 1.5 L32 6.5 V19 C32 28.5 25.5 34 17 36.8 C8.5 34 2 28.5 2 19 V6.5 Z"
+          fill={`url(#sh${lvl})`}
           stroke={color}
-          strokeWidth="1"
+          strokeWidth={isMax ? 2 : 1.4}
         />
-        {Array.from({ length: chevrons }).map((_, i) => (
-          <path
-            key={i}
-            d={`M9 ${9 + i * 2.2} L16 ${6.5 + i * 2.2} L23 ${9 + i * 2.2}`}
-            fill="none"
-            stroke="rgba(255,255,255,0.85)"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+
+        {/* level number on top */}
         <text
-          x="16" y="30" textAnchor="middle"
-          fontFamily="'Chakra Petch', sans-serif" fontWeight="700" fontSize="13"
-          fill="#fff"
+          x="17" y="10.2" textAnchor="middle"
+          fontFamily="'Chakra Petch', sans-serif" fontWeight="700" fontSize="7.5"
+          fill={color}
         >
-          {lvl || "?"}
+          {lvl}
         </text>
+
+        {/* horizontal bars that fill with the level */}
+        {barY.map((y, i) => {
+          const on = i < filled;
+          const w = 16 - i * 1.6; // slight taper toward the point
+          return (
+            <rect
+              key={i}
+              x={17 - w / 2}
+              y={y}
+              width={w}
+              height="2.2"
+              rx="1.1"
+              fill={on ? color : "rgba(255,255,255,0.10)"}
+            />
+          );
+        })}
       </svg>
     </span>
   );

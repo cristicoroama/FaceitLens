@@ -13,6 +13,12 @@ export default function PlayerHeader({ player }) {
         <div className="player-name">
           {player.nickname}
           <SkillBadge level={player.skill_level} />
+          {player.verified && (
+            <span className="acct-badge verified" title="Verified FACEIT account">✓ Verified</span>
+          )}
+          {player.memberships && player.memberships.some((m) => /premium/i.test(m)) && (
+            <span className="acct-badge premium" title="FACEIT Premium member">Premium</span>
+          )}
         </div>
         <div className="player-meta">
           {player.country ? player.country.toUpperCase() : "—"}
