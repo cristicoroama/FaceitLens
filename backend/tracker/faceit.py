@@ -135,13 +135,28 @@ def get_player_history(player_id, limit=10):
 ELO_PER_MATCH = 25
 
 
-def get_match_stats(player_id, limit=30):
+def get_match_stats(player_id, limit=30, offset=0):
     """Per-match stats (contain the win/loss result and the date)."""
     data = _get(
         f"/players/{player_id}/games/{GAME}/stats",
-        params={"offset": 0, "limit": limit},
+        params={"offset": offset, "limit": limit},
     )
     return data.get("items", [])
+
+
+def get_recent_match_stats(player_id, total=200):
+    """Fetch up to `total` recent matches, paginating 100 at a time."""
+    items = []
+    offset = 0
+    while len(items) < total:
+        batch = get_match_stats(player_id, limit=100, offset=offset)
+        if not batch:
+            break
+        items.extend(batch)
+        if len(batch) < 100:
+            break
+        offset += 100
+    return items[:total]
 
 
 def _to_int(value):
@@ -802,7 +817,7 @@ def build_player_summary(nickname):
     recent_avg = build_recent_averages(match_items, n=30)
     hltv = build_hltv_stats(match_items, n=30)
     elo_extremes = build_elo_extremes(elo_history)
-    activity = build_activity(match_items)
+    activity = build_activity(get_recent_match_stats(player_id, total=250))
     multikills = build_multikills(match_items)
     # distinct maps in recent matches (for the filter dropdown)
     maps_played = sorted({
