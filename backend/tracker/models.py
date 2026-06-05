@@ -38,3 +38,17 @@ class NicknameHistory(models.Model):
 
     def __str__(self):
         return f"{self.player_id}: {self.nickname}"
+
+
+class GameScore(models.Model):
+    """Leaderboard scores for the on-site minigames."""
+    game = models.CharField(max_length=20, db_index=True)  # "price" | "trivia"
+    name = models.CharField(max_length=24)
+    score = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-score", "created_at"]
+
+    def __str__(self):
+        return f"{self.game} · {self.name}: {self.score}"

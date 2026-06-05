@@ -23,6 +23,7 @@ import SteamInfo from "./components/SteamInfo.jsx";
 import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
 import OverviewGrid from "./components/OverviewGrid.jsx";
+import Games from "./components/Games.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -292,18 +293,18 @@ export default function App() {
       <div className="tagline">CS2 Stats Tracker</div>
 
       <div className="mode-tabs">
-        {["single", "compare", "squad", "leaderboard"].map((m) => (
+        {["single", "compare", "squad", "leaderboard", "games"].map((m) => (
           <button
             key={m}
             className={`mode-tab ${mode === m ? "active" : ""}`}
             onClick={() => setMode(m)}
           >
-            {m === "single" ? "Player" : m === "compare" ? "Compare 1v1" : m === "squad" ? "Squad" : "Leaderboard"}
+            {m === "single" ? "Player" : m === "compare" ? "Compare 1v1" : m === "squad" ? "Squad" : m === "leaderboard" ? "Leaderboard" : "🎮 Games"}
           </button>
         ))}
       </div>
 
-      {mode === "leaderboard" ? null : mode === "squad" ? (
+      {mode === "leaderboard" || mode === "games" ? null : mode === "squad" ? (
         <div className="search">
           <input
             type="text"
@@ -393,6 +394,8 @@ export default function App() {
       )}
 
       {mode === "leaderboard" && <Leaderboard onPick={go} />}
+
+      {mode === "games" && <Games />}
 
       {!loading && squad && <Squad data={squad} />}
 

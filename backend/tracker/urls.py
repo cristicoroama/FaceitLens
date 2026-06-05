@@ -11,4 +11,6 @@ urlpatterns = [
     path("leaderboard/", views.leaderboard, name="leaderboard"),
     path("analyze/<str:nickname>/", views.analyze, name="analyze"),
     path("met/", views.have_we_met, name="have-we-met"),
+    path("games/leaderboard/", views.game_leaderboard, name="game-leaderboard"),
+    path("games/score/", views.game_score, name="game-score"),
 ]

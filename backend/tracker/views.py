@@ -1,5 +1,7 @@
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET
+import json
+from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.csrf import csrf_exempt
 
 from . import faceit
 from . import ai
@@ -131,3 +133,48 @@ def have_we_met(request):
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse(data)
+
+
+VALID_GAMES = {"price", "trivia"}
+
+
+@require_GET
+def game_leaderboard(request):
+    """GET /api/games/leaderboard/?game=price - top 10 scores for a game."""
+    game = request.GET.get("game", "")
+    if game not in VALID_GAMES:
+        return JsonResponse({"error": "Unknown game."}, status=400)
+    try:
+        from .models import GameScore
+        rows = GameScore.objects.filter(game=game).order_by("-score", "created_at")[:10]
+        items = [{"name": r.name, "score": r.score} for r in rows]
+    except Exception:
+        items = []
+    return JsonResponse({"items": items})
+
+
+@csrf_exempt
+@require_POST
+def game_score(request):
+    """POST /api/games/score/ {game, name, score} - save a leaderboard score."""
+    try:
+        body = json.loads(request.body or "{}")
+    except ValueError:
+        return JsonResponse({"error": "Bad JSON."}, status=400)
+
+    game = str(body.get("game", ""))
+    name = str(body.get("name", "")).strip()[:24] or "Anonymous"
+    try:
+        score = int(body.get("score"))
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Invalid score."}, status=400)
+
+    if game not in VALID_GAMES or not (0 <= score <= 100000):
+        return JsonResponse({"error": "Invalid submission."}, status=400)
+
+    try:
+        from .models import GameScore
+        GameScore.objects.create(game=game, name=name, score=score)
+    except Exception as exc:
+        return JsonResponse({"error": f"Could not save: {exc}"}, status=500)
+    return JsonResponse({"ok": True})

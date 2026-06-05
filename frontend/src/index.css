@@ -701,3 +701,72 @@ html[data-theme="light"] .lb-controls button { color: #fff; }
   background: rgba(255, 85, 0, 0.12);
   border: 1px solid rgba(255, 85, 0, 0.4);
 }
+
+/* ============================================================
+   Minigames
+   ============================================================ */
+.games-pick { animation: riseIn 0.4s ease both; }
+.game-card {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 24px; margin-bottom: 12px; cursor: pointer;
+  transition: transform 0.18s, border-color 0.18s;
+  display: flex; align-items: center; gap: 18px;
+}
+.game-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--glow); }
+.game-card-icon { font-size: 38px; }
+.game-card-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 20px; text-transform: uppercase;
+}
+.game-card-desc { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+
+.games-boards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.gl { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+.gl-title { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 4px 8px 8px; }
+.gl-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; }
+.gl-row:nth-child(even) { background: var(--bg-elev-2); }
+.gl-rank { font-family: var(--font-display); font-weight: 700; color: var(--accent); width: 32px; }
+.gl-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-score { font-family: var(--font-mono); font-weight: 700; }
+
+/* active question */
+.game-play { animation: riseIn 0.3s ease both; }
+.game-hud { display: flex; justify-content: space-between; color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+.game-score { font-family: var(--font-mono); color: var(--accent); font-weight: 700; }
+.game-prompt {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 28px; text-align: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 22px; margin-bottom: 16px;
+}
+.game-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.game-opt {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; color: var(--text); font-family: var(--font-mono); font-weight: 700; font-size: 18px;
+  cursor: pointer; transition: all 0.15s;
+}
+.game-opt:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); }
+.game-opt.correct { background: rgba(34,197,94,0.18); border-color: var(--win); color: var(--win); }
+.game-opt.wrong { background: rgba(239,68,68,0.18); border-color: var(--loss); color: var(--loss); }
+
+/* end screen */
+.game-end { text-align: center; animation: riseIn 0.4s ease both; }
+.game-end-score {
+  font-family: var(--font-display); font-weight: 700; font-size: 72px; color: var(--accent);
+  text-shadow: 0 0 24px rgba(255,85,0,0.4); line-height: 1;
+}
+.game-end-label { color: var(--text-dim); margin-bottom: 20px; }
+.game-submit { display: flex; gap: 10px; max-width: 420px; margin: 0 auto 20px; }
+.game-submit input {
+  flex: 1; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; color: var(--text); font-size: 14px; outline: none;
+}
+.game-submit input:focus { border-color: var(--accent); }
+.game-submit button {
+  background: linear-gradient(135deg, var(--accent), var(--accent-soft)); color: #0d0f12; border: none;
+  border-radius: 8px; padding: 0 22px; font-family: var(--font-display); font-weight: 700;
+  text-transform: uppercase; cursor: pointer;
+}
+.game-again { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+
+@media (max-width: 640px) {
+  .games-boards { grid-template-columns: 1fr; }
+}
