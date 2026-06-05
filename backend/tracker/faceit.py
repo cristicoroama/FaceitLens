@@ -151,6 +151,19 @@ def _to_int(value):
         return None
 
 
+def _ts_seconds(value):
+    """
+    Normalize a timestamp to seconds. FACEIT per-match stats give some
+    timestamps in milliseconds (13 digits), which would overflow datetime.
+    """
+    ts = _to_int(value)
+    if ts is None:
+        return None
+    if ts > 1_000_000_000_000:  # 13+ digits -> milliseconds
+        ts //= 1000
+    return ts
+
+
 def build_elo_history(player_id, current_elo, limit=30, items=None):
     """
     Reconstruct the ELO curve by walking backwards from the current ELO.
@@ -167,7 +180,7 @@ def build_elo_history(player_id, current_elo, limit=30, items=None):
     matches = []
     for item in items:
         s = item.get("stats", {})
-        date = _to_int(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
+        date = _ts_seconds(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
         result = _to_int(s.get("Result"))  # 1 = win, 0 = loss
         if date is None or result is None:
             continue
@@ -422,7 +435,7 @@ def build_sessions_and_streak(player_id, limit=50, items=None):
     matches = []
     for item in items:
         s = item.get("stats", {})
-        date = _to_int(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
+        date = _ts_seconds(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
         result = _to_int(s.get("Result"))
         if date is not None and result is not None:
             matches.append({"date": date, "result": result})
@@ -742,7 +755,7 @@ def build_activity(items, days=90):
     counts = {}
     for it in items:
         s = it.get("stats", {})
-        ts = _to_int(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
+        ts = _ts_seconds(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
         if ts is None:
             continue
         d = datetime.fromtimestamp(ts, tz=timezone.utc)
