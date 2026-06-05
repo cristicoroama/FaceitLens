@@ -620,3 +620,57 @@ body {
   border-right: 5px solid transparent;
   border-top: 5px solid var(--accent);
 }
+
+/* ============================================================
+   Light theme
+   ============================================================ */
+html[data-theme="light"] {
+  --bg: #eceef2;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #e6e9ef;
+  --border: #d3d8e0;
+  --text: #181b20;
+  --text-dim: #687080;
+  --shadow: 0 6px 20px rgba(20, 30, 50, 0.08);
+  --glow: 0 0 0 1px rgba(255, 85, 0, 0.3), 0 0 18px rgba(255, 85, 0, 0.12);
+}
+html[data-theme="light"] .mode-tab.active,
+html[data-theme="light"] .search button,
+html[data-theme="light"] .lb-controls button { color: #fff; }
+
+.theme-toggle { font-family: inherit; font-size: 15px; cursor: pointer; }
+
+/* ============================================================
+   Overview dense grid (faceittracker-style grouped cards)
+   ============================================================ */
+.ov-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.ov-card {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 16px 18px;
+  animation: riseIn 0.5s ease both;
+  transition: transform 0.18s, border-color 0.18s;
+}
+.ov-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.ov-card-label {
+  color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+}
+.ov-approx { color: var(--accent); margin-left: 3px; }
+.ov-card-value {
+  font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1.1;
+  margin: 4px 0 10px;
+}
+.ov-card-subs {
+  border-top: 1px solid var(--border); padding-top: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.ov-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }
+.ov-sub-val { font-family: var(--font-mono); color: var(--text); font-weight: 600; }
+
+/* SVG skill badge */
+.skill-badge-svg { display: inline-flex; vertical-align: middle; margin-left: 10px; }

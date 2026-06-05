@@ -22,6 +22,7 @@ import Hubs from "./components/Hubs.jsx";
 import SteamInfo from "./components/SteamInfo.jsx";
 import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
+import OverviewGrid from "./components/OverviewGrid.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -82,6 +83,14 @@ export default function App() {
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("faceitlens_theme") || "dark"
+  );
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("faceitlens_theme", theme);
+  }, [theme]);
 
   // reset AI panel when the player changes
   useEffect(() => {
@@ -258,6 +267,13 @@ export default function App() {
         <div className="brand" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           Faceit<span>Lens</span>
         </div>
+        <button
+          className="github-link theme-toggle"
+          onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+          title="Toggle light / dark"
+        >
+          {theme === "dark" ? "☀" : "🌙"}
+        </button>
         <a
           className="github-link"
           href="https://github.com/cristicoroama/FaceitLens"
@@ -444,22 +460,12 @@ export default function App() {
             <Nicknames nicknames={data.nicknames} />
           ) : (
             <>
-              <SessionCard streak={data.streak} session={data.last_session} />
-              <StatsGrid stats={data.stats} trends={{ kd_trend: data.kd_trend }} />
-              <RecentAverages
-                avg={data.recent_avg}
+              <OverviewGrid
+                data={data}
                 maps={data.maps_played}
                 mapFilter={mapFilter}
                 onMapFilter={applyMapFilter}
               />
-              <MultiKills mk={data.multikills} />
-              {data.elo_extremes && (
-                <div className="elo-extremes">
-                  <div className="elo-ex-item"><span>{data.elo_extremes.high}</span>Highest ELO</div>
-                  <div className="elo-ex-item"><span>{data.elo_extremes.avg}</span>Average ELO</div>
-                  <div className="elo-ex-item"><span>{data.elo_extremes.low}</span>Lowest ELO</div>
-                </div>
-              )}
               {eloSeries.length > 0 && <EloChart series={eloSeries} />}
               <MapStats maps={data.map_stats} />
               <Activity activity={data.activity} />
