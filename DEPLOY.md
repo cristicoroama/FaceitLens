@@ -80,3 +80,17 @@ Optional:
 Each analysis is cached per player for 12h, so repeat views don't re-bill.
 The key stays on the backend and is never exposed to the browser.
 If ANTHROPIC_API_KEY is missing, the button returns a friendly "not configured" message.
+
+## Steam tab (optional)
+
+The Steam tab shows CS2 hours, VAC status and account age. It needs a free
+Steam Web API key (https://steamcommunity.com/dev/apikey).
+On Render -> Web Service -> Environment, add:
+  STEAM_API_KEY = <your steam web api key>
+Without it, the Steam tab shows a friendly "not available" message.
+Note: CS2 hours require the player's Steam game details to be public.
+
+## Nicknames tab
+
+Nickname history is built going forward — FaceitLens records each nickname it
+sees when a player is searched (needs the DB migrated; migration 0003).

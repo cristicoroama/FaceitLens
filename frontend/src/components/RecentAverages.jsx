@@ -6,6 +6,8 @@ export default function RecentAverages({ avg, maps, mapFilter, onMapFilter }) {
     { label: "ADR", value: avg.adr },
     { label: "HS%", value: avg.hs != null ? `${avg.hs}%` : null },
     { label: "Kills", value: avg.kills },
+    { label: "Deaths", value: avg.deaths },
+    { label: "Assists", value: avg.assists },
   ];
   return (
     <>

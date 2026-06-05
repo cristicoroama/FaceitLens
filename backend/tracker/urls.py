@@ -10,4 +10,5 @@ urlpatterns = [
     path("recent/", views.recent, name="recent"),
     path("leaderboard/", views.leaderboard, name="leaderboard"),
     path("analyze/<str:nickname>/", views.analyze, name="analyze"),
+    path("met/", views.have_we_met, name="have-we-met"),
 ]

@@ -102,3 +102,17 @@ def analyze(request, nickname):
     except ai.AIError as exc:
         return JsonResponse({"error": str(exc)}, status=503)
     return JsonResponse({"analysis": text})
+
+
+@require_GET
+def have_we_met(request):
+    """GET /api/met/?p1=A&p2=B - did two players cross paths?"""
+    p1 = request.GET.get("p1", "").strip()
+    p2 = request.GET.get("p2", "").strip()
+    if not p1 or not p2:
+        return JsonResponse({"error": "Provide two players."}, status=400)
+    try:
+        data = faceit.build_have_we_met(p1, p2)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    return JsonResponse(data)

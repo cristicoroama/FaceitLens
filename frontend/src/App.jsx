@@ -15,6 +15,13 @@ import BestTeammates from "./components/BestTeammates.jsx";
 import RecentAverages from "./components/RecentAverages.jsx";
 import MultiKills from "./components/MultiKills.jsx";
 import HltvStats from "./components/HltvStats.jsx";
+import LevelProgress from "./components/LevelProgress.jsx";
+import Activity from "./components/Activity.jsx";
+import TeammatesFull from "./components/TeammatesFull.jsx";
+import Hubs from "./components/Hubs.jsx";
+import SteamInfo from "./components/SteamInfo.jsx";
+import Nicknames from "./components/Nicknames.jsx";
+import HaveWeMet from "./components/HaveWeMet.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -401,24 +408,40 @@ export default function App() {
             </div>
           )}
           <PlayerHeader player={data} />
+          <LevelProgress elo={data.elo} level={data.skill_level} />
 
           <div className="sub-tabs">
-            <button
-              className={`sub-tab ${profileTab === "overview" ? "active" : ""}`}
-              onClick={() => setProfileTab("overview")}
-            >
-              Overview
-            </button>
-            <button
-              className={`sub-tab ${profileTab === "hltv" ? "active" : ""}`}
-              onClick={() => setProfileTab("hltv")}
-            >
-              HLTV
-            </button>
+            {[
+              ["overview", "Overview"],
+              ["hltv", "HLTV"],
+              ["teammates", "Teammates"],
+              ["hubs", "Hubs"],
+              ["met", "Have We Met?"],
+              ["steam", "Steam"],
+              ["nicknames", "Nicknames"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                className={`sub-tab ${profileTab === key ? "active" : ""}`}
+                onClick={() => setProfileTab(key)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {profileTab === "hltv" ? (
             <HltvStats hltv={data.hltv} />
+          ) : profileTab === "teammates" ? (
+            <TeammatesFull mates={data.teammates_full} />
+          ) : profileTab === "hubs" ? (
+            <Hubs hubs={data.hubs} />
+          ) : profileTab === "met" ? (
+            <HaveWeMet player={data.nickname} />
+          ) : profileTab === "steam" ? (
+            <SteamInfo steam={data.steam} />
+          ) : profileTab === "nicknames" ? (
+            <Nicknames nicknames={data.nicknames} />
           ) : (
             <>
               <SessionCard streak={data.streak} session={data.last_session} />
@@ -430,8 +453,16 @@ export default function App() {
                 onMapFilter={applyMapFilter}
               />
               <MultiKills mk={data.multikills} />
+              {data.elo_extremes && (
+                <div className="elo-extremes">
+                  <div className="elo-ex-item"><span>{data.elo_extremes.high}</span>Highest ELO</div>
+                  <div className="elo-ex-item"><span>{data.elo_extremes.avg}</span>Average ELO</div>
+                  <div className="elo-ex-item"><span>{data.elo_extremes.low}</span>Lowest ELO</div>
+                </div>
+              )}
               {eloSeries.length > 0 && <EloChart series={eloSeries} />}
               <MapStats maps={data.map_stats} />
+              <Activity activity={data.activity} />
               <BestTeammates mates={data.best_teammates} />
               <MatchHistory matches={data.recent_matches} me={data.nickname} />
             </>

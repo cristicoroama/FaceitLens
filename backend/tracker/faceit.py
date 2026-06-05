@@ -270,6 +270,8 @@ def build_recent_averages(items, n=30, map_filter=None):
         "adr": mean("ADR", 0) or mean("Average Damage per Round", 0),
         "hs": mean("Headshots %", 0),
         "kills": mean("Kills", 1),
+        "deaths": mean("Deaths", 1),
+        "assists": mean("Assists", 1),
     }
 
 
@@ -501,10 +503,10 @@ def build_form_and_trend(items):
     return {"form": form, "kd_trend": trend}
 
 
-def build_best_teammates(history_items, player_nickname):
+def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
     """
     From match history, find who the player wins with most often.
-    Returns up to 3 teammates with >=3 games together.
+    Returns up to `top` teammates with >= `min_games` games together.
     """
     tally = {}  # nickname -> [games, wins]
     for m in history_items:
@@ -536,10 +538,102 @@ def build_best_teammates(history_items, player_nickname):
             "win_rate": round(w / g * 100),
         }
         for nick, (g, w) in tally.items()
-        if g >= 3
+        if g >= min_games
     ]
-    mates.sort(key=lambda x: (x["win_rate"], x["games"]), reverse=True)
-    return mates[:3]
+    mates.sort(key=lambda x: (x["games"], x["win_rate"]), reverse=True)
+    return mates[:top]
+
+
+def get_player_hubs(player_id):
+    """FACEIT hubs the player belongs to."""
+    try:
+        data = _get(f"/players/{player_id}/hubs", params={"offset": 0, "limit": 20})
+    except FaceitError:
+        return []
+    out = []
+    for h in data.get("items", []):
+        out.append({
+            "name": h.get("name"),
+            "game": h.get("game_id"),
+            "players": h.get("players_joined"),
+        })
+    return out
+
+
+def build_have_we_met(nick1, nick2):
+    """Matches two players share: together (same team) vs against (opposing)."""
+    def results_map(nick):
+        p = get_player_by_nickname(nick)
+        pid = p["player_id"]
+        res = {}
+        for it in get_match_stats(pid, limit=100):
+            s = it.get("stats", {})
+            mid = s.get("Match Id") or s.get("Match ID")
+            r = _to_int(s.get("Result"))
+            if mid is not None and r is not None:
+                res[mid] = r
+        return p.get("nickname"), res
+
+    n1, r1 = results_map(nick1)
+    n2, r2 = results_map(nick2)
+    common = set(r1) & set(r2)
+    together = sum(1 for mid in common if r1[mid] == r2[mid])
+    return {
+        "p1": n1, "p2": n2,
+        "encounters": len(common),
+        "together": together,
+        "against": len(common) - together,
+    }
+
+
+def get_steam_info(steam_id):
+    """Steam context (CS2 hours, VAC, profile). Needs STEAM_API_KEY. Cached 1h."""
+    key = os.environ.get("STEAM_API_KEY", "")
+    if not key or not steam_id:
+        return None
+    cache_key = f"steam:{steam_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    info = {"hours_cs2": None, "vac_banned": None, "vac_count": None,
+            "profile_url": None, "created": None, "persona": None}
+    base = "https://api.steampowered.com"
+    try:
+        r = requests.get(f"{base}/ISteamUser/GetPlayerSummaries/v2/",
+                         params={"key": key, "steamids": steam_id}, timeout=10)
+        players = r.json().get("response", {}).get("players", [])
+        if players:
+            p = players[0]
+            info["persona"] = p.get("personaname")
+            info["profile_url"] = p.get("profileurl")
+            info["created"] = p.get("timecreated")
+    except (requests.RequestException, ValueError):
+        pass
+    try:
+        r = requests.get(f"{base}/ISteamUser/GetPlayerBans/v1/",
+                         params={"key": key, "steamids": steam_id}, timeout=10)
+        arr = r.json().get("players", [])
+        if arr:
+            info["vac_banned"] = arr[0].get("VACBanned")
+            info["vac_count"] = arr[0].get("NumberOfVACBans")
+    except (requests.RequestException, ValueError):
+        pass
+    try:
+        r = requests.get(f"{base}/IPlayerService/GetOwnedGames/v1/",
+                         params={"key": key, "steamid": steam_id,
+                                 "include_played_free_games": 1,
+                                 "appids_filter[0]": 730}, timeout=10)
+        games = r.json().get("response", {}).get("games", [])
+        for g in games:
+            if g.get("appid") == 730:
+                info["hours_cs2"] = round(g.get("playtime_forever", 0) / 60)
+                break
+    except (requests.RequestException, ValueError):
+        pass
+
+    cache.set(cache_key, info, 3600)
+    return info
 
 
 def _player_won(match, player_nickname):
@@ -629,6 +723,36 @@ def build_hltv_stats(items, n=30):
     }
 
 
+def build_elo_extremes(elo_history):
+    """Highest / lowest / average ELO from the (approx) ELO history."""
+    elos = [p["elo"] for p in elo_history if p.get("elo") is not None]
+    if not elos:
+        return None
+    return {
+        "high": max(elos),
+        "low": min(elos),
+        "avg": round(sum(elos) / len(elos)),
+    }
+
+
+def build_activity(items, days=90):
+    """Matches-per-day for the last `days` days (for a contribution heatmap)."""
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    counts = {}
+    for it in items:
+        s = it.get("stats", {})
+        ts = _to_int(s.get("Match Finished At") or s.get("Updated At") or s.get("Created At"))
+        if ts is None:
+            continue
+        d = datetime.fromtimestamp(ts, tz=timezone.utc)
+        if d < cutoff:
+            continue
+        key = d.strftime("%Y-%m-%d")
+        counts[key] = counts.get(key, 0) + 1
+    return [{"date": k, "count": v} for k, v in sorted(counts.items())]
+
+
 def build_player_summary(nickname):
     """
     Aggregate everything the frontend needs into a single dict:
@@ -657,8 +781,15 @@ def build_player_summary(nickname):
     session_info = build_sessions_and_streak(player_id, items=match_items)
     form_trend = build_form_and_trend(match_items)
     best_teammates = build_best_teammates(history, player.get("nickname"))
+    teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
+    hubs = get_player_hubs(player_id)
+    steam_id = cs2.get("game_player_id")
+    steam = get_steam_info(steam_id)
+    nicknames = []
     recent_avg = build_recent_averages(match_items, n=30)
     hltv = build_hltv_stats(match_items, n=30)
+    elo_extremes = build_elo_extremes(elo_history)
+    activity = build_activity(match_items)
     multikills = build_multikills(match_items)
     # distinct maps in recent matches (for the filter dropdown)
     maps_played = sorted({
@@ -672,11 +803,19 @@ def build_player_summary(nickname):
     elo_snapshots = []
     try:
         from django.utils import timezone
-        from .models import TrackedPlayer, EloSnapshot
+        from .models import TrackedPlayer, EloSnapshot, NicknameHistory
         TrackedPlayer.objects.update_or_create(
             player_id=player_id,
             defaults={"nickname": player.get("nickname"), "last_searched": timezone.now()},
         )
+        if player.get("nickname"):
+            NicknameHistory.objects.get_or_create(
+                player_id=player_id, nickname=player.get("nickname")
+            )
+        nicknames = [
+            {"nickname": n.nickname, "first_seen": n.first_seen.isoformat()}
+            for n in NicknameHistory.objects.filter(player_id=player_id).order_by("first_seen")
+        ]
         elo_snapshots = [
             {"date": s.date.isoformat(), "elo": s.elo}
             for s in EloSnapshot.objects.filter(player_id=player_id).order_by("date")
@@ -701,9 +840,15 @@ def build_player_summary(nickname):
         "kd_trend": form_trend["kd_trend"],
         "recent_avg": recent_avg,
         "hltv": hltv,
+        "elo_extremes": elo_extremes,
+        "activity": activity,
         "multikills": multikills,
         "maps_played": maps_played,
         "best_teammates": best_teammates,
+        "teammates_full": teammates_full,
+        "hubs": hubs,
+        "steam": steam,
+        "nicknames": nicknames,
         "elo_history": elo_history,
         "elo_snapshots": elo_snapshots,
         "map_stats": map_stats,

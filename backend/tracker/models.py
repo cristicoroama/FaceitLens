@@ -24,3 +24,17 @@ class EloSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.player_id} @ {self.date}: {self.elo}"
+
+
+class NicknameHistory(models.Model):
+    """Nicknames we've seen for a player over time (built going forward)."""
+    player_id = models.CharField(max_length=64, db_index=True)
+    nickname = models.CharField(max_length=100)
+    first_seen = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("player_id", "nickname")
+        ordering = ["first_seen"]
+
+    def __str__(self):
+        return f"{self.player_id}: {self.nickname}"
