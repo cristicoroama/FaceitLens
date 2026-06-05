@@ -12,6 +12,9 @@ def player_summary(request, nickname):
         data = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
 
     # Optional map filter recomputes the recent averages from match items.
     map_filter = request.GET.get("map")
@@ -42,6 +45,9 @@ def match_detail(request, match_id):
         data = faceit.get_match_detail(match_id)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse(data)
 
 
@@ -56,6 +62,9 @@ def squad_stats(request):
         data = faceit.build_squad_stats(nicknames)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse(data)
 
 
@@ -87,6 +96,9 @@ def leaderboard(request):
         items = faceit.get_leaderboard(region, country=country)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse({"items": items})
 
 
@@ -115,4 +127,7 @@ def have_we_met(request):
         data = faceit.build_have_we_met(p1, p2)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse(data)

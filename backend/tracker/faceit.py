@@ -548,7 +548,7 @@ def get_player_hubs(player_id):
     """FACEIT hubs the player belongs to."""
     try:
         data = _get(f"/players/{player_id}/hubs", params={"offset": 0, "limit": 20})
-    except FaceitError:
+    except Exception:
         return []
     out = []
     for h in data.get("items", []):
