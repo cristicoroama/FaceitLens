@@ -20,16 +20,15 @@ export function decodeCrosshair(code) {
   while (le.length < 18) le.push(0);
   const a = le.slice(0, 18).reverse();
   return {
-    color: a[1],
     gap: sb(a[2]) / 10,
     outline: a[3] / 2,
     red: a[4], green: a[5], blue: a[6], alpha: a[7],
     splitDistance: a[8] & 0x7f,
     followRecoil: (a[8] & 0x80) !== 0,
     fixedCrosshairGap: sb(a[9]) / 10,
+    color: a[10] & 0x07,
     innerSplitAlpha: (a[10] >> 4) / 10,
     outlineEnabled: (a[10] & 0x08) !== 0,
-    deployedWeaponGapEnabled: (a[10] & 0x01) !== 0,
     outerSplitAlpha: (a[11] & 0x0f) / 10,
     splitSizeRatio: (a[11] >> 4) / 10,
     thickness: a[12] / 10,
@@ -37,14 +36,14 @@ export function decodeCrosshair(code) {
     centerDotEnabled: (a[13] & 0x10) !== 0,
     alphaEnabled: (a[13] & 0x40) !== 0,
     tStyleEnabled: (a[13] & 0x80) !== 0,
+    deployedWeaponGapEnabled: (a[13] & 0x20) !== 0,
     length: a[14] / 10,
-    _b10: a[10], _b13: a[13],
   };
 }
 
 export function encodeCrosshair(x) {
   const a = new Array(18).fill(0);
-  a[1] = (x.color ?? 1) & 0xff;
+  a[1] = 1; // constant marker
   a[2] = ub(Math.round(x.gap * 10));
   a[3] = Math.round(x.outline * 2) & 0xff;
   a[4] = x.red & 0xff; a[5] = x.green & 0xff; a[6] = x.blue & 0xff; a[7] = x.alpha & 0xff;
@@ -52,17 +51,15 @@ export function encodeCrosshair(x) {
   a[9] = ub(Math.round(x.fixedCrosshairGap * 10));
   a[10] = ((Math.round(x.innerSplitAlpha * 10) << 4) |
            (x.outlineEnabled ? 0x08 : 0) |
-           (x.deployedWeaponGapEnabled ? 0x01 : 0) |
-           (typeof x._b10 === "number" ? (x._b10 & 0x06) : 0)) & 0xff;
+           ((x.color ?? 1) & 0x07)) & 0xff;
   a[11] = (((Math.round(x.splitSizeRatio * 10) & 0x0f) << 4) |
            (Math.round(x.outerSplitAlpha * 10) & 0x0f)) & 0xff;
   a[12] = Math.round(x.thickness * 10) & 0xff;
-  let b13 = (((x.style << 1) & 0x0f) |
-             (x.centerDotEnabled ? 0x10 : 0) |
-             (x.alphaEnabled ? 0x40 : 0) |
-             (x.tStyleEnabled ? 0x80 : 0));
-  if (typeof x._b13 === "number") b13 |= (x._b13 & 0x20);
-  a[13] = b13 & 0xff;
+  a[13] = (((x.style << 1) & 0x0f) |
+           (x.centerDotEnabled ? 0x10 : 0) |
+           (x.deployedWeaponGapEnabled ? 0x20 : 0) |
+           (x.alphaEnabled ? 0x40 : 0) |
+           (x.tStyleEnabled ? 0x80 : 0)) & 0xff;
   a[14] = Math.round(x.length * 10) & 0xff;
   let sum = 0;
   for (let i = 1; i < 18; i++) sum += a[i];

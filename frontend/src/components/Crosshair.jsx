@@ -10,10 +10,10 @@ function Preview({ x }) {
   const color = `rgba(${r},${g},${b},${alpha})`;
   const W = 300, H = 200, cx = W / 2, cy = H / 2;
 
-  const lengthPx = Math.max(0, x.length * 3);
-  const thickPx = Math.max(1, x.thickness * 3);
-  const gapPx = Math.max(0, x.gap * 2.5 + 7);
-  const out = x.outlineEnabled ? Math.max(0, x.outline) : 0;
+  const lengthPx = Math.max(0, x.length * 6 + 2);
+  const thickPx = Math.max(2, x.thickness * 4);
+  const gapPx = Math.max(0, x.gap * 3 + 8);
+  const out = x.outlineEnabled ? Math.max(0, x.outline * 2) : 0;
 
   const arms = [
     { x: cx - gapPx - lengthPx, y: cy - thickPx / 2, w: lengthPx, h: thickPx, k: "l" },
