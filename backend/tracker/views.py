@@ -119,6 +119,63 @@ def analyze(request, nickname):
 
 
 @require_GET
+def collectibles(request, nickname):
+    """
+    GET /api/player/<nickname>/collectibles/ - Steam level + CS2 inventory
+    showcase (skins, knife/gloves, medals & coins). Public Steam data, no
+    demo worker needed. Cached in the steam layer.
+    """
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+
+    steamid = player.get("games", {}).get("cs2", {}).get("game_player_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import steam
+        data = steam.get_collectibles(steamid)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    data["nickname"] = player.get("nickname")
+    data["steamid"] = steamid
+    return JsonResponse(data)
+
+
+@require_GET
+def real_stats(request, nickname):
+    """
+    GET /api/player/<nickname>/real/ - REAL demo-parsed stats (HLTV 2.0, KAST,
+    opening duels, clutches, trades, utility). Returns {available: false} when
+    none of this player's demos have been parsed yet.
+    """
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+
+    steamid = player.get("games", {}).get("cs2", {}).get("game_player_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from .demo_stats import aggregate
+        data = aggregate(steamid)
+    except Exception:
+        data = None
+
+    if not data:
+        return JsonResponse({"available": False, "nickname": player.get("nickname")})
+    data["available"] = True
+    data["nickname"] = player.get("nickname")
+    return JsonResponse(data)
+
+
+@require_GET
 def have_we_met(request):
     """GET /api/met/?p1=A&p2=B - did two players cross paths?"""
     p1 = request.GET.get("p1", "").strip()

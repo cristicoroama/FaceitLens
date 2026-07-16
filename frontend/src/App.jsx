@@ -15,6 +15,7 @@ import BestTeammates from "./components/BestTeammates.jsx";
 import RecentAverages from "./components/RecentAverages.jsx";
 import MultiKills from "./components/MultiKills.jsx";
 import HltvStats from "./components/HltvStats.jsx";
+import RealStats from "./components/RealStats.jsx";
 import LevelProgress from "./components/LevelProgress.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
@@ -437,6 +438,7 @@ export default function App() {
           <div className="sub-tabs">
             {[
               ["overview", "Overview"],
+              ["real", "★ Real (Demos)"],
               ["hltv", "HLTV"],
               ["teammates", "Teammates"],
               ["hubs", "Hubs"],
@@ -454,7 +456,9 @@ export default function App() {
             ))}
           </div>
 
-          {profileTab === "hltv" ? (
+          {profileTab === "real" ? (
+            <RealStats nickname={data.nickname} />
+          ) : profileTab === "hltv" ? (
             <HltvStats hltv={data.hltv} />
           ) : profileTab === "teammates" ? (
             <TeammatesFull mates={data.teammates_full} />
