@@ -8,25 +8,37 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export default function AccountView({ nickname }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
+  function load(force) {
+    const controller = { alive: true };
+    force ? setRetrying(true) : setLoading(true);
     setError("");
-    setData(null);
-    fetch(`${API_BASE}/api/player/${encodeURIComponent(nickname)}/collectibles/`)
+    if (!force) setData(null);
+    const qs = force ? "?refresh=1" : "";
+    fetch(`${API_BASE}/api/player/${encodeURIComponent(nickname)}/collectibles/${qs}`)
       .then((r) => r.json())
       .then((j) => {
-        if (!alive) return;
+        if (!controller.alive) return;
         if (j.error) setError(j.error);
         else setData(j);
       })
-      .catch((e) => alive && setError(e.message))
-      .finally(() => alive && setLoading(false));
+      .catch((e) => controller.alive && setError(e.message))
+      .finally(() => {
+        if (!controller.alive) return;
+        setLoading(false);
+        setRetrying(false);
+      });
+    return controller;
+  }
+
+  useEffect(() => {
+    const c = load(false);
     return () => {
-      alive = false;
+      c.alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nickname]);
 
   if (loading) return <div className="state">Loading account trust &amp; inventory…</div>;
@@ -43,7 +55,7 @@ export default function AccountView({ nickname }) {
       </div>
       <div className="account-right">
         {hasInv && inv.medals && inv.medals.length > 0 && <Medals medals={inv.medals} />}
-        <Inventory inventory={inv} />
+        <Inventory inventory={inv} onRetry={() => load(true)} retrying={retrying} />
       </div>
     </div>
   );

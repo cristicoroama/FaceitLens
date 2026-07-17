@@ -82,7 +82,11 @@ def _img(icon_url: str, size: str = "360fx360f") -> str | None:
     return f"{STEAM_CDN}{icon_url}/{size}"
 
 
-def get_steam_level(steamid: str) -> int | None:
+def clear_cooldown() -> None:
+    cache.delete(_COOLDOWN_KEY)
+
+
+def get_steam_level(steamid: str, force: bool = False) -> int | None:
     """Public Steam level. Tries the Web API (if key set) then scrapes the page."""
     key = os.environ.get("STEAM_API_KEY", "")
     if key:
@@ -97,8 +101,8 @@ def get_steam_level(steamid: str) -> int | None:
         except (requests.RequestException, ValueError, TypeError):
             pass
     # Fallback: scrape the public profile page (skip during a Steam cooldown so
-    # we don't add load to an already rate-limited IP).
-    if _cooldown_active():
+    # we don't add load to an already rate-limited IP, unless forced).
+    if _cooldown_active() and not force:
         return None
     try:
         r = _get(f"https://steamcommunity.com/profiles/{steamid}/", timeout=12)
@@ -201,24 +205,30 @@ def _fetch_inventory(steamid: str) -> dict:
     return {"available": True, **_classify(descriptions)}
 
 
-def get_inventory(steamid: str) -> dict:
+def get_inventory(steamid: str, force: bool = False) -> dict:
     """
     Fetch + classify a player's CS2 inventory.
-    Success is cached 30 min; failures only 60 s so transient Steam errors
-    (rate limits, throttling) recover quickly instead of sticking.
+    Success is cached 6 h; failures only 60 s so transient Steam errors recover
+    quickly. `force=True` bypasses the cache + global cooldown for a manual retry.
     Returns {available: bool, private?, reason?, special, weapons, medals, counts}.
     """
     if not steamid:
         return {"available": False, "reason": "no steamid"}
     cache_key = f"inv:{steamid}"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
 
-    # Global backoff: if Steam recently 429'd us, don't hit it again — just tell
-    # the user to wait, so the per-IP limit can reset.
-    if _cooldown_active():
-        return {"available": False, "reason": "ratelimited"}
+    if force:
+        # Manual "retry" — drop the cached failure and the global backoff and
+        # give Steam one honest attempt.
+        cache.delete(cache_key)
+        clear_cooldown()
+    else:
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        # Global backoff: if Steam recently 429'd us, don't hit it again — just
+        # tell the user to wait, so the per-IP limit can reset.
+        if _cooldown_active():
+            return {"available": False, "reason": "ratelimited"}
 
     result = _fetch_inventory(steamid)
     # Inventories rarely change, so cache success for hours; cache failures only
@@ -228,9 +238,9 @@ def get_inventory(steamid: str) -> dict:
     return result
 
 
-def get_collectibles(steamid: str) -> dict:
+def get_collectibles(steamid: str, force: bool = False) -> dict:
     """Level + inventory showcase in one call (what the profile tab needs)."""
     return {
-        "steam_level": get_steam_level(steamid),
-        "inventory": get_inventory(steamid),
+        "steam_level": get_steam_level(steamid, force=force),
+        "inventory": get_inventory(steamid, force=force),
     }

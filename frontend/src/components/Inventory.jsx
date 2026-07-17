@@ -26,7 +26,9 @@ const REASON_MSG = {
   "no steamid": "No linked Steam account found for this player.",
 };
 
-export default function Inventory({ inventory }) {
+const TRANSIENT = new Set(["ratelimited", "throttled", "network", "ssl"]);
+
+export default function Inventory({ inventory, onRetry, retrying }) {
   if (!inventory || !inventory.available) {
     const reason = inventory && inventory.reason;
     const msg =
@@ -36,7 +38,19 @@ export default function Inventory({ inventory }) {
       (inventory && inventory.private
         ? "This player's Steam inventory is private."
         : "No inventory data available.");
-    return <div className="state">{msg}</div>;
+    const canRetry = onRetry && reason && TRANSIENT.has(reason);
+    return (
+      <div className="state">
+        {msg}
+        {canRetry && (
+          <div style={{ marginTop: 14 }}>
+            <button className="act-btn" onClick={onRetry} disabled={retrying}>
+              {retrying ? "Retrying…" : "↻ Retry now"}
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
   const { special = [], weapons = [], counts = {} } = inventory;
 

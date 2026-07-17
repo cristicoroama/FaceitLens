@@ -146,10 +146,11 @@ def collectibles(request, nickname):
     if not steamid:
         return JsonResponse({"available": False, "reason": "no steam id"})
 
+    force = request.GET.get("refresh") in ("1", "true", "yes")
     try:
         from . import steam, trust
-        level = steam.get_steam_level(steamid)
-        inventory = steam.get_inventory(steamid)
+        level = steam.get_steam_level(steamid, force=force)
+        inventory = steam.get_inventory(steamid, force=force)
         trust_score = trust.build_trust(summary, level, inventory)
     except Exception as exc:
         import traceback; traceback.print_exc()
