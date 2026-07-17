@@ -145,7 +145,15 @@ def build_trust(summary: dict, steam_level, inventory: dict) -> dict:
 
     bans = summary.get("bans") or []
     inv = inventory or {}
-    inv_items = (inv.get("counts") or {}).get("total") if inv.get("available") else 0
+    # Distinguish "truly empty/private" (score it as 0) from "we couldn't fetch
+    # it" (rate-limited / network / ssl) — the latter is unknown, so drop the
+    # pillar instead of unfairly zeroing the trust score.
+    if inv.get("available"):
+        inv_items = (inv.get("counts") or {}).get("total")
+    elif inv.get("reason") in ("private", "empty") or inv.get("private"):
+        inv_items = 0
+    else:
+        inv_items = None  # unknown → pillar skipped, score renormalizes
 
     try:
         matches = int((summary.get("stats") or {}).get("matches"))

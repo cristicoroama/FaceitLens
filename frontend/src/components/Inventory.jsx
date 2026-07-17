@@ -21,8 +21,8 @@ const REASON_MSG = {
   empty: "This player's Steam inventory is private or empty.",
   ssl: "Couldn't reach Steam (TLS/proxy). Behind a corporate proxy? Set STEAM_INSECURE=1 on the backend.",
   network: "Couldn't reach Steam right now (network error).",
-  ratelimited: "Steam is rate-limiting requests — try again in a minute.",
-  throttled: "Steam throttled the request — try again in a minute.",
+  ratelimited: "Steam is rate-limiting inventory requests. Give it a few minutes — once it loads, it's cached for hours.",
+  throttled: "Steam throttled the request — try again in a few minutes.",
   "no steamid": "No linked Steam account found for this player.",
 };
 

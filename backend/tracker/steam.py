@@ -46,6 +46,22 @@ def _get(url: str, **kwargs) -> requests.Response:
         kwargs["verify"] = False
         return requests.get(url, **kwargs)
 
+
+# --- Global rate-limit backoff -------------------------------------------- #
+# Steam rate-limits the community endpoints hard, per-IP. When we get a 429 we
+# stop hitting Steam for everyone for a while so the IP's limit can recover,
+# instead of hammering and extending the block.
+_COOLDOWN_KEY = "steam_cooldown"
+_COOLDOWN_SECONDS = int(os.environ.get("STEAM_COOLDOWN", "600"))
+
+
+def _cooldown_active() -> bool:
+    return cache.get(_COOLDOWN_KEY) is not None
+
+
+def _trip_cooldown() -> None:
+    cache.set(_COOLDOWN_KEY, True, _COOLDOWN_SECONDS)
+
 # CS2 skin rarity, best first — used to sort/highlight the inventory.
 RARITY_ORDER = [
     "Contraband", "Covert", "Classified", "Restricted", "Mil-Spec Grade",
@@ -80,9 +96,15 @@ def get_steam_level(steamid: str) -> int | None:
                 return int(lvl)
         except (requests.RequestException, ValueError, TypeError):
             pass
-    # Fallback: scrape the public profile page.
+    # Fallback: scrape the public profile page (skip during a Steam cooldown so
+    # we don't add load to an already rate-limited IP).
+    if _cooldown_active():
+        return None
     try:
         r = _get(f"https://steamcommunity.com/profiles/{steamid}/", timeout=12)
+        if r.status_code == 429:
+            _trip_cooldown()
+            return None
         m = re.search(r'friendPlayerLevelNum">(\d+)', r.text)
         if m:
             return int(m.group(1))
@@ -149,8 +171,9 @@ def _classify(descriptions: list) -> dict:
 def _fetch_inventory(steamid: str) -> dict:
     """One shot at the Steam inventory endpoint, with a diagnostic `reason`."""
     url = f"https://steamcommunity.com/inventory/{steamid}/730/2"
+    headers = {**_UA, "Referer": f"https://steamcommunity.com/profiles/{steamid}/inventory/"}
     try:
-        r = _get(url, params={"l": "english", "count": 500})
+        r = _get(url, params={"l": "english", "count": 500}, headers=headers)
     except requests.exceptions.SSLError:
         # Corporate SSL-inspecting proxy — set STEAM_INSECURE=1 to bypass.
         return {"available": False, "reason": "ssl"}
@@ -160,6 +183,7 @@ def _fetch_inventory(steamid: str) -> dict:
     if r.status_code == 403:
         return {"available": False, "private": True, "reason": "private"}
     if r.status_code == 429:
+        _trip_cooldown()  # back off globally so we stop hammering Steam
         return {"available": False, "reason": "ratelimited"}
     if r.status_code != 200:
         return {"available": False, "reason": f"http{r.status_code}"}
@@ -191,8 +215,16 @@ def get_inventory(steamid: str) -> dict:
     if cached is not None:
         return cached
 
+    # Global backoff: if Steam recently 429'd us, don't hit it again — just tell
+    # the user to wait, so the per-IP limit can reset.
+    if _cooldown_active():
+        return {"available": False, "reason": "ratelimited"}
+
     result = _fetch_inventory(steamid)
-    cache.set(cache_key, result, 30 * 60 if result.get("available") else 60)
+    # Inventories rarely change, so cache success for hours; cache failures only
+    # briefly (the global cooldown handles rate-limit backoff separately).
+    ttl = 6 * 60 * 60 if result.get("available") else 60
+    cache.set(cache_key, result, ttl)
     return result
 
 
