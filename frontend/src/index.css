@@ -832,18 +832,33 @@ a { color: inherit; }
   text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent);
 }
 
-/* Competitive per-map (skill group names) */
-.leet-comp {
+/* Competitive per-map (official skill-group badges) */
+.leet-comp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px; margin-bottom: 20px;
+}
+.leet-comp-tile {
   background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
-  padding: 6px 8px; margin-bottom: 20px;
+  padding: 12px 8px; text-align: center; transition: transform 0.15s, border-color 0.15s;
 }
-.leet-comp-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 10px; border-radius: 7px; font-size: 13px;
+.leet-comp-tile:hover { transform: translateY(-2px); border-color: var(--border-hi); }
+.leet-comp-tile .comp-icon { display: inline-block; }
+.leet-comp-map {
+  font-size: 11px; font-weight: 600; color: var(--text-dim);
+  text-transform: capitalize; margin-top: 8px;
 }
-.leet-comp-row:nth-child(odd) { background: var(--bg-elev-2); }
-.leet-comp-map { font-weight: 600; text-transform: capitalize; }
-.leet-comp-rank { font-family: var(--font-mono); font-size: 12px; color: var(--gold); }
+
+/* Official rank artwork + flags */
+.fl-icon { display: block; }
+.comp-icon { display: block; margin: 0 auto; }
+.flag-icon { border-radius: 2px; display: inline-block; vertical-align: -2px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+.ph-country { display: inline-flex; align-items: center; gap: 7px; }
+
+/* Steam-first profile extras */
+.acct-badge.steam { color: #66c0f4; background: rgba(102, 192, 244, 0.10); border: 1px solid rgba(102, 192, 244, 0.4); }
+.acct-badge.vac { color: var(--loss); background: rgba(255, 80, 99, 0.10); border: 1px solid rgba(255, 80, 99, 0.45); }
+.ph-elo-value.premier { text-shadow: none; display: flex; justify-content: flex-end; padding-top: 4px; }
+.ph-none { color: var(--text-dim); }
 .leet-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
 .leet-ring { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 18px; text-align: center; }
 .leet-ring-val { font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1; }

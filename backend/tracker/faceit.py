@@ -625,22 +625,28 @@ def get_steam_info(steam_id):
         return cached
 
     info = {"hours_cs2": None, "vac_banned": None, "vac_count": None,
-            "profile_url": None, "created": None, "persona": None}
+            "profile_url": None, "created": None, "persona": None,
+            "avatar": None, "country": None}
     base = "https://api.steampowered.com"
+    # Shares steam.py's GET helper so the STEAM_INSECURE corporate-proxy
+    # escape hatch applies to these Web API calls too.
+    from .steam import _get as steam_get
     try:
-        r = requests.get(f"{base}/ISteamUser/GetPlayerSummaries/v2/",
-                         params={"key": key, "steamids": steam_id}, timeout=10)
+        r = steam_get(f"{base}/ISteamUser/GetPlayerSummaries/v2/",
+                      params={"key": key, "steamids": steam_id}, timeout=10)
         players = r.json().get("response", {}).get("players", [])
         if players:
             p = players[0]
             info["persona"] = p.get("personaname")
             info["profile_url"] = p.get("profileurl")
             info["created"] = p.get("timecreated")
+            info["avatar"] = p.get("avatarfull")
+            info["country"] = p.get("loccountrycode")
     except (requests.RequestException, ValueError):
         pass
     try:
-        r = requests.get(f"{base}/ISteamUser/GetPlayerBans/v1/",
-                         params={"key": key, "steamids": steam_id}, timeout=10)
+        r = steam_get(f"{base}/ISteamUser/GetPlayerBans/v1/",
+                      params={"key": key, "steamids": steam_id}, timeout=10)
         arr = r.json().get("players", [])
         if arr:
             info["vac_banned"] = arr[0].get("VACBanned")
@@ -648,10 +654,10 @@ def get_steam_info(steam_id):
     except (requests.RequestException, ValueError):
         pass
     try:
-        r = requests.get(f"{base}/IPlayerService/GetOwnedGames/v1/",
-                         params={"key": key, "steamid": steam_id,
-                                 "include_played_free_games": 1,
-                                 "appids_filter[0]": 730}, timeout=10)
+        r = steam_get(f"{base}/IPlayerService/GetOwnedGames/v1/",
+                      params={"key": key, "steamid": steam_id,
+                              "include_played_free_games": 1,
+                              "appids_filter[0]": 730}, timeout=10)
         games = r.json().get("response", {}).get("games", [])
         for g in games:
             if g.get("appid") == 730:

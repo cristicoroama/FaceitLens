@@ -25,6 +25,7 @@ import OverviewGrid from "./components/OverviewGrid.jsx";
 import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
+import SteamProfileView from "./components/SteamProfileView.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -123,7 +124,7 @@ const PROFILE_TABS = [
 ];
 
 export default function App() {
-  const { nickname: routeNick } = useParams();
+  const { nickname: routeNick, steamid: routeSteam } = useParams();
   const navigate = useNavigate();
 
   const [nickname, setNickname] = useState(routeNick || "");
@@ -134,6 +135,7 @@ export default function App() {
   const [data, setData] = useState(null);
   const [data2, setData2] = useState(null);
   const [squad, setSquad] = useState(null);
+  const [steamProfile, setSteamProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [recent, setRecent] = useState([]);
@@ -186,22 +188,46 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // React to the URL: /player/<nick> loads that player.
+  // React to the URL: /player/<nick> or /steam/<id64> loads that profile.
   useEffect(() => {
     if (routeNick) {
       setNickname(routeNick);
       setMode("single");
+      setSteamProfile(null);
       loadPlayer(routeNick);
+    } else if (routeSteam) {
+      setMode("single");
+      loadSteamProfile(routeSteam);
     } else {
       setData(null);
       setSquad(null);
+      setSteamProfile(null);
       fetch(`${API_BASE}/api/recent/`)
         .then((r) => r.json())
         .then((j) => setRecent(j.items || []))
         .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeNick]);
+  }, [routeNick, routeSteam]);
+
+  async function loadSteamProfile(id) {
+    setLoading(true);
+    setError("");
+    setData(null);
+    setData2(null);
+    setSquad(null);
+    setSteamProfile(null);
+    try {
+      const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(id)}`);
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      setSteamProfile(json);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function loadPlayer(nick) {
     setLoading(true);
@@ -263,10 +289,19 @@ export default function App() {
       setLoading(true);
       setError("");
       try {
+        // Prefer the FACEIT profile when the account is linked...
         const nick = await resolveSteam(raw);
         navigate(`/player/${encodeURIComponent(nick)}`);
-      } catch (e) {
-        setError(e.message);
+      } catch {
+        // ...otherwise fall back to the Steam-first profile page.
+        try {
+          const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(raw)}`);
+          const json = await resp.json();
+          if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+          navigate(`/steam/${encodeURIComponent(json.steamid)}`);
+        } catch (e2) {
+          setError(e2.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -330,7 +365,9 @@ export default function App() {
   }
 
   const showProfile = mode === "single" && !loading && data && !data2;
-  const showHome = mode === "single" && !routeNick && !loading && !data && !squad;
+  const showHome =
+    mode === "single" && !routeNick && !routeSteam &&
+    !loading && !data && !squad && !steamProfile;
 
   return (
     <div className="shell">
@@ -550,6 +587,10 @@ export default function App() {
 
           {/* ---------- RESULTS ---------- */}
           {!loading && squad && <Squad data={squad} />}
+
+          {mode === "single" && !loading && steamProfile && (
+            <SteamProfileView profile={steamProfile} />
+          )}
 
           {!loading && data && data2 && (
             <>

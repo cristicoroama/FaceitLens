@@ -1,20 +1,7 @@
-import SkillBadge from "./SkillBadge.jsx";
 import CountUp from "./CountUp.jsx";
-
-// ISO country code -> flag emoji (e.g. "ro" -> 🇷🇴)
-function flagEmoji(cc) {
-  if (!cc || cc.length !== 2) return null;
-  try {
-    return String.fromCodePoint(
-      ...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))
-    );
-  } catch {
-    return null;
-  }
-}
+import { FaceitLevel, Flag } from "./RankIcons.jsx";
 
 export default function PlayerHeader({ player, children }) {
-  const flag = flagEmoji(player.country);
   return (
     <div className="player-hero">
       <div className="ph-top">
@@ -25,7 +12,7 @@ export default function PlayerHeader({ player, children }) {
             <div className="ph-avatar-empty" />
           )}
           <div className="ph-lvl">
-            <SkillBadge level={player.skill_level} />
+            <FaceitLevel level={player.skill_level} size={36} />
           </div>
         </div>
 
@@ -40,8 +27,8 @@ export default function PlayerHeader({ player, children }) {
             )}
           </div>
           <div className="ph-meta">
-            <span>
-              {flag && <span className="ph-flag">{flag}</span>}
+            <span className="ph-country">
+              <Flag country={player.country} />
               {player.country ? player.country.toUpperCase() : "—"}
             </span>
             {player.ranking ? (

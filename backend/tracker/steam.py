@@ -86,6 +86,40 @@ def clear_cooldown() -> None:
     cache.delete(_COOLDOWN_KEY)
 
 
+def resolve_steamid(raw: str) -> str | None:
+    """
+    Turn any user input into a SteamID64: a bare 17-digit id, a /profiles/ URL,
+    a /id/<vanity> URL, or a bare vanity name (vanity needs STEAM_API_KEY).
+    """
+    m = re.search(r"(7656\d{13})", raw or "")
+    if m:
+        return m.group(1)
+
+    name = None
+    m = re.search(r"steamcommunity\.com/id/([\w.\-]+)", raw or "")
+    if m:
+        name = m.group(1)
+    elif raw and re.fullmatch(r"[\w.\-]{2,32}", raw.strip()):
+        name = raw.strip()
+    if not name:
+        return None
+
+    key = os.environ.get("STEAM_API_KEY", "")
+    if not key:
+        return None
+    try:
+        r = _get(
+            "https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/",
+            params={"key": key, "vanityurl": name}, timeout=10,
+        )
+        resp = r.json().get("response", {})
+        if resp.get("success") == 1:
+            return resp.get("steamid")
+    except (requests.RequestException, ValueError):
+        pass
+    return None
+
+
 def get_steam_level(steamid: str, force: bool = False) -> int | None:
     """Public Steam level. Tries the Web API (if key set) then scrapes the page."""
     key = os.environ.get("STEAM_API_KEY", "")

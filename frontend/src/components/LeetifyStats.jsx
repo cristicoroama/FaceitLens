@@ -1,23 +1,9 @@
 import { useState, useEffect } from "react";
 import leetifyBadge from "../assets/leetify-badge.jpg";
 import PremierBadge from "./PremierBadge.jsx";
-import SkillBadge from "./SkillBadge.jsx";
+import { FaceitLevel, CompRank, groupName } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
-
-// CS2 competitive / wingman skill groups (rank 1..18, 0 = unranked)
-const SKILL_GROUPS = [
-  "Unranked",
-  "Silver I", "Silver II", "Silver III", "Silver IV", "Silver Elite", "Silver Elite Master",
-  "Gold Nova I", "Gold Nova II", "Gold Nova III", "Gold Nova Master",
-  "Master Guardian I", "Master Guardian II", "Master Guardian Elite", "Distinguished Master Guardian",
-  "Legendary Eagle", "Legendary Eagle Master", "Supreme Master First Class", "The Global Elite",
-];
-
-function groupName(rank) {
-  const r = Number(rank);
-  return SKILL_GROUPS[r] || `Rank ${rank}`;
-}
 
 // Skill ratings are 0-100 (higher better). Colour by tier, don't rescale.
 function ratingColor(v) {
@@ -30,7 +16,6 @@ function ratingColor(v) {
 function fmt(value, unit) {
   if (value == null) return "—";
   if (unit === "ms") return Math.round(value).toLocaleString();
-  // one decimal, but drop a trailing .0
   const r = Math.round(value * 10) / 10;
   return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
@@ -68,32 +53,9 @@ function Ring({ label, value }) {
   );
 }
 
-export default function LeetifyStats({ nickname }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError("");
-    setData(null);
-    fetch(`${API_BASE}/api/player/${encodeURIComponent(nickname)}/leetify/`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!alive) return;
-        if (j.error) setError(j.error);
-        else setData(j);
-      })
-      .catch((e) => alive && setError(e.message))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [nickname]);
-
-  if (loading) return <div className="state">Loading Leetify stats…</div>;
-  if (error) return <div className="state error">{error}</div>;
+/** Presentational Leetify block — reused by the FACEIT profile tab and the
+    Steam-first profile page. `data` is the /leetify/ endpoint payload. */
+export function LeetifyView({ data }) {
   if (!data) return null;
 
   if (!data.available) {
@@ -134,7 +96,7 @@ export default function LeetifyStats({ nickname }) {
             {ranks.faceit != null && (
               <div className="leet-rank">
                 <div className="leet-rank-val faceit">
-                  <SkillBadge level={ranks.faceit} size={34} />
+                  <FaceitLevel level={ranks.faceit} size={34} />
                   {ranks.faceit_elo != null && <span className="leet-elo">{ranks.faceit_elo} ELO</span>}
                 </div>
                 <div className="leet-rank-label">FACEIT</div>
@@ -142,7 +104,7 @@ export default function LeetifyStats({ nickname }) {
             )}
             {ranks.wingman != null && Number(ranks.wingman) > 0 && (
               <div className="leet-rank">
-                <div className="leet-rank-val group">{groupName(ranks.wingman)}</div>
+                <div className="leet-rank-val"><CompRank rank={ranks.wingman} height={30} /></div>
                 <div className="leet-rank-label">Wingman</div>
               </div>
             )}
@@ -159,11 +121,11 @@ export default function LeetifyStats({ nickname }) {
       {compMaps.length > 0 && (
         <>
           <div className="section-title">Competitive per map</div>
-          <div className="leet-comp">
+          <div className="leet-comp-grid">
             {compMaps.map((m) => (
-              <div className="leet-comp-row" key={m.map_name}>
-                <span className="leet-comp-map">{(m.map_name || "").replace(/^(de|cs)_/, "")}</span>
-                <span className="leet-comp-rank">{groupName(m.rank)}</span>
+              <div className="leet-comp-tile" key={m.map_name} title={groupName(m.rank)}>
+                <CompRank rank={m.rank} height={26} />
+                <div className="leet-comp-map">{(m.map_name || "").replace(/^(de|cs)_/, "")}</div>
               </div>
             ))}
           </div>
@@ -201,4 +163,34 @@ export default function LeetifyStats({ nickname }) {
       <Attribution url={data.profile_url} />
     </>
   );
+}
+
+/** Default: fetches by FACEIT nickname (profile tab). */
+export default function LeetifyStats({ nickname }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError("");
+    setData(null);
+    fetch(`${API_BASE}/api/player/${encodeURIComponent(nickname)}/leetify/`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        if (j.error) setError(j.error);
+        else setData(j);
+      })
+      .catch((e) => alive && setError(e.message))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [nickname]);
+
+  if (loading) return <div className="state">Loading Leetify stats…</div>;
+  if (error) return <div className="state error">{error}</div>;
+  return <LeetifyView data={data} />;
 }

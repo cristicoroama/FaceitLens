@@ -166,6 +166,78 @@ def collectibles(request, nickname):
 
 
 @require_GET
+def steam_profile(request):
+    """
+    GET /api/steamprofile/?id=<steamid64 | profile url | vanity> — Steam-first
+    profile for players with or WITHOUT a FACEIT account: Steam summary, Trust
+    Score, inventory/medals, Leetify (incl. current Premier rating), plus the
+    linked FACEIT nickname when one exists.
+    """
+    raw = request.GET.get("id", "").strip()
+    if not raw:
+        return JsonResponse({"error": "Provide ?id=<steamid64 / profile url / vanity>."}, status=400)
+
+    from . import steam, trust as trust_mod, leetify
+    steamid = steam.resolve_steamid(raw)
+    if not steamid:
+        return JsonResponse({
+            "error": "Couldn't resolve a SteamID64. Paste a 17-digit ID or a "
+                     "steamcommunity.com link (vanity names need STEAM_API_KEY set)."
+        }, status=404)
+
+    try:
+        info = faceit.get_steam_info(steamid) or {}
+        level = steam.get_steam_level(steamid)
+        inventory = steam.get_inventory(steamid)
+        leet = leetify.get_profile(steamid)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    # Linked FACEIT account (optional — this page must work without one).
+    faceit_nick = None
+    try:
+        player = faceit.get_player_by_steam(steamid)
+        faceit_nick = player.get("nickname")
+    except Exception:
+        pass
+
+    import time as _t
+    created = info.get("created")
+    signals = {
+        "account_age_days": int((_t.time() - created) / 86400) if created else None,
+        "hours_cs2": info.get("hours_cs2"),
+        "steam_level": level,
+        "inventory_items": (
+            (inventory.get("counts") or {}).get("total") if inventory.get("available")
+            else (0 if inventory.get("private") else None)
+        ),
+        "faceit_matches": None,  # unknown here; pillar renormalizes away
+        "vac_banned": info.get("vac_banned"),
+        "vac_count": info.get("vac_count"),
+        "faceit_banned": False,
+        "private_inventory": inventory.get("private", False),
+        "faceit_verified": False,
+    }
+
+    return JsonResponse({
+        "steamid": steamid,
+        "persona": info.get("persona"),
+        "avatar": info.get("avatar"),
+        "country": info.get("country"),
+        "created": created,
+        "hours_cs2": info.get("hours_cs2"),
+        "vac_banned": info.get("vac_banned"),
+        "profile_url": info.get("profile_url") or f"https://steamcommunity.com/profiles/{steamid}/",
+        "steam_level": level,
+        "inventory": inventory,
+        "leetify": leet,
+        "trust": trust_mod.compute_trust(signals),
+        "faceit_nickname": faceit_nick,
+    })
+
+
+@require_GET
 def leetify_stats(request, nickname):
     """
     GET /api/player/<nickname>/leetify/ - demo-based stats via the Leetify public
