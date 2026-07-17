@@ -16,15 +16,27 @@ function Item({ it, big }) {
   );
 }
 
+const REASON_MSG = {
+  private: "This player's Steam inventory is private.",
+  empty: "This player's Steam inventory is private or empty.",
+  ssl: "Couldn't reach Steam (TLS/proxy). Behind a corporate proxy? Set STEAM_INSECURE=1 on the backend.",
+  network: "Couldn't reach Steam right now (network error).",
+  ratelimited: "Steam is rate-limiting requests — try again in a minute.",
+  throttled: "Steam throttled the request — try again in a minute.",
+  "no steamid": "No linked Steam account found for this player.",
+};
+
 export default function Inventory({ inventory }) {
   if (!inventory || !inventory.available) {
-    return (
-      <div className="state">
-        {inventory && inventory.private
-          ? "This player's Steam inventory is private."
-          : "No inventory data available."}
-      </div>
-    );
+    const reason = inventory && inventory.reason;
+    const msg =
+      (reason && (REASON_MSG[reason] || (reason.startsWith("http")
+        ? "Steam returned an unexpected response."
+        : "Inventory unavailable."))) ||
+      (inventory && inventory.private
+        ? "This player's Steam inventory is private."
+        : "No inventory data available.");
+    return <div className="state">{msg}</div>;
   }
   const { special = [], weapons = [], counts = {} } = inventory;
 

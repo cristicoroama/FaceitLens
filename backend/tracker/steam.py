@@ -21,6 +21,31 @@ from django.core.cache import cache
 STEAM_CDN = "https://community.cloudflare.steamstatic.com/economy/image/"
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+
+def _insecure() -> bool:
+    """
+    True if STEAM_INSECURE is set — an escape hatch for machines behind an
+    SSL-inspecting corporate proxy whose root CA isn't in Python's certifi
+    bundle (there, requests raises SSLError while browsers/curl work fine).
+    """
+    return os.environ.get("STEAM_INSECURE", "").lower() in ("1", "true", "yes")
+
+
+def _get(url: str, **kwargs) -> requests.Response:
+    """GET Steam with browser-ish headers, retrying without TLS verification
+    only when STEAM_INSECURE is explicitly enabled. Raises on network errors."""
+    kwargs.setdefault("headers", _UA)
+    kwargs.setdefault("timeout", 15)
+    try:
+        return requests.get(url, **kwargs)
+    except requests.exceptions.SSLError:
+        if not _insecure():
+            raise
+        import urllib3
+        urllib3.disable_warnings()
+        kwargs["verify"] = False
+        return requests.get(url, **kwargs)
+
 # CS2 skin rarity, best first — used to sort/highlight the inventory.
 RARITY_ORDER = [
     "Contraband", "Covert", "Classified", "Restricted", "Mil-Spec Grade",
@@ -46,7 +71,7 @@ def get_steam_level(steamid: str) -> int | None:
     key = os.environ.get("STEAM_API_KEY", "")
     if key:
         try:
-            r = requests.get(
+            r = _get(
                 "https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/",
                 params={"key": key, "steamid": steamid}, timeout=10,
             )
@@ -57,8 +82,7 @@ def get_steam_level(steamid: str) -> int | None:
             pass
     # Fallback: scrape the public profile page.
     try:
-        r = requests.get(f"https://steamcommunity.com/profiles/{steamid}/",
-                         headers=_UA, timeout=12)
+        r = _get(f"https://steamcommunity.com/profiles/{steamid}/", timeout=12)
         m = re.search(r'friendPlayerLevelNum">(\d+)', r.text)
         if m:
             return int(m.group(1))
@@ -122,38 +146,53 @@ def _classify(descriptions: list) -> dict:
     }
 
 
+def _fetch_inventory(steamid: str) -> dict:
+    """One shot at the Steam inventory endpoint, with a diagnostic `reason`."""
+    url = f"https://steamcommunity.com/inventory/{steamid}/730/2"
+    try:
+        r = _get(url, params={"l": "english", "count": 500})
+    except requests.exceptions.SSLError:
+        # Corporate SSL-inspecting proxy — set STEAM_INSECURE=1 to bypass.
+        return {"available": False, "reason": "ssl"}
+    except requests.RequestException:
+        return {"available": False, "reason": "network"}
+
+    if r.status_code == 403:
+        return {"available": False, "private": True, "reason": "private"}
+    if r.status_code == 429:
+        return {"available": False, "reason": "ratelimited"}
+    if r.status_code != 200:
+        return {"available": False, "reason": f"http{r.status_code}"}
+
+    try:
+        data = r.json()
+    except ValueError:
+        return {"available": False, "reason": "badjson"}
+    if not data:  # Steam returns literal `null` when throttling
+        return {"available": False, "reason": "throttled"}
+    descriptions = data.get("descriptions") or []
+    if not descriptions:
+        # 200 with no items → empty or private-ish inventory
+        return {"available": False, "private": True, "reason": "empty"}
+    return {"available": True, **_classify(descriptions)}
+
+
 def get_inventory(steamid: str) -> dict:
     """
-    Fetch + classify a player's CS2 inventory. Cached 30 min.
-    Returns {available: bool, private?: bool, special, weapons, medals, counts}.
+    Fetch + classify a player's CS2 inventory.
+    Success is cached 30 min; failures only 60 s so transient Steam errors
+    (rate limits, throttling) recover quickly instead of sticking.
+    Returns {available: bool, private?, reason?, special, weapons, medals, counts}.
     """
     if not steamid:
-        return {"available": False}
+        return {"available": False, "reason": "no steamid"}
     cache_key = f"inv:{steamid}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    result: dict
-    try:
-        r = requests.get(
-            f"https://steamcommunity.com/inventory/{steamid}/730/2",
-            params={"l": "english", "count": 500}, headers=_UA, timeout=15,
-        )
-        if r.status_code == 403:
-            result = {"available": False, "private": True}
-        else:
-            r.raise_for_status()
-            data = r.json() or {}
-            descriptions = data.get("descriptions") or []
-            if not descriptions:
-                result = {"available": False, "private": True}
-            else:
-                result = {"available": True, **_classify(descriptions)}
-    except (requests.RequestException, ValueError):
-        result = {"available": False}
-
-    cache.set(cache_key, result, 30 * 60)
+    result = _fetch_inventory(steamid)
+    cache.set(cache_key, result, 30 * 60 if result.get("available") else 60)
     return result
 
 
