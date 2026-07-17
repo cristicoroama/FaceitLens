@@ -30,25 +30,43 @@ import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-async function fetchPlayer(nick) {
-  const resp = await fetch(`${API_BASE}/api/player/${encodeURIComponent(nick)}/`);
-  const json = await resp.json();
+/** Parse a JSON response; a non-JSON (HTML error page) becomes a clean error
+    instead of "Unexpected token '<' ... is not valid JSON". */
+async function readJson(resp, notFoundMsg = "Not found.") {
+  let json;
+  try {
+    json = await resp.json();
+  } catch {
+    throw new Error(resp.ok ? "Unexpected server response." : notFoundMsg);
+  }
   if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
   return json;
+}
+
+async function fetchPlayer(nick) {
+  const resp = await fetch(`${API_BASE}/api/player/${encodeURIComponent(nick)}/`);
+  return readJson(resp, "Player not found.");
 }
 
 async function fetchSquad(nicks) {
   const resp = await fetch(`${API_BASE}/api/squad/?players=${encodeURIComponent(nicks)}`);
-  const json = await resp.json();
-  if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
-  return json;
+  return readJson(resp);
 }
 
 async function resolveSteam(steamInput) {
   const resp = await fetch(`${API_BASE}/api/steam/?id=${encodeURIComponent(steamInput)}`);
-  const json = await resp.json();
-  if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+  const json = await readJson(resp);
   return json.nickname;
+}
+
+async function fetchSteamProfileByInput(raw) {
+  const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(raw)}`);
+  return readJson(resp, "Steam profile not found.");
+}
+
+/** Does this search input look like a Steam account rather than a nickname? */
+function looksLikeSteam(input) {
+  return /7656\d{13}/.test(input) || /steamcommunity\.com/i.test(input);
 }
 
 function eloData(player) {
@@ -282,33 +300,51 @@ export default function App() {
     }
   }
 
-  async function searchHome() {
-    if (bySteam) {
-      const raw = steamInput.trim();
-      if (!raw) return;
-      setLoading(true);
-      setError("");
-      try {
-        // Prefer the FACEIT profile when the account is linked...
-        const nick = await resolveSteam(raw);
-        navigate(`/player/${encodeURIComponent(nick)}`);
-      } catch {
-        // ...otherwise fall back to the Steam-first profile page.
-        try {
-          const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(raw)}`);
-          const json = await resp.json();
-          if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
-          navigate(`/steam/${encodeURIComponent(json.steamid)}`);
-        } catch (e2) {
-          setError(e2.message);
-        }
-      } finally {
-        setLoading(false);
-      }
+  /**
+   * One smart entry point for every search box: FACEIT nicknames go to the
+   * player page; anything Steam-shaped (profile URL, SteamID64, vanity via
+   * the Steam toggle) resolves to the linked FACEIT profile when there is
+   * one, else to the Steam-first profile page.
+   */
+  async function smartSearch(raw, { steamOnly = false } = {}) {
+    const input = (raw || "").trim();
+    if (!input) return;
+
+    if (!steamOnly && !looksLikeSteam(input)) {
+      navigate(`/player/${encodeURIComponent(input)}`);
       return;
     }
-    const nick = nickname.trim();
-    if (nick) navigate(`/player/${encodeURIComponent(nick)}`);
+
+    setLoading(true);
+    setError("");
+    try {
+      // Prefer the FACEIT profile when the account is linked...
+      const nick = await resolveSteam(input);
+      navigate(`/player/${encodeURIComponent(nick)}`);
+    } catch {
+      // ...otherwise fall back to the Steam-first profile page (also handles
+      // vanity names via the backend resolver).
+      try {
+        const json = await fetchSteamProfileByInput(input);
+        if (json.faceit_nickname) {
+          navigate(`/player/${encodeURIComponent(json.faceit_nickname)}`);
+        } else {
+          navigate(`/steam/${json.steamid}`);
+        }
+      } catch (e2) {
+        setError(e2.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function searchHome() {
+    if (bySteam) {
+      smartSearch(steamInput, { steamOnly: true });
+      return;
+    }
+    smartSearch(nickname);
   }
 
   async function applyMapFilter(map) {
@@ -420,11 +456,8 @@ export default function App() {
               value={nickname}
               onChange={setNickname}
               onPick={go}
-              onEnter={() => {
-                const nick = nickname.trim();
-                if (nick) go(nick);
-              }}
-              placeholder="Find players: FACEIT nickname…"
+              onEnter={() => smartSearch(nickname)}
+              placeholder="Find players: FACEIT nickname or Steam link…"
             />
           </div>
           <div className="tb-actions">
