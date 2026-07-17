@@ -25,7 +25,7 @@ import OverviewGrid from "./components/OverviewGrid.jsx";
 import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
-import Transfers from "./components/Transfers.jsx";
+import HltvView from "./components/HltvView.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -112,18 +112,20 @@ const I = {
       <circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
     </svg>
   ),
-  transfer: (
+  hltv: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />
+      <path d="M4 19V5M4 12h8M12 19V5M20 19V5M12 12h8" />
     </svg>
   ),
 };
 
 const NAV = [
-  { group: "General", items: [
+  { group: "FACEIT", items: [
     { id: "single", label: "Player Search", icon: I.search },
     { id: "leaderboard", label: "Leaderboard", icon: I.board },
-    { id: "transfers", label: "Transfers", icon: I.transfer },
+  ]},
+  { group: "HLTV — Pro Scene", items: [
+    { id: "hltv", label: "HLTV Hub", icon: I.hltv },
   ]},
   { group: "Tools", items: [
     { id: "compare", label: "Compare 1v1", icon: I.vs },
@@ -618,7 +620,7 @@ export default function App() {
           )}
 
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
-          {mode === "transfers" && <Transfers onPick={go} />}
+          {mode === "hltv" && <HltvView onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "crosshair" && <Crosshair />}
 

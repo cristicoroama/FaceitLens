@@ -1,0 +1,193 @@
+import { useState, useEffect } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+/** Friendly copy for the graceful-degradation reasons the backend returns. */
+const REASONS = {
+  not_configured:
+    "The HLTV section needs a parse.bot key. Set PARSE_API_KEY (and optionally PARSE_HLTV_BASE) in the backend environment.",
+  bad_api_key: "The parse.bot API key was rejected — check PARSE_API_KEY.",
+  scraper_not_found: "Scraper endpoint not found — check PARSE_HLTV_BASE.",
+  ratelimited: "Rate limited by parse.bot. Try again shortly.",
+  network: "Couldn't reach parse.bot. Check your connection.",
+  badjson: "The scraper returned an unexpected response.",
+  ssl: "TLS error reaching parse.bot (set STEAM_INSECURE=1 behind a proxy).",
+};
+
+const TABS = [
+  ["rankings", "World Ranking"],
+  ["results", "Results"],
+  ["upcoming", "Upcoming"],
+  ["team-stats", "Team Stats"],
+  ["player-stats", "Player Stats"],
+];
+
+export default function HltvView({ onPick }) {
+  const [tab, setTab] = useState("rankings");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+
+  async function load(section) {
+    setLoading(true);
+    setError("");
+    setData(null);
+    try {
+      const resp = await fetch(`${API_BASE}/api/hltv/${section}/?limit=50`);
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      setData(json);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setQuery("");
+    load(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const attribution = data?.attribution;
+  const items = data?.items || [];
+  const filtered =
+    query.trim() && (tab === "player-stats" || tab === "team-stats")
+      ? items.filter((it) =>
+          `${it.name || ""} ${it.team || ""}`
+            .toLowerCase()
+            .includes(query.trim().toLowerCase())
+        )
+      : items;
+
+  return (
+    <>
+      <div className="section-title">HLTV — Pro Scene</div>
+
+      <div className="ptabs">
+        {TABS.map(([key, label]) => (
+          <button
+            key={key}
+            className={`ptab ${tab === key ? "active" : ""}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {(tab === "player-stats" || tab === "team-stats") && data?.available && (
+        <div className="lb-controls">
+          <input
+            type="text"
+            placeholder={tab === "player-stats" ? "Search player / team…" : "Search team…"}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      )}
+
+      {loading && <div className="state">Loading…</div>}
+      {error && <div className="state error">{error}</div>}
+
+      {!loading && data && !data.available && (
+        <div className="state">{REASONS[data.reason] || "HLTV data unavailable."}</div>
+      )}
+
+      {!loading && data?.available && filtered.length === 0 && (
+        <div className="state">No data.</div>
+      )}
+
+      {!loading && data?.available && filtered.length > 0 && (
+        <div className="squad">
+          {tab === "rankings" &&
+            filtered.map((t, i) => (
+              <div className="squad-row" key={`${t.name}-${i}`}>
+                <span className="squad-rank">#{t.rank ?? i + 1}</span>
+                <span className="squad-name">{t.name}</span>
+                <span className="squad-elo">{t.points ?? "—"}</span>
+              </div>
+            ))}
+
+          {tab === "results" &&
+            filtered.map((m, i) => (
+              <a
+                className="squad-row hltv-link"
+                key={`${m.match_id || i}`}
+                href={m.url || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="hltv-match">
+                  <span className="hltv-team">{m.team1 || "?"}</span>
+                  <span className="hltv-score">{m.score || "vs"}</span>
+                  <span className="hltv-team right">{m.team2 || "?"}</span>
+                </span>
+                <span className="squad-wr">{m.event || ""}</span>
+                {m.date && <span className="hltv-date">{m.date}</span>}
+              </a>
+            ))}
+
+          {tab === "upcoming" &&
+            filtered.map((m, i) => (
+              <a
+                className="squad-row hltv-link"
+                key={i}
+                href={m.url || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="hltv-match">
+                  <span className="hltv-team">{m.team1 || "TBD"}</span>
+                  <span className="hltv-score">vs</span>
+                  <span className="hltv-team right">{m.team2 || "TBD"}</span>
+                </span>
+                <span className="squad-wr">{m.event || ""}</span>
+                <span className="hltv-date">
+                  {[m.date, m.time].filter(Boolean).join(" ") || m.status || ""}
+                </span>
+              </a>
+            ))}
+
+          {tab === "team-stats" &&
+            filtered.map((t, i) => (
+              <div className="squad-row" key={`${t.name}-${i}`}>
+                <span className="squad-rank">#{i + 1}</span>
+                <span className="squad-name">{t.name}</span>
+                <span className="squad-wr">{t.maps ? `${t.maps} maps` : ""}</span>
+                <span className="squad-wr">K/D {t.kd ?? "—"}</span>
+                <span className="squad-elo">{t.rating ?? "—"}</span>
+              </div>
+            ))}
+
+          {tab === "player-stats" &&
+            filtered.map((p, i) => (
+              <div className="squad-row" key={`${p.name}-${i}`}>
+                <span className="squad-rank">#{i + 1}</span>
+                <span
+                  className="squad-name link"
+                  onClick={() => onPick && p.name && onPick(p.name)}
+                  title={`Search ${p.name} on FACEIT`}
+                >
+                  {p.name}
+                </span>
+                <span className="squad-wr">{p.team || ""}</span>
+                <span className="squad-wr">K/D {p.kd ?? "—"}</span>
+                <span className="squad-elo">{p.rating ?? "—"}</span>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {attribution && (
+        <div className="side-note" style={{ marginTop: "1rem" }}>
+          <a href={attribution.url} target="_blank" rel="noopener noreferrer">
+            {attribution.text}
+          </a>
+        </div>
+      )}
+    </>
+  );
+}

@@ -313,20 +313,37 @@ def have_we_met(request):
     return JsonResponse(data)
 
 
-@require_GET
-def transfers(request):
-    """
-    GET /api/transfers/?limit=40 - recent CS2 pro roster moves from Liquipedia.
-    Returns {available: false, reason: 'no_api_key'} when LIQUIPEDIA_API_KEY
-    isn't configured, so the page degrades gracefully.
-    """
+def _int_arg(request, name, default):
     try:
-        limit = int(request.GET.get("limit", 40))
+        return int(request.GET.get(name, default))
     except (TypeError, ValueError):
-        limit = 40
+        return default
+
+
+@require_GET
+def hltv(request, section):
+    """
+    GET /api/hltv/<section>/ - HLTV.org data via parse.bot. Sections:
+    rankings, results, upcoming, team-stats, player-stats. Returns
+    {available: false, reason: 'not_configured'} when PARSE_API_KEY isn't set.
+    """
+    from . import parsebot
+    limit = _int_arg(request, "limit", 30)
+    days = _int_arg(request, "days", 30)
     try:
-        from . import liquipedia
-        data = liquipedia.get_transfers(limit=limit)
+        if section == "rankings":
+            data = parsebot.get_team_rankings(limit=limit)
+        elif section == "results":
+            data = parsebot.get_results(limit=limit)
+        elif section == "upcoming":
+            filter_cct = request.GET.get("cct") in ("1", "true", "yes")
+            data = parsebot.get_upcoming(limit=limit, filter_cct=filter_cct)
+        elif section == "team-stats":
+            data = parsebot.get_team_stats(days=days, limit=limit)
+        elif section == "player-stats":
+            data = parsebot.get_player_stats(days=days, limit=limit)
+        else:
+            return JsonResponse({"error": "Unknown HLTV section."}, status=404)
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
