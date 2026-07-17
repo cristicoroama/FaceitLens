@@ -336,11 +336,13 @@ a { color: inherit; }
 }
 .ph-top { position: relative; display: flex; align-items: center; gap: 20px; padding: 24px 26px 20px; }
 .ph-avatar { position: relative; flex-shrink: 0; }
-.ph-avatar img, .ph-avatar-empty {
+/* direct child only — the level icon inside .ph-lvl must keep its own size */
+.ph-avatar > img, .ph-avatar-empty {
   width: 88px; height: 88px; border-radius: 16px; object-fit: cover;
   background: var(--bg-elev-2); border: 2px solid var(--border-hi);
   display: block;
 }
+.ph-lvl .fl-icon { width: 34px; height: 34px; }
 .ph-lvl {
   position: absolute; right: -8px; bottom: -8px;
   border-radius: 10px; background: var(--bg-elev);
