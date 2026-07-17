@@ -313,6 +313,26 @@ def have_we_met(request):
     return JsonResponse(data)
 
 
+@require_GET
+def transfers(request):
+    """
+    GET /api/transfers/?limit=40 - recent CS2 pro roster moves from Liquipedia.
+    Returns {available: false, reason: 'no_api_key'} when LIQUIPEDIA_API_KEY
+    isn't configured, so the page degrades gracefully.
+    """
+    try:
+        limit = int(request.GET.get("limit", 40))
+    except (TypeError, ValueError):
+        limit = 40
+    try:
+        from . import liquipedia
+        data = liquipedia.get_transfers(limit=limit)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
+
+
 VALID_GAMES = {"price", "trivia"}
 
 

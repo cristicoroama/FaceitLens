@@ -13,6 +13,7 @@ urlpatterns = [
     path("search/", views.search, name="search"),
     path("recent/", views.recent, name="recent"),
     path("leaderboard/", views.leaderboard, name="leaderboard"),
+    path("transfers/", views.transfers, name="transfers"),
     path("analyze/<str:nickname>/", views.analyze, name="analyze"),
     path("met/", views.have_we_met, name="have-we-met"),
     path("games/leaderboard/", views.game_leaderboard, name="game-leaderboard"),

@@ -25,6 +25,7 @@ import OverviewGrid from "./components/OverviewGrid.jsx";
 import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
+import Transfers from "./components/Transfers.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -111,12 +112,18 @@ const I = {
       <circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
     </svg>
   ),
+  transfer: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />
+    </svg>
+  ),
 };
 
 const NAV = [
   { group: "General", items: [
     { id: "single", label: "Player Search", icon: I.search },
     { id: "leaderboard", label: "Leaderboard", icon: I.board },
+    { id: "transfers", label: "Transfers", icon: I.transfer },
   ]},
   { group: "Tools", items: [
     { id: "compare", label: "Compare 1v1", icon: I.vs },
@@ -611,6 +618,7 @@ export default function App() {
           )}
 
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
+          {mode === "transfers" && <Transfers onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "crosshair" && <Crosshair />}
 
