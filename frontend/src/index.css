@@ -799,6 +799,21 @@ a { color: inherit; }
 }
 .inv-counts { display: flex; flex-wrap: wrap; gap: 14px; color: var(--text-dim); font-size: 13px; }
 .inv-count b { color: var(--text); font-family: var(--font-mono); }
+.inv-price {
+  position: relative; font-family: var(--font-mono); font-size: 11px;
+  color: var(--accent); margin-top: 3px; font-weight: 700;
+}
+.inv-value {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.10), transparent 70%), var(--bg-elev);
+  border: 1px solid rgba(var(--accent-rgb), 0.35); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.inv-value-num {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px; color: var(--accent);
+  text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.35);
+}
+.inv-value-label { color: var(--text-dim); font-size: 12px; }
 
 /* ============================================================
    Leetify tab

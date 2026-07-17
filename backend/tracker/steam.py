@@ -239,37 +239,160 @@ def _fetch_inventory(steamid: str) -> dict:
     return {"available": True, **_classify(descriptions)}
 
 
+# --- steamwebapi.com proxy (optional) -------------------------------------- #
+# A paid buffering proxy for Steam data. When STEAMWEBAPI_KEY is set we prefer
+# it for inventories: it dodges Steam's datacenter-IP rate limits (the thing
+# that breaks inventory on Render) AND returns market prices, which powers the
+# inventory value ($) display. Docs: https://www.steamwebapi.com/steam-inventory-api
+_PROXY_URL = "https://www.steamwebapi.com/steam/api/inventory"
+
+
+def _price_of(d: dict):
+    for k in ("pricelatest", "pricereal", "priceavg", "pricemedian", "pricemin"):
+        v = d.get(k)
+        if isinstance(v, (int, float)) and v > 0:
+            return float(v)
+    return None
+
+
+def _classify_proxy(items: list) -> dict:
+    """
+    Adapter: steamwebapi returns a flat item list (not Steam's descriptions
+    format), with field names that vary by item kind — so classify defensively
+    from whatever type/rarity fields exist, falling back to name patterns.
+    Also sums market prices into a total inventory value.
+    """
+    weapons, special, medals, stickers, graffiti, other = [], [], [], [], [], []
+    total_value = 0.0
+    priced = 0
+
+    for d in items:
+        name = d.get("markethashname") or d.get("marketname") or d.get("itemname") or ""
+        typ = (d.get("itemgroup") or d.get("itemtype") or d.get("type") or "").strip()
+        rarity = (d.get("rarity") or d.get("rarityname") or "").strip().title()
+        color = d.get("raritycolor") or d.get("color") or d.get("namecolor")
+        if color and not str(color).startswith("#"):
+            color = f"#{color}"
+        price = _price_of(d)
+        if price is not None:
+            total_value += price
+            priced += 1
+
+        item = {
+            "name": name,
+            "type": typ,
+            "rarity": rarity,
+            "color": color,
+            "image": d.get("image") or d.get("imageurl"),
+            "marketable": bool(d.get("marketable", d.get("tradable"))),
+            "rank": _RARITY_RANK.get(rarity, 99),
+            "price": price,
+        }
+
+        low = name.lower()
+        tl = typ.lower()
+        if name.startswith("★") or tl in ("knife", "gloves"):
+            special.append(item)
+        elif low.startswith("sticker") or tl == "sticker":
+            stickers.append(item)
+        elif "graffiti" in low or tl == "graffiti":
+            graffiti.append(item)
+        elif tl == "collectible" or any(
+            k in low for k in ("medal", " coin", "coin ", "badge", "trophy", "service medal", "years of service")
+        ) or low.endswith("coin"):
+            medals.append(item)
+        elif low.startswith(("music kit", "patch", "charm")) or tl in ("music kit", "patch", "charm", "agent", "container", "key"):
+            other.append(item)
+        elif " | " in name or tl in ("rifle", "pistol", "smg", "sniper rifle", "machinegun", "shotgun", "weapon", "equipment"):
+            weapons.append(item)
+        else:
+            other.append(item)
+
+    weapons.sort(key=lambda x: (x["rank"], -(x["price"] or 0)))
+    special.sort(key=lambda x: (x["rank"], -(x["price"] or 0)))
+
+    return {
+        "special": special,
+        "weapons": weapons,
+        "medals": medals,
+        "value": {"total": round(total_value, 2), "priced_items": priced, "currency": "USD"},
+        "counts": {
+            "total": len(items),
+            "weapons": len(weapons),
+            "special": len(special),
+            "medals": len(medals),
+            "stickers": len(stickers),
+            "graffiti": len(graffiti),
+            "other": len(other),
+        },
+    }
+
+
+def _fetch_inventory_proxy(steamid: str) -> dict:
+    """One shot at the steamwebapi.com inventory proxy."""
+    key = os.environ.get("STEAMWEBAPI_KEY", "")
+    try:
+        r = _get(_PROXY_URL, params={"key": key, "steam_id": steamid, "game": "cs2"},
+                 timeout=30)
+    except requests.RequestException:
+        return {"available": False, "reason": "network"}
+    if r.status_code in (401, 403):
+        return {"available": False, "reason": "proxy_auth"}
+    if r.status_code == 404:
+        return {"available": False, "private": True, "reason": "private"}
+    if r.status_code == 429:
+        return {"available": False, "reason": "proxy_quota"}
+    if r.status_code != 200:
+        return {"available": False, "reason": f"proxyhttp{r.status_code}"}
+    try:
+        items = r.json()
+    except ValueError:
+        return {"available": False, "reason": "badjson"}
+    if isinstance(items, dict):  # error payloads come back as objects
+        items = items.get("items") or []
+    if not isinstance(items, list) or not items:
+        return {"available": False, "private": True, "reason": "empty"}
+    return {"available": True, **_classify_proxy(items)}
+
+
 def get_inventory(steamid: str, force: bool = False) -> dict:
     """
     Fetch + classify a player's CS2 inventory.
-    Success is cached 6 h; failures only 60 s so transient Steam errors recover
-    quickly. `force=True` bypasses the cache + global cooldown for a manual retry.
-    Returns {available: bool, private?, reason?, special, weapons, medals, counts}.
+    Prefers the steamwebapi.com proxy when STEAMWEBAPI_KEY is set (reliable from
+    datacenter IPs + market prices); falls back to Steam's community endpoint.
+    Success is cached 6 h; failures only 60 s. `force=True` bypasses cache +
+    cooldown for a manual retry.
     """
     if not steamid:
         return {"available": False, "reason": "no steamid"}
     cache_key = f"inv:{steamid}"
 
     if force:
-        # Manual "retry" — drop the cached failure and the global backoff and
-        # give Steam one honest attempt.
         cache.delete(cache_key)
         clear_cooldown()
     else:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
-        # Global backoff: if Steam recently 429'd us, don't hit it again — just
-        # tell the user to wait, so the per-IP limit can reset.
-        if _cooldown_active():
-            return {"available": False, "reason": "ratelimited"}
 
-    result = _fetch_inventory(steamid)
-    # Inventories rarely change, so cache success for hours; cache failures only
-    # briefly (the global cooldown handles rate-limit backoff separately).
-    ttl = 6 * 60 * 60 if result.get("available") else 60
-    cache.set(cache_key, result, ttl)
-    return result
+    result = None
+    if os.environ.get("STEAMWEBAPI_KEY", ""):
+        result = _fetch_inventory_proxy(steamid)
+        if result.get("available") or result.get("private"):
+            cache.set(cache_key, result, 6 * 60 * 60 if result.get("available") else 60)
+            return result
+
+    # Direct Steam community endpoint (respect the global 429 cooldown).
+    if _cooldown_active() and not force:
+        direct = {"available": False, "reason": "ratelimited"}
+    else:
+        direct = _fetch_inventory(steamid)
+
+    # Prefer whichever attempt actually produced data.
+    final = direct if (direct.get("available") or result is None) else result
+    ttl = 6 * 60 * 60 if final.get("available") else 60
+    cache.set(cache_key, final, ttl)
+    return final
 
 
 def get_collectibles(steamid: str, force: bool = False) -> dict:

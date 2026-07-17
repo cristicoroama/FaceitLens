@@ -1,9 +1,10 @@
 function Item({ it, big }) {
   const color = it.color || "var(--border)";
+  const price = it.price != null ? `$${it.price.toFixed(2)}` : null;
   return (
     <div
       className={`inv-item ${big ? "big" : ""}`}
-      title={`${it.name}${it.rarity ? ` · ${it.rarity}` : ""}`}
+      title={`${it.name}${it.rarity ? ` · ${it.rarity}` : ""}${price ? ` · ${price}` : ""}`}
       style={{ "--rar": color }}
     >
       {it.image ? (
@@ -12,6 +13,7 @@ function Item({ it, big }) {
         <div className="inv-noimg" />
       )}
       <div className="inv-name">{it.name}</div>
+      {price && <div className="inv-price">{price}</div>}
     </div>
   );
 }
@@ -23,6 +25,8 @@ const REASON_MSG = {
   network: "Couldn't reach Steam right now (network error).",
   ratelimited: "Steam is rate-limiting inventory requests. Give it a few minutes — once it loads, it's cached for hours.",
   throttled: "Steam throttled the request — try again in a few minutes.",
+  proxy_auth: "Inventory proxy key rejected — check STEAMWEBAPI_KEY on the backend.",
+  proxy_quota: "Inventory proxy is out of credits for now — try again later.",
   "no steamid": "No linked Steam account found for this player.",
 };
 
@@ -52,10 +56,19 @@ export default function Inventory({ inventory, onRetry, retrying }) {
       </div>
     );
   }
-  const { special = [], weapons = [], counts = {} } = inventory;
+  const { special = [], weapons = [], counts = {}, value } = inventory;
 
   return (
     <>
+      {value && value.total > 0 && (
+        <div className="inv-value">
+          <span className="inv-value-num">≈ ${value.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <span className="inv-value-label">
+            inventory value · {value.priced_items} priced items · Steam Market
+          </span>
+        </div>
+      )}
+
       {special.length > 0 && (
         <>
           <div className="section-title">Knife &amp; Gloves</div>
