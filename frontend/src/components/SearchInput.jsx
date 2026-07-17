@@ -7,6 +7,9 @@ export default function SearchInput({ value, onChange, onPick, onEnter, placehol
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
   const timer = useRef(null);
+  // Several SearchInputs can share the same bound value (topbar + home hero);
+  // only the focused one should pop its suggestion dropdown.
+  const focused = useRef(false);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -19,7 +22,7 @@ export default function SearchInput({ value, onChange, onPick, onEnter, placehol
         const resp = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(value)}`);
         const json = await resp.json();
         setSuggestions(json.items || []);
-        setOpen(true);
+        if (focused.current) setOpen(true);
       } catch {
         setSuggestions([]);
       }
@@ -42,7 +45,13 @@ export default function SearchInput({ value, onChange, onPick, onEnter, placehol
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onFocus={() => suggestions.length && setOpen(true)}
+        onFocus={() => {
+          focused.current = true;
+          if (suggestions.length) setOpen(true);
+        }}
+        onBlur={() => {
+          focused.current = false;
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             setOpen(false);
