@@ -25,6 +25,7 @@ Docs: https://parse.bot
 from __future__ import annotations
 
 import os
+import re
 
 import requests
 from django.core.cache import cache
@@ -65,15 +66,31 @@ def _pick(row: dict, *keys):
 
 
 def _rows(payload, *named_keys) -> list:
-    """Pull the list out of whatever wrapper the scraper returns."""
+    """Pull the list out of parse.bot's wrapper.
+
+    parse.bot returns {"status": "success", "data": {"<key>": [...]}}, so we
+    unwrap "data" first, then look for the endpoint's named list (rankings,
+    results, players, ...). Also tolerates a bare list or a data-is-list shape.
+    """
+    if isinstance(payload, dict) and isinstance(payload.get("data"), (dict, list)):
+        payload = payload["data"]
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):
-        for key in (*named_keys, "data", "results", "items", "rows"):
+        for key in (*named_keys, "rankings", "results", "matches",
+                    "players", "teams", "items", "rows"):
             val = payload.get(key)
             if isinstance(val, list):
                 return val
     return []
+
+
+def _num(v):
+    """Extract the first number out of a noisy string like '(897 HLTV points)'."""
+    if v is None:
+        return None
+    m = re.search(r"-?\d+(?:\.\d+)?", str(v))
+    return m.group(0) if m else v
 
 
 def _call(endpoint: str, params: dict | None = None, cache_suffix: str = "") -> dict:
@@ -145,8 +162,8 @@ def get_team_rankings(limit: int = 30) -> dict:
             continue
         items.append({
             "rank": _pick(row, "rank", "position"),
-            "name": _pick(row, "name", "team"),
-            "points": _pick(row, "points", "point"),
+            "name": _pick(row, "team", "name"),
+            "points": _num(_pick(row, "points", "point")),
             "change": _pick(row, "change", "delta"),
         })
     items = [it for it in items if it["name"]][:limit]
