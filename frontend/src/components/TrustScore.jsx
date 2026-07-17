@@ -38,6 +38,7 @@ export default function TrustScore({ trust, steamLevel }) {
         <div className="trust-row" key={b.label}>
           <span className="trust-dot" style={{ background: color }} />
           <span className="trust-row-label">{b.label}</span>
+          {b.detail && <span className="trust-row-detail">{b.detail}</span>}
           <span className="trust-row-val">
             {b.score}
             <span className="trust-row-max">/{b.max}</span>

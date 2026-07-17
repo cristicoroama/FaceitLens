@@ -166,6 +166,36 @@ def collectibles(request, nickname):
 
 
 @require_GET
+def leetify_stats(request, nickname):
+    """
+    GET /api/player/<nickname>/leetify/ - demo-based stats via the Leetify public
+    API (ranks incl. Premier, aim/positioning/utility ratings, aim & utility
+    stats). Returns {available: false, reason: 'not_on_leetify'} for players
+    Leetify has no data on. Data is proxied live, never stored (Leetify rule).
+    """
+    try:
+        summary = faceit.build_player_summary(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    steamid = summary.get("steam_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import leetify
+        data = leetify.get_profile(steamid)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    data["nickname"] = summary.get("nickname")
+    return JsonResponse(data)
+
+
+@require_GET
 def real_stats(request, nickname):
     """
     GET /api/player/<nickname>/real/ - REAL demo-parsed stats (HLTV 2.0, KAST,

@@ -72,6 +72,30 @@ def _pillar_matches(m):
     return 0, 25
 
 
+def _pillar_details(signals: dict) -> dict:
+    """Human-readable value for each pillar (e.g. '5.1 yrs', '2,140 h')."""
+    def num(v):
+        return f"{int(v):,}" if v is not None else None
+
+    age = signals.get("account_age_days")
+    age_str = None
+    if age is not None:
+        years = age / 365.25
+        age_str = f"{years:.1f} yrs" if years >= 1 else f"{age} days"
+
+    hours = signals.get("hours_cs2")
+    level = signals.get("steam_level")
+    inv = signals.get("inventory_items")
+    matches = signals.get("faceit_matches")
+    return {
+        "Account age": age_str,
+        "CS2 hours": f"{num(hours)} h" if hours is not None else None,
+        "Steam level": str(level) if level is not None else None,
+        "Inventory": f"{inv} items" if inv is not None else None,
+        "FACEIT activity": f"{num(matches)} matches" if matches is not None else None,
+    }
+
+
 def compute_trust(signals: dict) -> dict:
     """
     signals: account_age_days, hours_cs2, steam_level, inventory_items,
@@ -86,6 +110,7 @@ def compute_trust(signals: dict) -> dict:
         ("Inventory", _pillar_inventory(signals.get("inventory_items"))),
         ("FACEIT activity", _pillar_matches(signals.get("faceit_matches"))),
     ]
+    details = _pillar_details(signals)
     available = [(label, p) for label, p in pillars if p is not None]
 
     breakdown = []
@@ -93,7 +118,7 @@ def compute_trust(signals: dict) -> dict:
     for label, (pts, mx) in available:
         got += pts
         maxp += mx
-        breakdown.append({"label": label, "score": pts, "max": mx})
+        breakdown.append({"label": label, "detail": details.get(label), "score": pts, "max": mx})
 
     # Normalize to 0-100 over the pillars we actually had data for.
     score = round(got / maxp * 100) if maxp else 50

@@ -17,6 +17,7 @@ import MultiKills from "./components/MultiKills.jsx";
 import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
 import AccountView from "./components/AccountView.jsx";
+import LeetifyStats from "./components/LeetifyStats.jsx";
 import LevelProgress from "./components/LevelProgress.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
@@ -440,6 +441,7 @@ export default function App() {
             {[
               ["account", "◈ Trust"],
               ["overview", "Overview"],
+              ["leetify", "Leetify"],
               ["real", "Demos"],
               ["hltv", "HLTV"],
               ["teammates", "Teammates"],
@@ -460,6 +462,8 @@ export default function App() {
 
           {profileTab === "account" ? (
             <AccountView nickname={data.nickname} />
+          ) : profileTab === "leetify" ? (
+            <LeetifyStats nickname={data.nickname} />
           ) : profileTab === "real" ? (
             <RealStats nickname={data.nickname} />
           ) : profileTab === "hltv" ? (
