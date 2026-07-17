@@ -151,13 +151,18 @@ def get_steam_level(steamid: str, force: bool = False) -> int | None:
     return None
 
 
+def _counts(buckets: dict, total: int) -> dict:
+    return {"total": total, **{k: len(v) for k, v in buckets.items()}}
+
+
 def _classify(descriptions: list) -> dict:
     """
     Pure: turn raw inventory `descriptions` into a tidy showcase.
-    Split into weapons / knife+gloves / medals / stickers / graffiti / other,
-    each with image + rarity so the UI can render a csrep-style grid.
+    Split into weapons / knife+gloves / medals / stickers / graffiti / cases /
+    other, each with image + rarity so the UI can render a csrep-style grid.
     """
-    weapons, special, medals, stickers, graffiti, other = [], [], [], [], [], []
+    buckets = {"special": [], "weapons": [], "medals": [], "stickers": [],
+               "graffiti": [], "cases": [], "other": []}
 
     for d in descriptions:
         tags = {t.get("category"): t.get("localized_tag_name") for t in d.get("tags", [])}
@@ -175,35 +180,24 @@ def _classify(descriptions: list) -> dict:
         }
         # In CS2 every medal / coin / event pin / badge is type "Collectible".
         if typ == "Collectible":
-            medals.append(item)
+            buckets["medals"].append(item)
         elif typ in ("Knife", "Gloves") or name.startswith("★"):
-            special.append(item)
+            buckets["special"].append(item)
         elif typ in WEAPON_TYPES:
-            weapons.append(item)
+            buckets["weapons"].append(item)
         elif typ == "Sticker":
-            stickers.append(item)
+            buckets["stickers"].append(item)
         elif typ == "Graffiti":
-            graffiti.append(item)
+            buckets["graffiti"].append(item)
+        elif typ == "Container":
+            buckets["cases"].append(item)
         else:
-            other.append(item)
+            buckets["other"].append(item)
 
-    weapons.sort(key=lambda x: x["rank"])
-    special.sort(key=lambda x: x["rank"])
+    buckets["weapons"].sort(key=lambda x: x["rank"])
+    buckets["special"].sort(key=lambda x: x["rank"])
 
-    return {
-        "special": special,          # knives + gloves (the flex items)
-        "weapons": weapons,          # skins, best rarity first
-        "medals": medals,            # service medals, event coins, pins
-        "counts": {
-            "total": len(descriptions),
-            "weapons": len(weapons),
-            "special": len(special),
-            "medals": len(medals),
-            "stickers": len(stickers),
-            "graffiti": len(graffiti),
-            "other": len(other),
-        },
-    }
+    return {**buckets, "counts": _counts(buckets, len(descriptions))}
 
 
 def _fetch_inventory(steamid: str) -> dict:
