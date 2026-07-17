@@ -861,6 +861,7 @@ def build_player_summary(nickname):
         "elo": current_elo,
         "skill_level": cs2.get("skill_level"),
         "verified": player.get("verified", False),
+        "steam_id": steam_id,
         "memberships": player.get("memberships", []),
         "ranking": ranking,
         "bans": bans,

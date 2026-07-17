@@ -16,6 +16,7 @@ import RecentAverages from "./components/RecentAverages.jsx";
 import MultiKills from "./components/MultiKills.jsx";
 import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
+import AccountView from "./components/AccountView.jsx";
 import LevelProgress from "./components/LevelProgress.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
@@ -82,7 +83,7 @@ export default function App() {
   const [bySteam, setBySteam] = useState(false);
   const [steamInput, setSteamInput] = useState("");
   const [mapFilter, setMapFilter] = useState(null);
-  const [profileTab, setProfileTab] = useState("overview");
+  const [profileTab, setProfileTab] = useState("account");
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -437,8 +438,9 @@ export default function App() {
 
           <div className="sub-tabs">
             {[
+              ["account", "◈ Trust"],
               ["overview", "Overview"],
-              ["real", "★ Real (Demos)"],
+              ["real", "Demos"],
               ["hltv", "HLTV"],
               ["teammates", "Teammates"],
               ["hubs", "Hubs"],
@@ -456,7 +458,9 @@ export default function App() {
             ))}
           </div>
 
-          {profileTab === "real" ? (
+          {profileTab === "account" ? (
+            <AccountView nickname={data.nickname} />
+          ) : profileTab === "real" ? (
             <RealStats nickname={data.nickname} />
           ) : profileTab === "hltv" ? (
             <HltvStats hltv={data.hltv} />

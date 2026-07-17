@@ -121,29 +121,47 @@ def analyze(request, nickname):
 @require_GET
 def collectibles(request, nickname):
     """
-    GET /api/player/<nickname>/collectibles/ - Steam level + CS2 inventory
-    showcase (skins, knife/gloves, medals & coins). Public Steam data, no
-    demo worker needed. Cached in the steam layer.
+    GET /api/player/<nickname>/collectibles/ - Account Trust Score + Steam level
+    + CS2 inventory showcase (skins, knife/gloves, medals & coins). Public Steam
+    data + non-demo trust signals; no demo worker needed.
     """
     try:
-        player = faceit.get_player_by_nickname(nickname)
+        # build_player_summary is cached and usually already warm from the main
+        # page load, so this reuses it rather than re-hitting the FACEIT API.
+        summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
-
-    steamid = player.get("games", {}).get("cs2", {}).get("game_player_id")
-    if not steamid:
-        return JsonResponse({"available": False, "reason": "no steam id"})
-
-    try:
-        from . import steam
-        data = steam.get_collectibles(steamid)
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
 
-    data["nickname"] = player.get("nickname")
-    data["steamid"] = steamid
-    return JsonResponse(data)
+    steamid = summary.get("steam_id") or None
+    # summary doesn't expose steam_id directly; re-derive from the player object.
+    if not steamid:
+        try:
+            player = faceit.get_player_by_nickname(nickname)
+            steamid = player.get("games", {}).get("cs2", {}).get("game_player_id")
+        except faceit.FaceitError:
+            steamid = None
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import steam, trust
+        level = steam.get_steam_level(steamid)
+        inventory = steam.get_inventory(steamid)
+        trust_score = trust.build_trust(summary, level, inventory)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    return JsonResponse({
+        "nickname": summary.get("nickname"),
+        "steamid": steamid,
+        "steam_level": level,
+        "inventory": inventory,
+        "trust": trust_score,
+    })
 
 
 @require_GET
