@@ -801,10 +801,49 @@ a { color: inherit; }
 /* ============================================================
    Leetify tab
    ============================================================ */
-.leet-ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.leet-ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
 .leet-rank { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; text-align: center; }
-.leet-rank-val { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--text); }
-.leet-rank-label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+.leet-rank-val {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--text);
+  min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.leet-rank-val.group { font-size: 15px; line-height: 1.25; }
+.leet-rank-val.faceit .leet-elo { font-family: var(--font-mono); font-size: 15px; }
+.leet-rank-label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
+
+/* In-game Premier "CS Rating" plate (drawn, bracket-colored) */
+.prem-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 14px 5px 10px;
+  background: linear-gradient(180deg, var(--pcd), color-mix(in srgb, var(--pcd) 55%, #000));
+  border: 1px solid color-mix(in srgb, var(--pc) 65%, transparent);
+  border-radius: 5px;
+  transform: skewX(-10deg);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--pc) 22%, transparent),
+              inset 0 1px 0 color-mix(in srgb, var(--pc) 30%, transparent);
+}
+.prem-badge .prem-sl {
+  color: var(--pc); font-family: var(--font-mono); font-weight: 800;
+  font-size: 15px; letter-spacing: -2px; opacity: 0.95;
+}
+.prem-badge b {
+  font-family: var(--font-mono); font-style: italic; font-weight: 800;
+  font-size: 17px; color: #fff; letter-spacing: 0.5px;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent);
+}
+
+/* Competitive per-map (skill group names) */
+.leet-comp {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  padding: 6px 8px; margin-bottom: 20px;
+}
+.leet-comp-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 7px; font-size: 13px;
+}
+.leet-comp-row:nth-child(odd) { background: var(--bg-elev-2); }
+.leet-comp-map { font-weight: 600; text-transform: capitalize; }
+.leet-comp-rank { font-family: var(--font-mono); font-size: 12px; color: var(--gold); }
 .leet-rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
 .leet-ring { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 18px; text-align: center; }
 .leet-ring-val { font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1; }

@@ -1,7 +1,23 @@
 import { useState, useEffect } from "react";
 import leetifyBadge from "../assets/leetify-badge.jpg";
+import PremierBadge from "./PremierBadge.jsx";
+import SkillBadge from "./SkillBadge.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+// CS2 competitive / wingman skill groups (rank 1..18, 0 = unranked)
+const SKILL_GROUPS = [
+  "Unranked",
+  "Silver I", "Silver II", "Silver III", "Silver IV", "Silver Elite", "Silver Elite Master",
+  "Gold Nova I", "Gold Nova II", "Gold Nova III", "Gold Nova Master",
+  "Master Guardian I", "Master Guardian II", "Master Guardian Elite", "Distinguished Master Guardian",
+  "Legendary Eagle", "Legendary Eagle Master", "Supreme Master First Class", "The Global Elite",
+];
+
+function groupName(rank) {
+  const r = Number(rank);
+  return SKILL_GROUPS[r] || `Rank ${rank}`;
+}
 
 // Skill ratings are 0-100 (higher better). Colour by tier, don't rescale.
 function ratingColor(v) {
@@ -98,26 +114,56 @@ export default function LeetifyStats({ nickname }) {
   }
 
   const { ranks = {}, rating = {}, stats = [] } = data;
-  const rankTiles = [
-    ranks.premier != null && { label: "Premier", value: ranks.premier.toLocaleString() },
-    ranks.faceit != null && {
-      label: "FACEIT",
-      value: `Lvl ${ranks.faceit}${ranks.faceit_elo ? ` · ${ranks.faceit_elo}` : ""}`,
-    },
-    ranks.wingman != null && { label: "Wingman", value: `Lvl ${ranks.wingman}` },
-    ranks.leetify != null && { label: "Leetify Rating", value: ranks.leetify },
-  ].filter(Boolean);
+  const compMaps = (ranks.competitive || []).filter((m) => Number(m.rank) > 0);
+  const hasRanks =
+    ranks.premier != null || ranks.faceit != null ||
+    ranks.wingman != null || ranks.leetify != null;
 
   return (
     <>
-      {rankTiles.length > 0 && (
+      {hasRanks && (
         <>
           <div className="section-title">Ranks</div>
           <div className="leet-ranks">
-            {rankTiles.map((r) => (
-              <div className="leet-rank" key={r.label}>
-                <div className="leet-rank-val">{r.value}</div>
-                <div className="leet-rank-label">{r.label}</div>
+            {ranks.premier != null && (
+              <div className="leet-rank">
+                <div className="leet-rank-val"><PremierBadge rating={ranks.premier} /></div>
+                <div className="leet-rank-label">Premier</div>
+              </div>
+            )}
+            {ranks.faceit != null && (
+              <div className="leet-rank">
+                <div className="leet-rank-val faceit">
+                  <SkillBadge level={ranks.faceit} size={34} />
+                  {ranks.faceit_elo != null && <span className="leet-elo">{ranks.faceit_elo} ELO</span>}
+                </div>
+                <div className="leet-rank-label">FACEIT</div>
+              </div>
+            )}
+            {ranks.wingman != null && Number(ranks.wingman) > 0 && (
+              <div className="leet-rank">
+                <div className="leet-rank-val group">{groupName(ranks.wingman)}</div>
+                <div className="leet-rank-label">Wingman</div>
+              </div>
+            )}
+            {ranks.leetify != null && (
+              <div className="leet-rank">
+                <div className="leet-rank-val">{ranks.leetify}</div>
+                <div className="leet-rank-label">Leetify Rating</div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {compMaps.length > 0 && (
+        <>
+          <div className="section-title">Competitive per map</div>
+          <div className="leet-comp">
+            {compMaps.map((m) => (
+              <div className="leet-comp-row" key={m.map_name}>
+                <span className="leet-comp-map">{(m.map_name || "").replace(/^(de|cs)_/, "")}</span>
+                <span className="leet-comp-rank">{groupName(m.rank)}</span>
               </div>
             ))}
           </div>
