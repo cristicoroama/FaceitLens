@@ -184,6 +184,7 @@ def get_team_rankings(limit: int = 30) -> dict:
             "points": _num(_pick(row, "points", "point")),
             "change": _pick(row, "change", "delta"),
             "logo": _team_logo(row),
+            "team_url": _pick(row, "team_url", "url", "link"),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
@@ -262,6 +263,7 @@ def get_team_stats(days: int = 30, limit: int = 30) -> dict:
             "kd": _pick(row, "kd"),
             "rating": _pick(row, "rating"),
             "logo": _team_logo(row),
+            "team_url": _pick(row, "team_url", "url", "link"),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
@@ -291,6 +293,87 @@ def get_player_stats(days: int = 30, limit: int = 30) -> dict:
             "logo": _pick(row, "logo", "image", "img", "photo", "avatar",
                           "player_image", "picture", "src"),
             "team_logo": _team_logo(row, "team"),
+            "player_url": _pick(row, "player_url", "url", "link"),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
+
+
+def _obj(payload) -> dict:
+    """Unwrap parse.bot's {status, data:{...}} to the inner object."""
+    if isinstance(payload, dict):
+        d = payload.get("data")
+        if isinstance(d, dict):
+            return d
+        return payload
+    return {}
+
+
+def get_team_details(team_url: str | None = None, team_id: str | None = None) -> dict:
+    """One team's page: name, logo, world ranking, and its player roster."""
+    if not team_url and not team_id:
+        return {"available": False, "reason": "no_team", "attribution": ATTRIBUTION}
+    params = {}
+    if team_url:
+        params["team_url"] = team_url
+    if team_id:
+        params["team_id"] = team_id
+    ok = _call("get_team_details", params=params,
+               cache_suffix=team_url or str(team_id))
+    if not ok.get("available"):
+        return {**ok, "attribution": ATTRIBUTION}
+
+    d = _obj(ok["raw"])
+    roster = []
+    for p in (d.get("roster") or d.get("players") or []):
+        if not isinstance(p, dict):
+            continue
+        roster.append({
+            "name": _pick(p, "name", "nickname"),
+            "player_url": _pick(p, "player_url", "url", "link"),
+            "player_id": _pick(p, "player_id", "id"),
+            "photo": _pick(p, "photo", "image", "img", "picture", "src"),
+            "country": _pick(p, "country", "nationality", "flag"),
+        })
+    roster = [p for p in roster if p["name"]]
+    return {
+        "available": True,
+        "name": _pick(d, "name", "team"),
+        "logo": _team_logo(d),
+        "world_ranking": _num(_pick(d, "world_ranking", "ranking", "rank")),
+        "roster": roster,
+        "attribution": ATTRIBUTION,
+    }
+
+
+def get_player_details(player_url: str | None = None, player_id: str | None = None) -> dict:
+    """One player's profile: photo, country, age, team, HLTV rating 2.0, etc."""
+    if not player_url and not player_id:
+        return {"available": False, "reason": "no_player", "attribution": ATTRIBUTION}
+    params = {}
+    if player_url:
+        params["player_url"] = player_url
+    if player_id:
+        params["player_id"] = player_id
+    ok = _call("get_player_details", params=params,
+               cache_suffix=player_url or str(player_id))
+    if not ok.get("available"):
+        return {**ok, "attribution": ATTRIBUTION}
+
+    d = _obj(ok["raw"])
+    return {
+        "available": True,
+        "name": _pick(d, "name", "nickname"),
+        "real_name": _pick(d, "real_name", "realname", "full_name"),
+        "photo": _pick(d, "photo", "image", "img", "picture", "bodyshot", "src"),
+        "country": _pick(d, "country", "nationality"),
+        "flag": _pick(d, "flag", "country_flag"),
+        "age": _pick(d, "age"),
+        "team": _pick(d, "current_team", "team"),
+        "team_logo": _team_logo(d, "team") or _pick(d, "team_logo"),
+        "rating": _pick(d, "rating_2_0", "rating_2", "rating2_0", "rating"),
+        "maps": _pick(d, "maps_played", "maps"),
+        "kd": _pick(d, "kd", "kd_ratio"),
+        "hs": _pick(d, "headshot_pct", "headshots", "hs"),
+        "attribution": ATTRIBUTION,
+    }

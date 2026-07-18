@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { TeamModal, PlayerModal } from "./HltvDetail.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -45,6 +46,8 @@ export default function HltvView({ onPick }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [teamModal, setTeamModal] = useState(null); // { url, name }
+  const [playerModal, setPlayerModal] = useState(null); // { url?, id?, name }
 
   async function load(section) {
     setLoading(true);
@@ -135,9 +138,10 @@ export default function HltvView({ onPick }) {
               const initials = (t.name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
               return (
                 <div
-                  className={`rank-card ${top}`}
+                  className={`rank-card ${top} ${t.team_url ? "clickable" : ""}`}
                   key={`${t.name}-${i}`}
                   style={{ animationDelay: `${Math.min(i, 14) * 0.03}s` }}
+                  onClick={t.team_url ? () => setTeamModal({ url: t.team_url, name: t.name }) : undefined}
                 >
                   <div className="rank-pos">#{pos}</div>
                   <div className="rank-logo-wrap">
@@ -215,7 +219,11 @@ export default function HltvView({ onPick }) {
 
           {tab === "team-stats" &&
             filtered.map((t, i) => (
-              <div className="squad-row hltv-pstat" key={`${t.name}-${i}`}>
+              <div
+                className={`squad-row hltv-pstat ${t.team_url ? "clickable" : ""}`}
+                key={`${t.name}-${i}`}
+                onClick={t.team_url ? () => setTeamModal({ url: t.team_url, name: t.name }) : undefined}
+              >
                 <span className="squad-rank">#{i + 1}</span>
                 <Logo src={t.logo} alt={t.name} />
                 <span className="squad-name">{t.name}</span>
@@ -237,8 +245,8 @@ export default function HltvView({ onPick }) {
                 <Logo src={p.logo} alt="" className="hltv-flag" />
                 <span
                   className="squad-name link"
-                  onClick={() => onPick && p.name && onPick(p.name)}
-                  title={`Search ${p.name} on FACEIT`}
+                  onClick={() => setPlayerModal({ id: p.player_id, url: p.player_url, name: p.name })}
+                  title={`View ${p.name}`}
                 >
                   {p.name}
                 </span>
@@ -264,6 +272,22 @@ export default function HltvView({ onPick }) {
             {attribution.text}
           </a>
         </div>
+      )}
+
+      {teamModal && (
+        <TeamModal
+          teamUrl={teamModal.url}
+          teamName={teamModal.name}
+          onClose={() => setTeamModal(null)}
+          onOpenPlayer={(ref) => setPlayerModal(ref)}
+        />
+      )}
+      {playerModal && (
+        <PlayerModal
+          playerRef={playerModal}
+          onClose={() => setPlayerModal(null)}
+          onFaceit={onPick}
+        />
       )}
     </>
   );

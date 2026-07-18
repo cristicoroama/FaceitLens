@@ -342,6 +342,12 @@ def hltv(request, section):
             data = parsebot.get_team_stats(days=days, limit=limit)
         elif section == "player-stats":
             data = parsebot.get_player_stats(days=days, limit=limit)
+        elif section == "team-details":
+            data = parsebot.get_team_details(
+                team_url=request.GET.get("url"), team_id=request.GET.get("id"))
+        elif section == "player-details":
+            data = parsebot.get_player_details(
+                player_url=request.GET.get("url"), player_id=request.GET.get("id"))
         else:
             return JsonResponse({"error": "Unknown HLTV section."}, status=404)
     except Exception as exc:
