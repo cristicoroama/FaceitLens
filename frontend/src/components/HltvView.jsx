@@ -51,7 +51,9 @@ export default function HltvView({ onPick }) {
     setError("");
     setData(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/hltv/${section}/?limit=50`);
+      // Stats tabs get a deeper list so name-search has more to match against.
+      const lim = section.endsWith("-stats") ? 100 : 50;
+      const resp = await fetch(`${API_BASE}/api/hltv/${section}/?limit=${lim}`);
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
       setData(json);
@@ -116,7 +118,11 @@ export default function HltvView({ onPick }) {
       )}
 
       {!loading && data?.available && filtered.length === 0 && (
-        <div className="state">No data.</div>
+        <div className="state">
+          {query.trim()
+            ? `No match for "${query.trim()}" in the loaded top ${items.length}. This filters the current stats list, not all of HLTV.`
+            : "No data."}
+        </div>
       )}
 
       {!loading && data?.available && filtered.length > 0 && (
