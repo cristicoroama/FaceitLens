@@ -30,7 +30,11 @@ import re
 import requests
 from django.core.cache import cache
 
-DEFAULT_BASE = "https://api.parse.bot/scraper/b3500f47-4f4d-4f28-b85d-7e73293b70d1/"
+# Our own fork of the canonical "hltv.org API" scraper — it carries the full
+# endpoint set including get_player_details / get_team_details, which the shared
+# canonical scraper (b3500f47…) doesn't have until revisions propagate upstream.
+# Override via PARSE_HLTV_BASE if the scraper id ever changes.
+DEFAULT_BASE = "https://api.parse.bot/scraper/a15961de-b6e8-4300-aacc-635fad2505af/"
 CACHE_TTL = int(os.environ.get("PARSE_CACHE_TTL", str(15 * 60)))
 
 ATTRIBUTION = {"text": "Data via HLTV.org", "url": "https://www.hltv.org/"}
