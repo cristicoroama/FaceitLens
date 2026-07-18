@@ -215,21 +215,26 @@ export default function HltvView({ onPick }) {
 
           {tab === "team-stats" &&
             filtered.map((t, i) => (
-              <div className="squad-row" key={`${t.name}-${i}`}>
+              <div className="squad-row hltv-pstat" key={`${t.name}-${i}`}>
                 <span className="squad-rank">#{i + 1}</span>
                 <Logo src={t.logo} alt={t.name} />
                 <span className="squad-name">{t.name}</span>
-                <span className="squad-wr">{t.maps ? `${t.maps} maps` : ""}</span>
-                <span className="squad-wr">K/D {t.kd ?? "—"}</span>
-                <span className="squad-elo">{t.rating ?? "—"}</span>
+                <span className="pstat-col hide-sm">{t.maps ? `${t.maps} maps` : ""}</span>
+                {t.kd_diff != null && (
+                  <span className={`pstat-diff ${String(t.kd_diff).startsWith("-") ? "neg" : "pos"}`}>
+                    {t.kd_diff}
+                  </span>
+                )}
+                <span className="pstat-col">{t.kd ?? "—"}</span>
+                <span className="pstat-rating" title="HLTV rating">{t.rating ?? "—"}</span>
               </div>
             ))}
 
           {tab === "player-stats" &&
             filtered.map((p, i) => (
-              <div className="squad-row" key={`${p.name}-${i}`}>
+              <div className="squad-row hltv-pstat" key={`${p.name}-${i}`}>
                 <span className="squad-rank">#{i + 1}</span>
-                <Logo src={p.logo} alt={p.name} className="hltv-logo player" />
+                <Logo src={p.logo} alt="" className="hltv-flag" />
                 <span
                   className="squad-name link"
                   onClick={() => onPick && p.name && onPick(p.name)}
@@ -239,10 +244,15 @@ export default function HltvView({ onPick }) {
                 </span>
                 <span className="hltv-teamtag">
                   <Logo src={p.team_logo} alt={p.team} className="hltv-logo sm" />
-                  {p.team || ""}
+                  <span className="pstat-team-name hide-sm">{p.team || ""}</span>
                 </span>
-                <span className="squad-wr">K/D {p.kd ?? "—"}</span>
-                <span className="squad-elo">{p.rating ?? "—"}</span>
+                {p.kd_diff != null && (
+                  <span className={`pstat-diff ${String(p.kd_diff).startsWith("-") ? "neg" : "pos"}`}>
+                    {p.kd_diff}
+                  </span>
+                )}
+                <span className="pstat-col hide-sm">{p.kd ?? "—"}</span>
+                <span className="pstat-rating" title="HLTV rating">{p.rating ?? "—"}</span>
               </div>
             ))}
         </div>

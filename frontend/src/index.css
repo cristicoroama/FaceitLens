@@ -696,6 +696,30 @@ a { color: inherit; }
 .hltv-team .hltv-logo { margin: 0 6px; }
 .hltv-teamtag { display: inline-flex; align-items: center; gap: 6px; }
 
+/* HLTV stats rows (player / team) */
+.hltv-pstat { gap: 10px; }
+.hltv-flag {
+  width: 20px; height: 13px; border-radius: 2px; object-fit: cover; flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+}
+.hltv-pstat .hltv-teamtag { flex: 0 1 150px; min-width: 0; color: var(--text-dim); font-size: 13px; }
+.pstat-team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pstat-col {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text-dim);
+  flex: 0 0 auto; min-width: 48px; text-align: right;
+}
+.pstat-diff {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  flex: 0 0 auto; min-width: 44px; text-align: right;
+}
+.pstat-diff.pos { color: var(--win); }
+.pstat-diff.neg { color: var(--loss); }
+.pstat-rating {
+  font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--accent);
+  flex: 0 0 auto; min-width: 52px; text-align: right;
+}
+@media (max-width: 620px) { .hide-sm { display: none !important; } }
+
 .lb-controls { display: flex; gap: 10px; margin-bottom: 16px; }
 .lb-controls input {
   flex: 1; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 9px;
