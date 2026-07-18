@@ -79,6 +79,8 @@ export default function HltvView({ onPick }) {
         )
       : items;
 
+  const maxPts = Math.max(1, ...filtered.map((t) => Number(t.points) || 0));
+
   return (
     <>
       <div className="section-title">HLTV — Pro Scene</div>
@@ -118,16 +120,40 @@ export default function HltvView({ onPick }) {
       )}
 
       {!loading && data?.available && filtered.length > 0 && (
-        <div className="squad">
+        <div className={tab === "rankings" ? "rank-grid" : "squad stagger"}>
           {tab === "rankings" &&
-            filtered.map((t, i) => (
-              <div className="squad-row" key={`${t.name}-${i}`}>
-                <span className="squad-rank">#{t.rank ?? i + 1}</span>
-                <Logo src={t.logo} alt={t.name} />
-                <span className="squad-name">{t.name}</span>
-                <span className="squad-elo">{t.points ?? "—"}</span>
-              </div>
-            ))}
+            filtered.map((t, i) => {
+              const pos = Number(t.rank) || i + 1;
+              const pct = Math.max(4, Math.round(((Number(t.points) || 0) / maxPts) * 100));
+              const top = pos <= 3 ? `top${pos}` : "";
+              const initials = (t.name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+              return (
+                <div
+                  className={`rank-card ${top}`}
+                  key={`${t.name}-${i}`}
+                  style={{ animationDelay: `${Math.min(i, 14) * 0.03}s` }}
+                >
+                  <div className="rank-pos">#{pos}</div>
+                  <div className="rank-logo-wrap">
+                    {t.logo ? (
+                      <Logo src={t.logo} alt={t.name} className="rank-logo-img" />
+                    ) : (
+                      <span className="rank-logo-ph">{initials}</span>
+                    )}
+                  </div>
+                  <div className="rank-main">
+                    <div className="rank-name">{t.name}</div>
+                    <div className="rank-bar-track">
+                      <div className="rank-bar-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <div className="rank-pts">
+                    <span className="rank-pts-num">{t.points ?? "—"}</span>
+                    <span className="rank-pts-label">points</span>
+                  </div>
+                </div>
+              );
+            })}
 
           {tab === "results" &&
             filtered.map((m, i) => (

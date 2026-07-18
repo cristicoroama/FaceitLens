@@ -26,6 +26,7 @@ import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import HltvView from "./components/HltvView.jsx";
+import ThemeMenu from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
 
@@ -176,9 +177,12 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [sideOpen, setSideOpen] = useState(false);
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("faceitlens_theme") || "dark"
-  );
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("faceitlens_theme");
+    // migrate the old two-value toggle to the new named themes
+    if (saved === "light") return "light";
+    return saved || "dark";
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -470,13 +474,7 @@ export default function App() {
             />
           </div>
           <div className="tb-actions">
-            <button
-              className="tb-btn"
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-              title="Toggle light / dark"
-            >
-              {theme === "dark" ? "☀" : "🌙"}
-            </button>
+            <ThemeMenu theme={theme} setTheme={setTheme} />
           </div>
         </header>
 
