@@ -93,6 +93,24 @@ def _num(v):
     return m.group(0) if m else v
 
 
+def _team_logo(row, prefix=""):
+    """Best-effort logo/image URL for a team row.
+
+    Reads defensively: the parse.bot scraper only returns a logo once it's been
+    revised to extract the <img src>. `prefix` handles per-side keys in
+    two-team rows, e.g. team1_logo / team2_logo. Returns None until then.
+    """
+    bases = ("logo", "logo_url", "image", "image_url", "img", "src")
+    if prefix:
+        # Per-side keys only — never fall back to a bare "logo" or we'd put the
+        # same image on both teams. team1 -> team1_logo, logo_team1, logo1, ...
+        keys = [f"{prefix}_{b}" for b in bases]
+        keys += [f"{b}_{prefix}" for b in ("logo", "image")]
+        keys += [f"{b}{prefix[-1]}" for b in ("logo", "image")]  # logo1 / image2
+        return _pick(row, *keys)
+    return _pick(row, *bases, "team_logo")
+
+
 def _call(endpoint: str, params: dict | None = None, cache_suffix: str = "") -> dict:
     """
     Shared caller for every HLTV endpoint. Returns
@@ -165,6 +183,7 @@ def get_team_rankings(limit: int = 30) -> dict:
             "name": _pick(row, "team", "name"),
             "points": _num(_pick(row, "points", "point")),
             "change": _pick(row, "change", "delta"),
+            "logo": _team_logo(row),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
@@ -185,6 +204,8 @@ def get_results(limit: int = 30) -> dict:
             "date": _pick(row, "date"),
             "team1": _pick(row, "team1", "team_1", "home"),
             "team2": _pick(row, "team2", "team_2", "away"),
+            "team1_logo": _team_logo(row, "team1"),
+            "team2_logo": _team_logo(row, "team2"),
             "score": _pick(row, "score", "result"),
             "event": _pick(row, "event", "tournament"),
             "url": _pick(row, "url", "link"),
@@ -213,6 +234,8 @@ def get_upcoming(limit: int = 30, filter_cct: bool = False) -> dict:
             "time": _pick(row, "time"),
             "team1": _pick(row, "team1", "team_1", "home"),
             "team2": _pick(row, "team2", "team_2", "away"),
+            "team1_logo": _team_logo(row, "team1"),
+            "team2_logo": _team_logo(row, "team2"),
             "event": _pick(row, "event", "tournament"),
             "url": _pick(row, "url", "link"),
         })
@@ -238,6 +261,7 @@ def get_team_stats(days: int = 30, limit: int = 30) -> dict:
             "kd_diff": _pick(row, "kd_diff", "kddiff"),
             "kd": _pick(row, "kd"),
             "rating": _pick(row, "rating"),
+            "logo": _team_logo(row),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
@@ -264,6 +288,9 @@ def get_player_stats(days: int = 30, limit: int = 30) -> dict:
             "kd_diff": _pick(row, "kd_diff", "kddiff"),
             "kd": _pick(row, "kd"),
             "rating": _pick(row, "rating"),
+            "logo": _pick(row, "logo", "image", "img", "photo", "avatar",
+                          "player_image", "picture", "src"),
+            "team_logo": _team_logo(row, "team"),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)

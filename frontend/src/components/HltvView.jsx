@@ -22,6 +22,23 @@ const TABS = [
   ["player-stats", "Player Stats"],
 ];
 
+/** Logo/avatar that renders only when a URL exists and actually loads.
+    The scraper returns a `logo` field once it's revised to extract the image;
+    until then `src` is null and nothing shows — no broken-image icons. */
+function Logo({ src, alt, className = "hltv-logo" }) {
+  const [ok, setOk] = useState(true);
+  if (!src || !ok) return null;
+  return (
+    <img
+      className={className}
+      src={src}
+      alt={alt || ""}
+      loading="lazy"
+      onError={() => setOk(false)}
+    />
+  );
+}
+
 export default function HltvView({ onPick }) {
   const [tab, setTab] = useState("rankings");
   const [data, setData] = useState(null);
@@ -106,6 +123,7 @@ export default function HltvView({ onPick }) {
             filtered.map((t, i) => (
               <div className="squad-row" key={`${t.name}-${i}`}>
                 <span className="squad-rank">#{t.rank ?? i + 1}</span>
+                <Logo src={t.logo} alt={t.name} />
                 <span className="squad-name">{t.name}</span>
                 <span className="squad-elo">{t.points ?? "—"}</span>
               </div>
@@ -121,9 +139,15 @@ export default function HltvView({ onPick }) {
                 rel="noopener noreferrer"
               >
                 <span className="hltv-match">
-                  <span className="hltv-team">{m.team1 || "?"}</span>
+                  <span className="hltv-team">
+                    <Logo src={m.team1_logo} alt={m.team1} />
+                    {m.team1 || "?"}
+                  </span>
                   <span className="hltv-score">{m.score || "vs"}</span>
-                  <span className="hltv-team right">{m.team2 || "?"}</span>
+                  <span className="hltv-team right">
+                    {m.team2 || "?"}
+                    <Logo src={m.team2_logo} alt={m.team2} />
+                  </span>
                 </span>
                 <span className="squad-wr">{m.event || ""}</span>
                 {m.date && <span className="hltv-date">{m.date}</span>}
@@ -140,9 +164,15 @@ export default function HltvView({ onPick }) {
                 rel="noopener noreferrer"
               >
                 <span className="hltv-match">
-                  <span className="hltv-team">{m.team1 || "TBD"}</span>
+                  <span className="hltv-team">
+                    <Logo src={m.team1_logo} alt={m.team1} />
+                    {m.team1 || "TBD"}
+                  </span>
                   <span className="hltv-score">vs</span>
-                  <span className="hltv-team right">{m.team2 || "TBD"}</span>
+                  <span className="hltv-team right">
+                    {m.team2 || "TBD"}
+                    <Logo src={m.team2_logo} alt={m.team2} />
+                  </span>
                 </span>
                 <span className="squad-wr">{m.event || ""}</span>
                 <span className="hltv-date">
@@ -155,6 +185,7 @@ export default function HltvView({ onPick }) {
             filtered.map((t, i) => (
               <div className="squad-row" key={`${t.name}-${i}`}>
                 <span className="squad-rank">#{i + 1}</span>
+                <Logo src={t.logo} alt={t.name} />
                 <span className="squad-name">{t.name}</span>
                 <span className="squad-wr">{t.maps ? `${t.maps} maps` : ""}</span>
                 <span className="squad-wr">K/D {t.kd ?? "—"}</span>
@@ -166,6 +197,7 @@ export default function HltvView({ onPick }) {
             filtered.map((p, i) => (
               <div className="squad-row" key={`${p.name}-${i}`}>
                 <span className="squad-rank">#{i + 1}</span>
+                <Logo src={p.logo} alt={p.name} className="hltv-logo player" />
                 <span
                   className="squad-name link"
                   onClick={() => onPick && p.name && onPick(p.name)}
@@ -173,7 +205,10 @@ export default function HltvView({ onPick }) {
                 >
                   {p.name}
                 </span>
-                <span className="squad-wr">{p.team || ""}</span>
+                <span className="hltv-teamtag">
+                  <Logo src={p.team_logo} alt={p.team} className="hltv-logo sm" />
+                  {p.team || ""}
+                </span>
                 <span className="squad-wr">K/D {p.kd ?? "—"}</span>
                 <span className="squad-elo">{p.rating ?? "—"}</span>
               </div>

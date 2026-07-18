@@ -654,6 +654,11 @@ a { color: inherit; }
 .hltv-team.right { text-align: right; }
 .hltv-score { font-family: var(--font-mono); font-weight: 700; color: var(--accent); flex: 0 0 auto; padding: 0 4px; }
 .hltv-date { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); flex: 0 0 auto; min-width: 74px; text-align: right; }
+.hltv-logo { width: 22px; height: 22px; object-fit: contain; flex: 0 0 auto; vertical-align: middle; }
+.hltv-logo.sm { width: 16px; height: 16px; }
+.hltv-logo.player { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.hltv-team .hltv-logo { margin: 0 6px; }
+.hltv-teamtag { display: inline-flex; align-items: center; gap: 6px; }
 
 .lb-controls { display: flex; gap: 10px; margin-bottom: 16px; }
 .lb-controls input {
