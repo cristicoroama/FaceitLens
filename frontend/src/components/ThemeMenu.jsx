@@ -9,6 +9,7 @@ export const THEMES = [
   { id: "crimson", label: "Inferno", dot: "#ff4d6d", dot2: "#ffb020" },
   { id: "ocean", label: "Deep Ocean", dot: "#38bdf8", dot2: "#818cf8" },
   { id: "gold", label: "Solar Gold", dot: "#fbbf24", dot2: "#fb7185" },
+  { id: "midnight", label: "Midnight OLED", dot: "#000000", dot2: "#7c6bff" },
   { id: "light", label: "Daylight", dot: "#7c3aed", dot2: "#0891b2" },
 ];
 
