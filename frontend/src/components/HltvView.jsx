@@ -88,7 +88,20 @@ export default function HltvView({ onPick }) {
 
   return (
     <>
-      <div className="section-title">HLTV — Pro Scene</div>
+      <div className="page-hero">
+        <div className="page-hero-title">
+          <div className="panel-ic" style={{ width: 38, height: 38 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 18, height: 18 }}>
+              <path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" />
+            </svg>
+          </div>
+          HLTV <em>Pro Scene</em>
+        </div>
+        <div className="page-hero-sub">
+          World rankings, live results, upcoming matches and the top team &amp; player
+          stats — straight from the professional Counter-Strike circuit.
+        </div>
+      </div>
 
       <div className="ptabs">
         {TABS.map(([key, label]) => (

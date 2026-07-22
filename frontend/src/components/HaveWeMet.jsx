@@ -30,7 +30,15 @@ export default function HaveWeMet({ player }) {
 
   return (
     <>
-      <div className="section-title">Have We Met?</div>
+      <div className="panel-head" style={{ marginBottom: 12 }}>
+        <div className="panel-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M17 8h5M19.5 5.5v5" />
+          </svg>
+        </div>
+        <div className="panel-title">Have We Met?</div>
+        <div className="panel-sub">check shared match history</div>
+      </div>
       <div className="search">
         <input
           type="text"

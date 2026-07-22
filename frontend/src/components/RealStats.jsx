@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import RingGauge from "./RingGauge.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -66,18 +67,25 @@ export default function RealStats({ nickname }) {
 
   return (
     <>
-      <div className="real-hero">
+      <div className="real-hero real-hero2">
+        <RingGauge
+          value={data.rating}
+          max={1.6}
+          size={132}
+          stroke={11}
+          color={tier.color}
+          display={data.rating.toFixed(2)}
+          sublabel={tier.text}
+          valueSize={30}
+        />
         <div className="real-hero-main">
           <div className="real-badge">✓ REAL · parsed from demos</div>
-          <div className="real-rating" style={{ color: tier.color }}>
-            {data.rating.toFixed(2)}
-          </div>
-          <div className="real-rating-label">
+          <div className="real-rating-label" style={{ marginTop: 6 }}>
             HLTV Rating 2.0 · <span style={{ color: tier.color }}>{tier.text}</span>
           </div>
-        </div>
-        <div className="real-hero-meta">
-          {data.matches} matches · {data.rounds} rounds
+          <div className="real-hero-meta" style={{ textAlign: "left", marginTop: 4 }}>
+            {data.matches} matches · {data.rounds} rounds
+          </div>
         </div>
       </div>
 

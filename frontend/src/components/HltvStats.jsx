@@ -40,7 +40,7 @@ function pctFor(cfg, value) {
   return Math.max(4, Math.min(96, dir * 100));
 }
 
-function Gauge({ metricKey, value }) {
+function Gauge({ metricKey, value, delay }) {
   const cfg = METRICS[metricKey];
   const tier = tierFor(cfg, value);
   const meta = TIER_META[tier];
@@ -49,16 +49,27 @@ function Gauge({ metricKey, value }) {
     metricKey === "kast" || metricKey === "hs" ? `${Math.round(value)}` : value;
 
   return (
-    <div className="gauge">
-      <div className="gauge-label">
-        {cfg.label}
-        {cfg.approx && <span className="gauge-approx">*</span>}
+    <div className="g2" style={{ animationDelay: `${delay}s` }}>
+      <div className="g2-top">
+        <span className="g2-label">
+          {cfg.label}
+          {cfg.approx && <span className="gauge-approx">*</span>}
+        </span>
+        <span
+          className="g2-chip"
+          style={{
+            color: meta.color,
+            borderColor: meta.color,
+            background: `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+          }}
+        >
+          {meta.text}
+        </span>
       </div>
-      <div className="gauge-value">{display}</div>
-      <div className="gauge-track">
-        <div className="gauge-marker" style={{ left: `${pct}%` }} />
+      <div className="g2-value" style={{ color: meta.color }}>{display}</div>
+      <div className="g2-track">
+        <div className="g2-marker" style={{ left: `${pct}%` }} />
       </div>
-      <div className="gauge-tier" style={{ color: meta.color }}>{meta.text}</div>
     </div>
   );
 }
@@ -70,15 +81,23 @@ export default function HltvStats({ hltv }) {
   const order = ["rating", "dpr", "kast", "kd", "adr", "kpr", "impact", "hs"];
   return (
     <>
-      <div className="hltv-grid">
-        {order.map((k) => (
-          <Gauge key={k} metricKey={k} value={hltv[k]} />
+      <div className="panel-head" style={{ marginBottom: 12 }}>
+        <div className="panel-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" />
+          </svg>
+        </div>
+        <div className="panel-title">HLTV-style Metrics</div>
+        <div className="panel-sub">last {hltv.matches} matches</div>
+      </div>
+      <div className="g2-grid">
+        {order.map((k, i) => (
+          <Gauge key={k} metricKey={k} value={hltv[k]} delay={i * 0.05} />
         ))}
       </div>
       <div className="hltv-note">
-        Based on the last {hltv.matches} matches. Metrics marked <b>*</b> (Rating 2.0,
-        KAST, ADR, Impact) are approximations — true HLTV Rating needs per-round demo
-        data the FACEIT API doesn't expose.
+        Metrics marked <b>*</b> (Rating 2.0, KAST, ADR, Impact) are approximations —
+        true HLTV Rating needs per-round demo data the FACEIT API doesn't expose.
       </div>
     </>
   );

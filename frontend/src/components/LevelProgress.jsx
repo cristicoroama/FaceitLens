@@ -1,7 +1,7 @@
 // FACEIT CS2 ELO level lower-bounds (level 1..10)
 const THRESHOLDS = [100, 501, 751, 901, 1051, 1201, 1351, 1531, 1751, 2001];
 
-export default function LevelProgress({ elo, level }) {
+export default function LevelProgress({ elo, level, bare }) {
   const e = Number(elo);
   if (!Number.isFinite(e)) return null;
 
@@ -18,8 +18,8 @@ export default function LevelProgress({ elo, level }) {
   const pct = isMax ? 100 : ((lvl - 1) + within) / 9 * 100;
   const need = isMax ? 0 : upper - e;
 
-  return (
-    <div className="lvlprog">
+  const body = (
+    <>
       <div className="lvlprog-text">
         {isMax ? (
           <>Level 10 — top tier ({e} ELO)</>
@@ -35,6 +35,10 @@ export default function LevelProgress({ elo, level }) {
           <span key={t} className={`lvlprog-tick ${i + 1 === lvl ? "cur" : ""}`}>{i + 1}</span>
         ))}
       </div>
-    </div>
+    </>
   );
+
+  // `bare` renders without the glass card wrapper (embedded in the hero)
+  if (bare) return body;
+  return <div className="lvlprog">{body}</div>;
 }

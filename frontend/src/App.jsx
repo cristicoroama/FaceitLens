@@ -14,7 +14,6 @@ import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
-import LevelProgress from "./components/LevelProgress.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
 import Hubs from "./components/Hubs.jsx";
@@ -138,17 +137,71 @@ const NAV = [
   ]},
 ];
 
+/* profile tab icons (inline, stroke) */
+const TI = {
+  overview: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  ),
+  trust: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2 4 5.5v5.1c0 4.9 3.4 9.5 8 10.9 4.6-1.4 8-6 8-10.9V5.5L12 2Z" /><path d="m9 11.5 2.2 2.2L15.5 9" />
+    </svg>
+  ),
+  leetify: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" />
+    </svg>
+  ),
+  real: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2" />
+    </svg>
+  ),
+  hltv: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" />
+    </svg>
+  ),
+  teammates: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17.5" cy="9.5" r="2.5" /><path d="M15.5 15.5a5 5 0 0 1 6 4.5" />
+    </svg>
+  ),
+  hubs: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="3" /><circle cx="5" cy="5" r="2" /><circle cx="19" cy="5" r="2" /><circle cx="5" cy="19" r="2" /><circle cx="19" cy="19" r="2" /><path d="M6.5 6.5 10 10M17.5 6.5 14 10M6.5 17.5 10 14M17.5 17.5 14 14" />
+    </svg>
+  ),
+  met: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M8 12h8M12 8v8" /><circle cx="12" cy="12" r="9" />
+    </svg>
+  ),
+  steam: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" /><circle cx="15" cy="9" r="2.5" /><path d="M3.4 14.5 9 17a2.8 2.8 0 1 0 3.4-3.9l3-2.8" />
+    </svg>
+  ),
+  nicknames: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 7V5h16v2M12 5v14M9 19h6" />
+    </svg>
+  ),
+};
+
 const PROFILE_TABS = [
-  ["account", "◈ Trust"],
-  ["overview", "Overview"],
-  ["leetify", "Leetify"],
-  ["real", "Demos"],
-  ["hltv", "HLTV"],
-  ["teammates", "Teammates"],
-  ["hubs", "Hubs"],
-  ["met", "Have We Met?"],
-  ["steam", "Steam"],
-  ["nicknames", "Nicknames"],
+  ["overview", "Overview", TI.overview],
+  ["account", "Trust", TI.trust],
+  ["leetify", "Leetify", TI.leetify],
+  ["real", "Demos", TI.real],
+  ["hltv", "HLTV", TI.hltv],
+  ["teammates", "Teammates", TI.teammates],
+  ["steam", "Steam", TI.steam],
+  ["hubs", "Hubs", TI.hubs],
+  ["met", "Have We Met?", TI.met],
+  ["nicknames", "Nicknames", TI.nicknames],
 ];
 
 export default function App() {
@@ -172,7 +225,7 @@ export default function App() {
   const [bySteam, setBySteam] = useState(false);
   const [steamInput, setSteamInput] = useState("");
   const [mapFilter, setMapFilter] = useState(null);
-  const [profileTab, setProfileTab] = useState("account");
+  const [profileTab, setProfileTab] = useState("overview");
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -664,15 +717,14 @@ export default function App() {
                 </div>
               )}
 
-              <LevelProgress elo={data.elo} level={data.skill_level} />
-
               <div className="ptabs">
-                {PROFILE_TABS.map(([key, label]) => (
+                {PROFILE_TABS.map(([key, label, icon]) => (
                   <button
                     key={key}
                     className={`ptab ${profileTab === key ? "active" : ""}`}
                     onClick={() => setProfileTab(key)}
                   >
+                    {icon}
                     {label}
                   </button>
                 ))}
@@ -705,8 +757,10 @@ export default function App() {
                     onMapFilter={applyMapFilter}
                   />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
-                  <MapStats maps={data.map_stats} />
-                  <Activity activity={data.activity} />
+                  <div className="duo">
+                    <div><MapStats maps={data.map_stats} /></div>
+                    <div><Activity activity={data.activity} /></div>
+                  </div>
                   <BestTeammates mates={data.best_teammates} />
                   <MatchHistory matches={data.recent_matches} me={data.nickname} />
                 </>

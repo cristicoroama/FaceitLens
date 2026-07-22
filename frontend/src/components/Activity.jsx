@@ -20,9 +20,9 @@ export default function Activity({ activity }) {
   }
 
   function shade(c) {
-    if (!c) return "var(--bg-elev-2)";
+    if (!c) return "color-mix(in srgb, var(--bg-elev-3) 60%, transparent)";
     const t = Math.min(1, c / max);
-    return `rgba(255, 85, 0, ${0.25 + t * 0.75})`;
+    return `rgba(var(--accent-rgb), ${0.25 + t * 0.75})`;
   }
 
   function fmt(key) {
@@ -40,26 +40,32 @@ export default function Activity({ activity }) {
   }
 
   return (
-    <>
-      <div className="section-title">Activity (last 12 weeks)</div>
-      <div className="activity" ref={wrapRef} style={{ position: "relative" }}>
-        <div className="activity-grid">
-          {days.map((d) => (
-            <div
-              key={d.key}
-              className="activity-cell"
-              style={{ background: shade(d.count) }}
-              onMouseEnter={(e) => onEnter(e, d)}
-              onMouseLeave={() => setTip(null)}
-            />
-          ))}
+    <div className="panel" ref={wrapRef} style={{ position: "relative" }}>
+      <div className="panel-head">
+        <div className="panel-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" />
+          </svg>
         </div>
-        {tip && (
-          <div className="activity-tip" style={{ left: tip.x, top: tip.y }}>
-            {tip.text}
-          </div>
-        )}
+        <div className="panel-title">Activity</div>
+        <div className="panel-sub">last 12 weeks</div>
       </div>
-    </>
+      <div className="activity-grid">
+        {days.map((d) => (
+          <div
+            key={d.key}
+            className="activity-cell"
+            style={{ background: shade(d.count) }}
+            onMouseEnter={(e) => onEnter(e, d)}
+            onMouseLeave={() => setTip(null)}
+          />
+        ))}
+      </div>
+      {tip && (
+        <div className="activity-tip" style={{ left: tip.x, top: tip.y }}>
+          {tip.text}
+        </div>
+      )}
+    </div>
   );
 }

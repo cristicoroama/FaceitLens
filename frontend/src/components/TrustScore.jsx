@@ -1,3 +1,5 @@
+import RingGauge from "./RingGauge.jsx";
+
 const TIER_COLOR = {
   EXCELLENT: "#22c55e",
   GOOD: "#84cc16",
@@ -22,34 +24,55 @@ export default function TrustScore({ trust, steamLevel }) {
         </span>
       </div>
 
-      <div className="trust-score" style={{ color }}>
-        {trust.score}
-        <span className="trust-pct">%</span>
+      <div className="trust-gauge">
+        <RingGauge
+          value={trust.score}
+          max={100}
+          size={150}
+          stroke={12}
+          color={color}
+          display={
+            <>
+              {trust.score}
+              <span className="trust-pct" style={{ fontSize: 18 }}>%</span>
+            </>
+          }
+          sublabel="trust"
+          valueSize={38}
+        />
       </div>
-      <div className="trust-tier" style={{ color, borderColor: color }}>
+      <div className="trust2-tier" style={{ color, borderColor: color }}>
         {trust.tier}
-      </div>
-      <div className="trust-bar">
-        <div className="trust-bar-fill" style={{ width: `${trust.score}%`, background: color }} />
       </div>
 
       <div className="trust-sub">Breakdown</div>
-      {trust.breakdown.map((b) => (
-        <div className="trust-row" key={b.label}>
-          <span className="trust-dot" style={{ background: color }} />
-          <span className="trust-row-label">{b.label}</span>
-          {b.detail && <span className="trust-row-detail">{b.detail}</span>}
-          <span className="trust-row-val">
-            {b.score}
-            <span className="trust-row-max">/{b.max}</span>
-          </span>
-        </div>
-      ))}
+      {trust.breakdown.map((b) => {
+        const pct = b.max > 0 ? Math.round((b.score / b.max) * 100) : 0;
+        return (
+          <div className="tb2-row" key={b.label}>
+            <div className="tb2-top">
+              <span className="tb2-label">{b.label}</span>
+              {b.detail && <span className="tb2-detail">{b.detail}</span>}
+              <span className="tb2-val">
+                {b.score}
+                <span className="tb2-max">/{b.max}</span>
+              </span>
+            </div>
+            <div className="tb2-track">
+              <div
+                className="tb2-fill"
+                style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}` }}
+              />
+            </div>
+          </div>
+        );
+      })}
       {trust.bonus > 0 && (
-        <div className="trust-row">
-          <span className="trust-dot" style={{ background: "var(--accent)" }} />
-          <span className="trust-row-label">FACEIT verified bonus</span>
-          <span className="trust-row-val" style={{ color: "var(--accent)" }}>+{trust.bonus}</span>
+        <div className="tb2-row">
+          <div className="tb2-top">
+            <span className="tb2-label">FACEIT verified bonus</span>
+            <span className="tb2-val" style={{ color: "var(--accent)" }}>+{trust.bonus}</span>
+          </div>
         </div>
       )}
 

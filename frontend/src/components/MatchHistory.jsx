@@ -70,15 +70,18 @@ function MatchRow({ m, me }) {
   }
 
   return (
-    <div className="match-block">
+    <div className="m2-block">
       <div
-        className={`match clickable ${m.won === true ? "won" : m.won === false ? "lost" : ""}`}
+        className={`m2 ${m.won === true ? "won" : m.won === false ? "lost" : ""} ${open ? "open" : ""}`}
         onClick={toggle}
       >
-        <span className="comp">{m.competition || "CS2"}</span>
-        <span className="teams">{teamNames || "—"}</span>
-        <span className="date">{formatDate(m.finished_at)}</span>
-        <span className="chev">{open ? "▴" : "▾"}</span>
+        <div className="m2-pill">{m.won === true ? "W" : m.won === false ? "L" : "?"}</div>
+        <div className="m2-main">
+          <div className="m2-teams">{teamNames || "—"}</div>
+          <div className="m2-comp">{m.competition || "CS2"}</div>
+        </div>
+        <span className="m2-date">{formatDate(m.finished_at)}</span>
+        <span className="m2-chev">▾</span>
       </div>
       {open && (
         <div className="match-detail">
@@ -111,10 +114,21 @@ export default function MatchHistory({ matches, me }) {
   }
   return (
     <>
-      <div className="section-title">Match History</div>
-      {matches.map((m) => (
-        <MatchRow m={m} me={me} key={m.match_id} />
-      ))}
+      <div className="panel-head" style={{ marginBottom: 12 }}>
+        <div className="panel-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3.5 2" />
+          </svg>
+        </div>
+        <div className="panel-title">Match History</div>
+        <span className="panel-count">{matches.length}</span>
+        <div className="panel-sub">click a match for the scoreboard</div>
+      </div>
+      <div className="stagger">
+        {matches.map((m) => (
+          <MatchRow m={m} me={me} key={m.match_id} />
+        ))}
+      </div>
     </>
   );
 }

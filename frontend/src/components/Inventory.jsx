@@ -58,6 +58,13 @@ export default function Inventory({ inventory, onRetry, retrying }) {
   }
   const { special = [], weapons = [], counts = {}, value } = inventory;
 
+  const countChips = [
+    ["Total", counts.total],
+    ["Skins", counts.weapons],
+    ["Stickers", counts.stickers],
+    ["Graffiti", counts.graffiti],
+  ].filter(([, v]) => v != null);
+
   return (
     <>
       {value && value.total > 0 && (
@@ -65,6 +72,13 @@ export default function Inventory({ inventory, onRetry, retrying }) {
           <span className="inv-value-num">≈ ${value.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           <span className="inv-value-label">
             inventory value · {value.priced_items} priced items · Steam Market
+          </span>
+          <span className="inv-counts">
+            {countChips.map(([label, v]) => (
+              <span key={label} className="inv-count">
+                <b>{v}</b> {label}
+              </span>
+            ))}
           </span>
         </div>
       )}
@@ -93,20 +107,15 @@ export default function Inventory({ inventory, onRetry, retrying }) {
         </div>
       )}
 
-      <div className="inv-counts">
-        {[
-          ["Total", counts.total],
-          ["Skins", counts.weapons],
-          ["Stickers", counts.stickers],
-          ["Graffiti", counts.graffiti],
-        ]
-          .filter(([, v]) => v != null)
-          .map(([label, v]) => (
+      {(!value || !value.total) && countChips.length > 0 && (
+        <div className="inv-counts">
+          {countChips.map(([label, v]) => (
             <span key={label} className="inv-count">
               <b>{v}</b> {label}
             </span>
           ))}
-      </div>
+        </div>
+      )}
     </>
   );
 }

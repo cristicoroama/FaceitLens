@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import leetifyBadge from "../assets/leetify-badge.jpg";
 import PremierBadge from "./PremierBadge.jsx";
+import RingGauge from "./RingGauge.jsx";
 import { FaceitLevel, CompRank, groupName } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -41,13 +42,8 @@ function Attribution({ url }) {
 function Ring({ label, value }) {
   const color = ratingColor(value);
   return (
-    <div className="leet-ring">
-      <div className="leet-ring-val" style={{ color }}>
-        {Math.round(value)}
-      </div>
-      <div className="leet-ring-bar">
-        <div style={{ width: `${Math.max(3, Math.min(100, value))}%`, background: color }} />
-      </div>
+    <div className="leet-ring" style={{ display: "grid", placeItems: "center", gap: 10 }}>
+      <RingGauge value={value} max={100} size={116} stroke={10} color={color} sublabel="/100" />
       <div className="leet-ring-label">{label}</div>
     </div>
   );
