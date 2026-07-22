@@ -28,6 +28,13 @@ function analyze(data) {
     signals.push({ label, detail, weight: pts });
   };
 
+  // --- FACEIT's own verdict trumps everything ---
+  const bans = Array.isArray(data.bans) ? data.bans : [];
+  const banText = bans.map((b) => `${b.reason || ""} ${b.type || ""}`).join(" ").toLowerCase();
+  const bannedForSmurf = /smurf/.test(banText);
+  const banned = bans.length > 0;
+  add(100, "Banned by FACEIT for smurfing", "This account has an active smurfing ban — confirmed.", bannedForSmurf);
+
   // A smurf plays BELOW their true rank on an IMMATURE account. Raw dominance
   // alone is not smurfing — pros crush lobbies legitimately. So the real signal
   // is a MISMATCH: elite performance on a young / low-games / low-hours account
@@ -76,11 +83,13 @@ function analyze(data) {
   // Verified (phone-tied) and Premium (paid) accounts are rarely throwaway
   // smurfs — people don't invest in accounts they'll ditch. Strong reducers.
   const legit = [];
-  if (verified) { score -= 18; legit.push("FACEIT verified"); }
-  if (premium) { score -= 16; legit.push("FACEIT Premium"); }
-
-  if (established) score = Math.min(score, 12);
-  if (maxedRank) score = Math.min(score, 18); // already at the ceiling — nowhere to smurf
+  // legit reducers only apply to *unbanned* accounts — a smurfing ban is final
+  if (!bannedForSmurf) {
+    if (verified) { score -= 18; legit.push("FACEIT verified"); }
+    if (premium) { score -= 16; legit.push("FACEIT Premium"); }
+    if (established) score = Math.min(score, 12);
+    if (maxedRank) score = Math.min(score, 18); // already at the ceiling — nowhere to smurf
+  }
 
   score = Math.max(0, Math.min(100, score));
 
@@ -91,7 +100,8 @@ function analyze(data) {
   else if (legit.length) cleanReason = `${legit.join(" + ")} — invested account, unlikely a throwaway smurf.`;
 
   let tier, color;
-  if (score >= 70) { tier = "TEXTBOOK SMURF"; color = "#ef4444"; }
+  if (bannedForSmurf) { tier = "CONFIRMED SMURF"; color = "#ef4444"; }
+  else if (score >= 70) { tier = "TEXTBOOK SMURF"; color = "#ef4444"; }
   else if (score >= 45) { tier = "LIKELY SMURF"; color = "#f59e0b"; }
   else if (score >= 25) { tier = "SOME SMURF SIGNS"; color = "#eab308"; }
   else { tier = "LOOKS LEGIT"; color = "#22c55e"; }
