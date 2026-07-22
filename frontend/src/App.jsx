@@ -219,6 +219,12 @@ const TI = {
   ),
 };
 
+/* tool pages that get their own shareable URL (/docs, /proguesser, …) */
+const TOOL_PAGES = new Set([
+  "watchlist", "leaderboard", "hltv", "matchroom", "compare",
+  "squad", "clubs", "proguesser", "games", "crosshair", "docs",
+]);
+
 const PROFILE_TABS = [
   ["overview", "Overview", TI.overview],
   ["account", "Trust", TI.trust],
@@ -233,7 +239,7 @@ const PROFILE_TABS = [
 ];
 
 export default function App() {
-  const { nickname: routeNick, steamid: routeSteam } = useParams();
+  const { nickname: routeNick, steamid: routeSteam, page: routePage } = useParams();
   const navigate = useNavigate();
 
   const [nickname, setNickname] = useState(routeNick || "");
@@ -359,6 +365,13 @@ export default function App() {
     if (p && !routeNick) navigate(`/player/${encodeURIComponent(p)}`, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tool pages have their own URLs (/docs, /proguesser, /hltv…) so they're
+  // directly shareable. Map the path segment to the internal mode.
+  useEffect(() => {
+    if (routePage && TOOL_PAGES.has(routePage)) setMode(routePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routePage]);
 
   // React to the URL: /player/<nick> or /steam/<id64> loads that profile.
   useEffect(() => {
@@ -537,10 +550,12 @@ export default function App() {
     setError("");
     if (id === "single") {
       setMode("single");
-      if (!routeNick) navigate("/");
+      navigate("/");
       return;
     }
     setMode(id);
+    // give tool pages a real, shareable URL (/docs, /proguesser…)
+    if (TOOL_PAGES.has(id)) navigate(`/${id}`);
   }
 
   async function onToggleFav() {
