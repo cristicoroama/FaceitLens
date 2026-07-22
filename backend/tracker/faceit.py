@@ -688,6 +688,61 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
     return mates[:top]
 
 
+def build_nemeses(history_items, player_nickname, top=3, min_games=2):
+    """
+    The mirror of best teammates: opponents faced most often, and how the player
+    fares against them. `win_rate` here is the PLAYER's win rate vs that rival —
+    a low number means they own you. Sorted by games faced, then by how badly
+    the player loses to them.
+    """
+    tally = {}  # nickname -> [games, player_wins]
+    meta = {}
+    for m in history_items:
+        teams = m.get("teams", {})
+        winner = (m.get("results", {}) or {}).get("winner")
+        my_faction = None
+        for side, t in teams.items():
+            names = [p.get("nickname") for p in t.get("players", [])]
+            if player_nickname in names:
+                my_faction = side
+                break
+        if my_faction is None or not winner:
+            continue
+        i_won = winner == my_faction
+        for side, t in teams.items():
+            if side == my_faction:
+                continue
+            for p in t.get("players", []):
+                nick = p.get("nickname")
+                if not nick:
+                    continue
+                entry = tally.setdefault(nick, [0, 0])
+                entry[0] += 1
+                if i_won:
+                    entry[1] += 1
+                if nick not in meta:
+                    meta[nick] = {
+                        "avatar": p.get("avatar") or None,
+                        "player_id": p.get("player_id") or p.get("user_id"),
+                    }
+
+    nemeses = [
+        {
+            "nickname": nick,
+            "games": g,
+            "wins": w,                       # player's wins vs them
+            "win_rate": round(w / g * 100),  # player's win rate vs them
+            "avatar": meta.get(nick, {}).get("avatar"),
+            "player_id": meta.get(nick, {}).get("player_id"),
+        }
+        for nick, (g, w) in tally.items()
+        if g >= min_games
+    ]
+    # most-faced first, then the ones you lose to most (lowest win rate)
+    nemeses.sort(key=lambda x: (x["games"], -x["win_rate"]), reverse=True)
+    return nemeses[:top]
+
+
 def get_player_hubs(player_id):
     """FACEIT hubs the player belongs to."""
     try:
@@ -932,6 +987,7 @@ def build_player_summary(nickname):
     form_trend = build_form_and_trend(match_items)
     best_teammates = build_best_teammates(history, player.get("nickname"))
     teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
+    nemeses = build_nemeses(history, player.get("nickname"))
     hubs = get_player_hubs(player_id)
     steam_id = cs2.get("game_player_id")
     steam = get_steam_info(steam_id)
@@ -999,6 +1055,7 @@ def build_player_summary(nickname):
         "maps_played": maps_played,
         "best_teammates": best_teammates,
         "teammates_full": teammates_full,
+        "nemeses": nemeses,
         "hubs": hubs,
         "steam": steam,
         "nicknames": nicknames,

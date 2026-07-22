@@ -31,6 +31,9 @@ import AccountMenu from "./components/AccountMenu.jsx";
 import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
+import Nemeses from "./components/Nemeses.jsx";
+import ShareCard from "./components/ShareCard.jsx";
+import Wrapped from "./components/Wrapped.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -253,6 +256,8 @@ export default function App() {
   const [roastError, setRoastError] = useState("");
   const [roastCopied, setRoastCopied] = useState(false);
   const [discordCopied, setDiscordCopied] = useState(false);
+  const [showCard, setShowCard] = useState(false);
+  const [showWrapped, setShowWrapped] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
@@ -852,8 +857,17 @@ export default function App() {
                 <button className="act-btn roast" onClick={runRoast} disabled={roastLoading}>
                   {roastLoading ? "Cooking…" : "🔥 Roast me"}
                 </button>
+                <button className="act-btn" onClick={() => setShowCard(true)}>
+                  🖼️ Share card
+                </button>
+                <button className="act-btn wrapped-btn" onClick={() => setShowWrapped(true)}>
+                  🎬 Wrapped
+                </button>
                 {data.form && <span className="form-badge">Last 10: {data.form}</span>}
               </PlayerHeader>
+
+              {showCard && <ShareCard player={data} onClose={() => setShowCard(false)} />}
+              {showWrapped && <Wrapped player={data} onClose={() => setShowWrapped(false)} />}
 
               {aiError && <div className="state error">{aiError}</div>}
               {aiText && (
@@ -921,7 +935,10 @@ export default function App() {
                     <div><MapStats maps={data.map_stats} /></div>
                     <div><Activity activity={data.activity} /></div>
                   </div>
-                  <BestTeammates mates={data.best_teammates} onPick={go} />
+                  <div className="duo">
+                    <div><BestTeammates mates={data.best_teammates} onPick={go} /></div>
+                    <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
+                  </div>
                   <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
                 </>
               )}

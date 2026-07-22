@@ -2199,6 +2199,134 @@ html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
 .elop-games { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
 /* ============================================================
+   Share card modal
+   ============================================================ */
+.sharecard-modal {
+  position: relative; width: 100%; max-width: 460px;
+  background: var(--glass-bg); border: 1px solid var(--border-hi);
+  border-radius: 20px; padding: 22px; box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  animation: fadeUp 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  text-align: center;
+}
+.sharecard-preview {
+  position: relative; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--glass-brd); margin-bottom: 16px;
+}
+.sharecard-canvas { display: block; width: 100%; height: auto; }
+.sharecard-loading {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  color: var(--text-dim); font-size: 14px;
+}
+.sharecard-dl { width: 100%; padding: 14px 0; font-size: 14px; }
+.sharecard-hint { color: var(--text-dim); font-size: 12px; margin-top: 10px; }
+
+/* ============================================================
+   CS2 Wrapped — full-screen animated story
+   ============================================================ */
+.act-btn.wrapped-btn {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-2-rgb), 0.1));
+  border-color: rgba(var(--accent-rgb), 0.5); color: var(--accent);
+}
+.wrap-backdrop {
+  position: fixed; inset: 0; z-index: 300;
+  background: #05060f;
+  background-image:
+    radial-gradient(50% 45% at 20% 15%, color-mix(in srgb, var(--aur-a) 55%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 85% 20%, color-mix(in srgb, var(--aur-b) 50%, transparent), transparent 70%),
+    radial-gradient(55% 50% at 70% 90%, color-mix(in srgb, var(--aur-c) 45%, transparent), transparent 72%);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; animation: popIn 0.2s ease;
+}
+.wrap-backdrop::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(5,6,15,0.6));
+}
+.wrap-bars {
+  position: absolute; top: 16px; left: 16px; right: 16px; z-index: 5;
+  display: flex; gap: 6px;
+}
+.wrap-bar { flex: 1; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.18); overflow: hidden; }
+.wrap-bar-fill { height: 100%; width: 0; background: #fff; border-radius: 99px; }
+.wrap-bar-fill.done { width: 100%; }
+.wrap-bar-fill.run { animation: wrapFill 3.5s linear forwards; }
+@keyframes wrapFill { from { width: 0; } to { width: 100%; } }
+
+.wrap-close {
+  position: absolute; top: 34px; right: 20px; z-index: 6;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  color: #fff; font-size: 16px; cursor: pointer; transition: background 0.15s;
+}
+.wrap-close:hover { background: rgba(255,255,255,0.2); }
+.wrap-tap { position: absolute; top: 0; bottom: 0; width: 30%; z-index: 4; cursor: pointer; }
+.wrap-tap.left { left: 0; }
+.wrap-tap.right { right: 0; width: 70%; }
+
+.wrap-slide {
+  position: relative; z-index: 3; text-align: center; padding: 30px;
+  max-width: 560px; animation: wrapIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+@keyframes wrapIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.wrap-brand {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  text-transform: uppercase; letter-spacing: 3px; color: var(--accent-soft);
+  margin-bottom: 20px;
+}
+.wrap-title {
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(38px, 8vw, 64px);
+  line-height: 1.05; color: #fff; letter-spacing: -0.5px;
+}
+.wrap-sub { color: rgba(255,255,255,0.75); font-size: 18px; margin-top: 14px; }
+.wrap-pre {
+  font-family: var(--font-display); font-weight: 600; font-size: 22px;
+  color: rgba(255,255,255,0.8); margin-bottom: 12px;
+  animation: wrapIn 0.5s ease both; animation-delay: 0.1s;
+}
+.wrap-big {
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(80px, 18vw, 150px);
+  line-height: 0.95; color: #fff;
+  text-shadow: 0 0 60px rgba(255,255,255,0.25);
+  animation: wrapPop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; animation-delay: 0.15s;
+}
+.wrap-big.good { color: var(--win); text-shadow: 0 0 60px color-mix(in srgb, var(--win) 50%, transparent); }
+.wrap-big.bad { color: var(--loss); text-shadow: 0 0 60px color-mix(in srgb, var(--loss) 50%, transparent); }
+@keyframes wrapPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.wrap-post {
+  font-size: 20px; color: rgba(255,255,255,0.8); margin-top: 16px;
+  animation: wrapIn 0.5s ease both; animation-delay: 0.3s;
+}
+.wrap-map-thumb {
+  width: 200px; height: 125px; margin: 0 auto 8px; border-radius: 16px; overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.25); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: wrapPop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+.wrap-map-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.wrap-person {
+  width: 130px; height: 130px; margin: 0 auto 14px; border-radius: 50%; overflow: hidden;
+  border: 3px solid rgba(255,255,255,0.3); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: wrapPop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+.wrap-person img { width: 100%; height: 100%; object-fit: cover; }
+.wrap-person-ph {
+  width: 100%; height: 100%; display: grid; place-items: center;
+  background: rgba(255,255,255,0.12); color: #fff;
+  font-family: var(--font-display); font-weight: 700; font-size: 44px;
+}
+.wrap-name {
+  font-family: var(--font-display); font-weight: 700; font-size: 30px; color: #fff;
+  margin-bottom: 8px; animation: wrapIn 0.5s ease both; animation-delay: 0.2s;
+}
+.wrap-outro-lvl { margin-bottom: 18px; display: flex; justify-content: center; animation: wrapPop 0.6s ease both; }
+
+/* ============================================================
    Match Room Analyzer
    ============================================================ */
 .mr-meta {
