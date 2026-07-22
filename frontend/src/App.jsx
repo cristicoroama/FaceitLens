@@ -35,6 +35,7 @@ import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
 import Nemeses from "./components/Nemeses.jsx";
+import SmurfMeter from "./components/SmurfMeter.jsx";
 import ShareCard from "./components/ShareCard.jsx";
 import Wrapped from "./components/Wrapped.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
@@ -934,6 +935,7 @@ export default function App() {
                 <Nicknames nicknames={data.nicknames} />
               ) : (
                 <>
+                  <SmurfMeter data={data} />
                   <OverviewGrid
                     data={data}
                     maps={data.maps_played}
