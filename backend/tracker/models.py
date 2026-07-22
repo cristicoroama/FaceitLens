@@ -1,4 +1,34 @@
+from django.conf import settings
 from django.db import models
+
+
+class SteamProfile(models.Model):
+    """Steam identity attached to a Django user (created on first Steam sign-in)."""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="steam_profile"
+    )
+    steamid = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=100, blank=True)     # Steam persona name
+    avatar = models.URLField(blank=True)                    # Steam avatar (full size)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name or self.steamid
+
+
+class Favorite(models.Model):
+    """A user's favorited FACEIT nickname (synced across devices when signed in)."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites"
+    )
+    nickname = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "nickname")
+
+    def __str__(self):
+        return f"{self.user_id} ★ {self.nickname}"
 
 
 class TrackedPlayer(models.Model):

@@ -1,7 +1,14 @@
 from django.urls import path
-from . import views
+from . import auth, views
 
 urlpatterns = [
+    # --- Sign in with Steam + account ---
+    path("auth/steam/login/", auth.steam_login, name="auth-steam-login"),
+    path("auth/steam/return/", auth.steam_return, name="auth-steam-return"),
+    path("auth/me/", auth.me, name="auth-me"),
+    path("auth/logout/", auth.logout_view, name="auth-logout"),
+    path("auth/favorites/", auth.favorites, name="auth-favorites"),
+
     path("player/<str:nickname>/", views.player_summary, name="player-summary"),
     path("player/<str:nickname>/real/", views.real_stats, name="player-real-stats"),
     path("player/<str:nickname>/collectibles/", views.collectibles, name="player-collectibles"),

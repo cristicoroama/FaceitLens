@@ -5,6 +5,8 @@ gunicorn>=21.2
 whitenoise>=6.6
 dj-database-url>=2.1
 psycopg[binary]>=3.1
+# mysqlclient>=2.2   # uncomment if you point DATABASE_URL at MySQL
+#                    # (mysql://user:pass@host:3306/dbname)
 # Demo parsing (real HLTV rating / KAST / opening / clutch / utility).
 # Only needed by the worker that runs `manage.py parse_demos`, not by the web
 # process — keep it optional if your web host is memory-constrained.

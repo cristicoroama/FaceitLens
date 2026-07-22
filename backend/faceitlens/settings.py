@@ -72,6 +72,16 @@ if _cors:
 else:
     CORS_ALLOW_ALL_ORIGINS = True
 
+# Sessions must ride along on fetch() calls from the frontend (Sign in with
+# Steam). In production the frontend (Vercel) and backend (Render) are on
+# different domains, so the session cookie needs SameSite=None + Secure.
+CORS_ALLOW_CREDENTIALS = True
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SECURE = True
+
 # Trust the Render proxy for HTTPS / CSRF
 CSRF_TRUSTED_ORIGINS = [
     o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o

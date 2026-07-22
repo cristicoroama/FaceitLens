@@ -2055,3 +2055,45 @@ html[data-theme="light"] .g2-marker { background: #222; box-shadow: 0 0 6px rgba
   transition: color 0.15s;
 }
 .rr-foot a:hover { color: var(--accent); }
+
+/* ============================================================
+   Account / Sign in with Steam
+   ============================================================ */
+.tb-btn.steam-login {
+  background: linear-gradient(135deg, #1b2838, #2a475e);
+  border-color: rgba(102, 192, 244, 0.4);
+  color: #cfe8ff;
+}
+.tb-btn.steam-login:hover {
+  border-color: #66c0f4; color: #fff;
+  box-shadow: 0 0 0 1px rgba(102, 192, 244, 0.4), 0 0 24px rgba(102, 192, 244, 0.25);
+}
+html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
+@media (max-width: 700px) { .steam-login-label { display: none; } }
+
+.acc-menu { position: relative; }
+.acc-trigger { padding: 5px 10px 5px 6px; gap: 8px; }
+.acc-avatar {
+  width: 26px; height: 26px; border-radius: 8px; object-fit: cover;
+  box-shadow: 0 0 0 1.5px rgba(var(--accent-rgb), 0.5);
+}
+.acc-avatar.ph {
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-2-rgb), 0.1));
+  color: var(--accent); font-family: var(--font-display); font-weight: 700; font-size: 11px;
+}
+.acc-avatar.lg { width: 40px; height: 40px; border-radius: 11px; }
+.acc-name {
+  font-size: 12.5px; font-weight: 600; max-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.acc-pop { min-width: 220px; }
+.acc-pop-head {
+  display: flex; align-items: center; gap: 11px;
+  padding: 8px 10px 12px; border-bottom: 1px solid var(--glass-brd); margin-bottom: 6px;
+}
+.acc-pop-name { font-weight: 700; font-size: 13.5px; }
+.acc-pop-sub { color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+.acc-logout { color: var(--loss); }
+.acc-logout:hover { background: color-mix(in srgb, var(--loss) 10%, transparent); }
+@media (max-width: 560px) { .acc-name { display: none; } }

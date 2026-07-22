@@ -27,7 +27,8 @@ import Leaderboard from "./components/Leaderboard.jsx";
 import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
-import { getFavorites, isFavorite, toggleFavorite } from "./favorites.js";
+import AccountMenu from "./components/AccountMenu.jsx";
+import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -221,6 +222,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [recent, setRecent] = useState([]);
   const [favs, setFavs] = useState(getFavorites());
+  const [user, setUser] = useState(null);
   const [copied, setCopied] = useState(false);
   const [bySteam, setBySteam] = useState(false);
   const [steamInput, setSteamInput] = useState("");
@@ -241,6 +243,27 @@ export default function App() {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("faceitlens_theme", theme);
   }, [theme]);
+
+  // Who's signed in? (Sign in with Steam — session cookie)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/auth/me/`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.authenticated) {
+          setUser(j);
+          setFavs(j.favorites || []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout/`, { method: "POST", credentials: "include" });
+    } catch { /* ignore */ }
+    setUser(null);
+    setFavs(getFavorites());
+  }
 
   // reset AI panel when the player changes
   useEffect(() => {
@@ -443,9 +466,28 @@ export default function App() {
     setMode(id);
   }
 
-  function onToggleFav() {
-    if (data) setFavs(toggleFavorite(data.nickname));
+  async function onToggleFav() {
+    if (!data) return;
+    if (!user) {
+      // anonymous: localStorage as before
+      setFavs(toggleFavorite(data.nickname));
+      return;
+    }
+    // signed in: favorites live in the account (synced across devices)
+    const has = favs.some((n) => n.toLowerCase() === data.nickname.toLowerCase());
+    try {
+      const resp = await fetch(`${API_BASE}/api/auth/favorites/`, {
+        method: has ? "DELETE" : "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: data.nickname }),
+      });
+      const j = await resp.json();
+      if (j.favorites) setFavs(j.favorites);
+    } catch { /* keep old state */ }
   }
+
+  const isFav = data ? favs.some((n) => n.toLowerCase() === data.nickname.toLowerCase()) : false;
 
   function share() {
     if (!data) return;
@@ -528,6 +570,7 @@ export default function App() {
           </div>
           <div className="tb-actions">
             <ThemeMenu theme={theme} setTheme={setTheme} />
+            <AccountMenu user={user} onLogout={logout} />
           </div>
         </header>
 
@@ -697,8 +740,8 @@ export default function App() {
             <>
               <BanBanner bans={data.bans} />
               <PlayerHeader player={data}>
-                <button className={`act-btn ${isFavorite(data.nickname) ? "on" : ""}`} onClick={onToggleFav}>
-                  {isFavorite(data.nickname) ? "★ Favorited" : "☆ Favorite"}
+                <button className={`act-btn ${isFav ? "on" : ""}`} onClick={onToggleFav}>
+                  {isFav ? "★ Favorited" : "☆ Favorite"}
                 </button>
                 <button className="act-btn" onClick={share}>
                   {copied ? "✓ Copied" : "🔗 Share"}
