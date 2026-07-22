@@ -26,7 +26,12 @@ export default function BestTeammates({ mates, onPick }) {
               onClick={onPick ? () => onPick(m.nickname) : undefined}
             >
               <span className="lrow-rank">#{i + 1}</span>
-              <div className="lrow-ava">{initials(m.nickname)}</div>
+              {m.avatar ? (
+                <img className="lrow-ava img" src={m.avatar} alt="" loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              ) : (
+                <div className="lrow-ava">{initials(m.nickname)}</div>
+              )}
               <div className="lrow-main">
                 <div className="lrow-name">{m.nickname}</div>
                 <div className="lrow-track">

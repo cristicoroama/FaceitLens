@@ -644,6 +644,7 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
     Returns up to `top` teammates with >= `min_games` games together.
     """
     tally = {}  # nickname -> [games, wins]
+    meta = {}   # nickname -> {avatar, player_id}
     for m in history_items:
         teams = m.get("teams", {})
         winner = (m.get("results", {}) or {}).get("winner")
@@ -664,6 +665,12 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
             entry[0] += 1
             if won:
                 entry[1] += 1
+            # match-history player objects carry avatar + id; keep the first seen
+            if nick not in meta:
+                meta[nick] = {
+                    "avatar": p.get("avatar") or None,
+                    "player_id": p.get("player_id") or p.get("user_id"),
+                }
 
     mates = [
         {
@@ -671,6 +678,8 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
             "games": g,
             "wins": w,
             "win_rate": round(w / g * 100),
+            "avatar": meta.get(nick, {}).get("avatar"),
+            "player_id": meta.get(nick, {}).get("player_id"),
         }
         for nick, (g, w) in tally.items()
         if g >= min_games

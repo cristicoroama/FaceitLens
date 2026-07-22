@@ -2105,6 +2105,19 @@ html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
 .mt-player.mt-link { cursor: pointer; }
 .mt-player.mt-link:hover { color: var(--accent); text-decoration: underline; }
 
+/* real avatar image inside a list row (overrides the initials chip look) */
+.lrow-ava.img {
+  padding: 0; background: none; border: 1px solid var(--glass-brd);
+  object-fit: cover;
+}
+
+/* leaderboard: clickable rows, flag+name, top-3 medal colors */
+.lb-row { cursor: pointer; gap: 12px; }
+.squad-name.link { display: inline-flex; align-items: center; gap: 8px; }
+.squad-rank.lb-top1 { color: #ffd166; text-shadow: 0 0 14px rgba(255, 209, 102, 0.5); }
+.squad-rank.lb-top2 { color: #d7dde3; }
+.squad-rank.lb-top3 { color: #e08b52; }
+
 /* ============================================================
    Match Room Analyzer
    ============================================================ */

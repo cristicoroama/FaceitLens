@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import SkillBadge from "./SkillBadge.jsx";
+import { FaceitLevel, Flag } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -50,14 +50,15 @@ export default function Leaderboard({ onPick }) {
           {loading ? "..." : "Load"}
         </button>
       </div>
-      <div className="squad">
+      <div className="squad stagger">
         {items.map((p) => (
-          <div className="squad-row" key={p.player_id || p.nickname}>
-            <span className="squad-rank">#{p.position}</span>
-            <span className="squad-name link" onClick={() => onPick(p.nickname)}>
+          <div className="squad-row lb-row" key={p.player_id || p.nickname} onClick={() => onPick(p.nickname)}>
+            <span className={`squad-rank ${p.position <= 3 ? `lb-top${p.position}` : ""}`}>#{p.position}</span>
+            <FaceitLevel level={p.level} size={30} />
+            <span className="squad-name link">
+              {p.country && <Flag country={p.country} size={15} />}
               {p.nickname}
             </span>
-            <SkillBadge level={p.level} />
             <span className="squad-elo">{p.elo ?? "—"}</span>
           </div>
         ))}
