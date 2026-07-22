@@ -54,6 +54,35 @@ def match_detail(request, match_id):
 
 
 @require_GET
+def clubs_search(request):
+    """GET /api/clubs/?q=name - search FACEIT clubs by name."""
+    q = (request.GET.get("q") or "").strip()
+    if not q:
+        return JsonResponse({"items": []})
+    try:
+        items = faceit.search_clubs(q)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse({"items": items})
+
+
+@require_GET
+def club_detail(request, club_id):
+    """GET /api/club/<club_id>/ - one club's profile + members."""
+    try:
+        data = faceit.get_club(club_id)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
+
+
+@require_GET
 def match_room(request):
     """GET /api/matchroom/?url=<faceit room link> - scout both teams + prediction."""
     raw = request.GET.get("url") or request.GET.get("id") or ""

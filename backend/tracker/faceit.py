@@ -743,6 +743,58 @@ def build_nemeses(history_items, player_nickname, top=3, min_games=2):
     return nemeses[:top]
 
 
+def search_clubs(query, limit=8):
+    """Search FACEIT clubs by name."""
+    try:
+        data = _get("/search/clubs", params={"name": query, "offset": 0, "limit": limit})
+    except FaceitError:
+        return []
+    out = []
+    for it in data.get("items", []):
+        out.append({
+            "club_id": it.get("guid") or it.get("club_id") or it.get("id"),
+            "name": it.get("name"),
+            "avatar": it.get("avatar") or None,
+        })
+    return [c for c in out if c["club_id"] and c["name"]][:limit]
+
+
+def get_club(club_id):
+    """One club's profile + members."""
+    club = _get(f"/clubs/{club_id}")
+    members = []
+    try:
+        mdata = _get(f"/clubs/{club_id}/members", params={"offset": 0, "limit": 40})
+        for m in mdata.get("items", []):
+            members.append({
+                "player_id": m.get("user_id") or m.get("player_id"),
+                "nickname": m.get("nickname"),
+                "avatar": m.get("avatar") or None,
+            })
+    except FaceitError:
+        pass
+
+    owner = None
+    try:
+        oid = club.get("owner_id")
+        if oid:
+            op = _get(f"/players/{oid}")
+            owner = op.get("nickname")
+    except FaceitError:
+        pass
+
+    return {
+        "club_id": club_id,
+        "name": club.get("name"),
+        "description": club.get("description") or "",
+        "avatar": club.get("avatar") or None,
+        "cover": club.get("cover_image") or None,
+        "owner": owner,
+        "member_count": len(members),
+        "members": members,
+    }
+
+
 def get_player_hubs(player_id):
     """FACEIT hubs the player belongs to."""
     try:

@@ -23,6 +23,9 @@ import HaveWeMet from "./components/HaveWeMet.jsx";
 import OverviewGrid from "./components/OverviewGrid.jsx";
 import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
+import ProGuesser from "./components/ProGuesser.jsx";
+import ApiDocs from "./components/ApiDocs.jsx";
+import Clubs from "./components/Clubs.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
@@ -149,10 +152,15 @@ const NAV = [
     { id: "matchroom", label: "Match Room", icon: I.room },
     { id: "compare", label: "Compare", icon: I.vs },
     { id: "squad", label: "Squad", icon: I.squad },
+    { id: "clubs", label: "Clubs", icon: I.hubs },
   ]},
   { group: "Extras", items: [
+    { id: "proguesser", label: "ProGuesser", icon: I.star },
     { id: "games", label: "Minigames", icon: I.game },
     { id: "crosshair", label: "Crosshair", icon: I.xhair },
+  ]},
+  { group: "Developers", items: [
+    { id: "docs", label: "API Docs", icon: I.vs },
   ]},
 ];
 
@@ -199,8 +207,8 @@ const TI = {
     </svg>
   ),
   steam: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="9" /><circle cx="15" cy="9" r="2.5" /><path d="M3.4 14.5 9 17a2.8 2.8 0 1 0 3.4-3.9l3-2.8" />
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M11.98 2C6.72 2 2.4 6.03 2.03 11.19l5.36 2.22a2.79 2.79 0 0 1 1.57-.48l.14.01 2.39-3.46v-.05a3.72 3.72 0 1 1 3.72 3.72h-.09l-3.4 2.43v.13a2.8 2.8 0 0 1-5.58.2l-3.84-1.6A10 10 0 1 0 11.98 2ZM8.28 17.6l-1.23-.51c.22.45.6.83 1.1 1.04a2.09 2.09 0 0 0 1.63-3.85 2.08 2.08 0 0 0-1.57-.02l1.27.53a1.54 1.54 0 0 1-1.2 2.83Zm7.44-6.16a2.48 2.48 0 1 0 0-4.96 2.48 2.48 0 0 0 0 4.96Zm0-.77a1.7 1.7 0 1 1 0-3.41 1.7 1.7 0 0 1 0 3.41Z" />
     </svg>
   ),
   nicknames: (
@@ -811,8 +819,11 @@ export default function App() {
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
           {mode === "hltv" && <HltvView onPick={go} />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
+          {mode === "clubs" && <Clubs onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
+          {mode === "proguesser" && <ProGuesser />}
+          {mode === "docs" && <ApiDocs />}
           {mode === "crosshair" && <Crosshair />}
 
           {/* ---------- STATES ---------- */}
