@@ -47,21 +47,36 @@ const NAV = [
   { title: "Endpoints", links: ENDPOINTS.map((g) => [g.id, g.group]) },
 ];
 
-function StatusBadge() {
-  const [state, setState] = useState("checking"); // checking | ok | down
-  useEffect(() => {
-    let alive = true;
-    const t0 = Date.now();
-    fetch(`${API_BASE}/api/health/`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(() => alive && setState({ up: true, ms: Date.now() - t0 }))
-      .catch(() => alive && setState({ up: false }));
-    return () => { alive = false; };
-  }, []);
+const OVERALL_LABEL = {
+  operational: "All systems operational",
+  partial: "Partially operational",
+  outage: "Major outage",
+};
 
-  if (state === "checking") return <span className="api-status checking"><i />Checking…</span>;
-  if (state.up) return <span className="api-status up"><i />API status: operational <small>{state.ms}ms</small></span>;
-  return <span className="api-status down"><i />API status: down</span>;
+function StatusBadge({ data, loading }) {
+  if (loading) return <span className="api-status checking"><i />Checking…</span>;
+  if (!data) return <span className="api-status down"><i />Status unavailable</span>;
+  const cls = data.overall === "operational" ? "up" : data.overall === "partial" ? "warn" : "down";
+  return <span className={`api-status ${cls}`}><i />{OVERALL_LABEL[data.overall] || "Unknown"}</span>;
+}
+
+/** Full per-service breakdown, shown in the Overview section. */
+function StatusPanel({ data, loading }) {
+  return (
+    <div className="svc-panel">
+      <div className="svc-panel-head">System status</div>
+      {loading && <div className="svc-row"><span className="svc-dot checking" /> Checking services…</div>}
+      {!loading && data && data.services.map((s) => (
+        <div className="svc-row" key={s.name}>
+          <span className={`svc-dot ${s.ok ? "up" : "down"}`} />
+          <span className="svc-name">{s.name}</span>
+          <span className="svc-detail">{s.detail}</span>
+          <span className={`svc-state ${s.ok ? "up" : "down"}`}>{s.ok ? "Operational" : "Down"}</span>
+        </div>
+      ))}
+      {!loading && !data && <div className="svc-row"><span className="svc-dot down" /> Could not reach the status endpoint.</div>}
+    </div>
+  );
 }
 
 function Endpoint({ e }) {
@@ -93,6 +108,18 @@ function Endpoint({ e }) {
 
 export default function ApiDocs() {
   const [active, setActive] = useState("overview");
+  const [status, setStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/api/status/`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => alive && setStatus(j))
+      .catch(() => alive && setStatus(null))
+      .finally(() => alive && setStatusLoading(false));
+    return () => { alive = false; };
+  }, []);
 
   function jump(id) {
     setActive(id);
@@ -128,7 +155,7 @@ export default function ApiDocs() {
       <div className="apidoc-main">
         <div className="apidoc-topline">
           <div className="apidoc-crumbs">API Reference › Getting Started › Overview</div>
-          <StatusBadge />
+          <StatusBadge data={status} loading={statusLoading} />
         </div>
 
         <section id="doc-overview" className="apidoc-sec">
@@ -142,6 +169,8 @@ export default function ApiDocs() {
             scene and more. Everything is read-only, returns JSON, and is cached
             hard. No key required.
           </p>
+
+          <StatusPanel data={status} loading={statusLoading} />
 
           <h2 className="apidoc-h2">Quick example</h2>
           <pre className="apidoc-code">curl "{DISPLAY_BASE}/api/player/donk666/"</pre>

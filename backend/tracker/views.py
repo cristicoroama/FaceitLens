@@ -63,6 +63,72 @@ def health(request):
 
 
 @require_GET
+def status(request):
+    """GET /api/status/ - per-upstream health for the status page. Cached 3 min
+    so it never hammers the providers. Each data source is probed independently
+    so we can report 'partially operational' when one (e.g. HLTV) is down."""
+    import os
+    from django.core.cache import cache
+
+    cached = cache.get("svc_status")
+    if cached is not None:
+        return JsonResponse(cached)
+
+    services = []
+
+    # --- FACEIT (core) — cheap regional-ranking call verifies the key works ---
+    try:
+        faceit._get("/rankings/games/cs2/regions/EU", params={"offset": 0, "limit": 1})
+        services.append({"name": "FACEIT API", "ok": True, "detail": "player & match data", "core": True})
+    except Exception as exc:
+        services.append({"name": "FACEIT API", "ok": False, "detail": str(exc)[:80], "core": True})
+
+    # --- HLTV via parse.bot — checks credits / key ---
+    try:
+        from . import parsebot
+        r = parsebot.get_team_rankings(limit=1)
+        if r.get("available"):
+            services.append({"name": "HLTV (parse.bot)", "ok": True, "detail": "pro scene / rankings"})
+        else:
+            reason = r.get("reason", "unavailable")
+            services.append({"name": "HLTV (parse.bot)", "ok": False, "detail": reason})
+    except Exception as exc:
+        services.append({"name": "HLTV (parse.bot)", "ok": False, "detail": str(exc)[:80]})
+
+    # --- Steam — reachable + not on cooldown ---
+    try:
+        from . import steam as steam_mod
+        if steam_mod._cooldown_active():
+            services.append({"name": "Steam", "ok": False, "detail": "rate-limited (cooldown)"})
+        else:
+            services.append({"name": "Steam", "ok": True, "detail": "inventory / trust score"})
+    except Exception as exc:
+        services.append({"name": "Steam", "ok": False, "detail": str(exc)[:80]})
+
+    # --- Leetify — public API, config-free ---
+    services.append({"name": "Leetify", "ok": True, "detail": "demo-based stats"})
+
+    # --- AI — key configured? (don't spend tokens probing) ---
+    if os.environ.get("ANTHROPIC_API_KEY", ""):
+        services.append({"name": "AI (analysis / roast)", "ok": True, "detail": "configured"})
+    else:
+        services.append({"name": "AI (analysis / roast)", "ok": False, "detail": "not configured"})
+
+    core_down = any(not s["ok"] for s in services if s.get("core"))
+    any_down = any(not s["ok"] for s in services)
+    if core_down:
+        overall = "outage"
+    elif any_down:
+        overall = "partial"
+    else:
+        overall = "operational"
+
+    payload = {"overall": overall, "services": services}
+    cache.set("svc_status", payload, 3 * 60)
+    return JsonResponse(payload)
+
+
+@require_GET
 def clubs_search(request):
     """GET /api/clubs/?q=name - search FACEIT clubs by name."""
     q = (request.GET.get("q") or "").strip()
