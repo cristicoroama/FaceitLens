@@ -1,37 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const DISPLAY_BASE = "https://api.faceit-lens.com";
 
 const ENDPOINTS = [
   {
-    group: "Players",
+    id: "players", group: "Players",
     items: [
-      { m: "GET", path: "/api/player/{nickname}/", desc: "Full player summary: ELO, level, stats, recent averages, maps, teammates, nemeses, activity, match history.", ex: "/api/player/donk666/" },
-      { m: "GET", path: "/api/player/{nickname}/collectibles/", desc: "Account trust score, Steam level, medals and Steam inventory with market value.", ex: "/api/player/donk666/collectibles/" },
+      { m: "GET", path: "/api/player/{nickname}/", desc: "Full player summary: ELO, level, lifetime + recent stats, maps, teammates, nemeses, activity, match history and smurf signals.", ex: "/api/player/donk666/" },
+      { m: "GET", path: "/api/player/{nickname}/collectibles/", desc: "Account trust score, Steam level, medals and the full Steam inventory with market value.", ex: "/api/player/donk666/collectibles/" },
       { m: "GET", path: "/api/player/{nickname}/leetify/", desc: "Leetify demo-based ranks and skill ratings (aim, utility, positioning).", ex: "/api/player/donk666/leetify/" },
-      { m: "GET", path: "/api/player/{nickname}/real/", desc: "Real demo-parsed HLTV 2.0 stats (needs the demo worker to have parsed matches).", ex: "/api/player/donk666/real/" },
+      { m: "GET", path: "/api/player/{nickname}/real/", desc: "Real demo-parsed HLTV 2.0 stats (requires the demo worker to have parsed matches).", ex: "/api/player/donk666/real/" },
       { m: "GET", path: "/api/steam/?id={steamid}", desc: "Resolve a SteamID64 or profile URL to the linked FACEIT player.", ex: "/api/steam/?id=76561198000000000" },
     ],
   },
   {
-    group: "Match & tools",
+    id: "match", group: "Match & tools",
     items: [
-      { m: "GET", path: "/api/match/{match_id}/", desc: "Simplified scoreboard for a single finished match.", ex: "/api/match/1-xxxx/" },
-      { m: "GET", path: "/api/matchroom/?url={faceit_room}", desc: "Scout a live/upcoming match room: both teams with ELO/level + a win prediction.", ex: "/api/matchroom/?url=faceit.com/en/cs2/room/1-xxxx" },
+      { m: "GET", path: "/api/match/{match_id}/", desc: "Simplified scoreboard for one finished match.", ex: "/api/match/1-xxxx/" },
+      { m: "GET", path: "/api/matchroom/?url={room}", desc: "Scout a live/upcoming match room: both teams with ELO/level + an ELO win prediction.", ex: "/api/matchroom/?url=faceit.com/en/cs2/room/1-xxxx" },
       { m: "GET", path: "/api/squad/?players={a,b,c}", desc: "Combined stats for a group of players and matches played together.", ex: "/api/squad/?players=s1mple,ZywOo,NiKo" },
-      { m: "GET", path: "/api/met/?p1={a}&p2={b}", desc: "Whether two players have crossed paths in recent matches (together / against).", ex: "/api/met/?p1=s1mple&p2=b1t" },
+      { m: "GET", path: "/api/met/?p1={a}&p2={b}", desc: "Whether two players have crossed paths recently (together / against).", ex: "/api/met/?p1=s1mple&p2=b1t" },
+      { m: "GET", path: "/api/clubs/?q={name}", desc: "Search FACEIT clubs by name.", ex: "/api/clubs/?q=NAVI" },
     ],
   },
   {
-    group: "Leaderboards & pro scene",
+    id: "scene", group: "Leaderboards & pro scene",
     items: [
       { m: "GET", path: "/api/leaderboard/?region={EU|NA|SA|OCE}", desc: "Regional FACEIT ranking. Optional &country=ro filter.", ex: "/api/leaderboard/?region=EU&country=ro" },
       { m: "GET", path: "/api/hltv/{section}/", desc: "HLTV pro scene: rankings, results, upcoming, team-stats, player-stats.", ex: "/api/hltv/rankings/" },
     ],
   },
   {
-    group: "AI",
+    id: "ai", group: "AI",
     items: [
       { m: "GET", path: "/api/analyze/{nickname}/", desc: "Short AI scouting report generated from the player's stats.", ex: "/api/analyze/donk666/" },
       { m: "GET", path: "/api/roast/{nickname}/", desc: "A short, funny AI roast based on the player's stats.", ex: "/api/roast/donk666/" },
@@ -39,21 +40,40 @@ const ENDPOINTS = [
   },
 ];
 
-function Endpoint({ e }) {
-  const [tried, setTried] = useState(null); // null | "loading" | text
-  const url = DISPLAY_BASE + e.ex;
+const NAV = [
+  { title: "Getting started", links: [
+    ["overview", "Overview"], ["auth", "Authentication"], ["limits", "Rate limits"], ["attribution", "Attribution"],
+  ]},
+  { title: "Endpoints", links: ENDPOINTS.map((g) => [g.id, g.group]) },
+];
 
+function StatusBadge() {
+  const [state, setState] = useState("checking"); // checking | ok | down
+  useEffect(() => {
+    let alive = true;
+    const t0 = Date.now();
+    fetch(`${API_BASE}/api/health/`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(() => alive && setState({ up: true, ms: Date.now() - t0 }))
+      .catch(() => alive && setState({ up: false }));
+    return () => { alive = false; };
+  }, []);
+
+  if (state === "checking") return <span className="api-status checking"><i />Checking…</span>;
+  if (state.up) return <span className="api-status up"><i />API status: operational <small>{state.ms}ms</small></span>;
+  return <span className="api-status down"><i />API status: down</span>;
+}
+
+function Endpoint({ e }) {
+  const [out, setOut] = useState(null);
   async function tryIt() {
-    setTried("loading");
+    setOut("loading");
     try {
       const resp = await fetch(`${API_BASE}${e.ex}`);
       const json = await resp.json();
-      setTried(JSON.stringify(json, null, 2).slice(0, 1400));
-    } catch (err) {
-      setTried(`Error: ${err.message}`);
-    }
+      setOut(JSON.stringify(json, null, 2).slice(0, 1600));
+    } catch (err) { setOut(`Error: ${err.message}`); }
   }
-
   return (
     <div className="doc-ep">
       <div className="doc-ep-head">
@@ -63,46 +83,119 @@ function Endpoint({ e }) {
       </div>
       <div className="doc-desc">{e.desc}</div>
       <div className="doc-ex">
-        <span>Example:</span>
-        <a href={url} target="_blank" rel="noopener noreferrer">{url}</a>
+        <span>Example</span>
+        <a href={DISPLAY_BASE + e.ex} target="_blank" rel="noopener noreferrer">{DISPLAY_BASE + e.ex}</a>
       </div>
-      {tried && (
-        <pre className="doc-out">{tried === "loading" ? "Loading…" : tried}</pre>
-      )}
+      {out && <pre className="doc-out">{out === "loading" ? "Loading…" : out}</pre>}
     </div>
   );
 }
 
 export default function ApiDocs() {
+  const [active, setActive] = useState("overview");
+
+  function jump(id) {
+    setActive(id);
+    const el = document.getElementById(`doc-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
-    <>
-      <div className="page-hero">
-        <div className="page-hero-title">
-          <div className="panel-ic" style={{ width: 38, height: 38 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 18, height: 18 }}>
-              <path d="m8 16-4-4 4-4M16 8l4 4-4 4M13 4l-2 16" />
-            </svg>
+    <div className="apidoc">
+      {/* left nav */}
+      <aside className="apidoc-nav">
+        <div className="apidoc-brand">
+          <span className="apidoc-brand-name">FaceitLens API</span>
+          <span className="apidoc-brand-ver">v1</span>
+        </div>
+        {NAV.map((sec) => (
+          <div className="apidoc-nav-sec" key={sec.title}>
+            <div className="apidoc-nav-title">{sec.title}</div>
+            {sec.links.map(([id, label]) => (
+              <button
+                key={id}
+                className={`apidoc-nav-link ${active === id ? "active" : ""}`}
+                onClick={() => jump(id)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          API <em>Docs</em>
+        ))}
+      </aside>
+
+      {/* main */}
+      <div className="apidoc-main">
+        <div className="apidoc-topline">
+          <div className="apidoc-crumbs">API Reference › Getting Started › Overview</div>
+          <StatusBadge />
         </div>
-        <div className="page-hero-sub">
-          FaceitLens exposes a free, read-only JSON API. No key needed. All responses
-          are cached; please be gentle. Base URL: <code>{DISPLAY_BASE}</code>
+
+        <section id="doc-overview" className="apidoc-sec">
+          <h1 className="apidoc-h1">FaceitLens API</h1>
+          <div className="apidoc-tagline">
+            Base URL <code>{DISPLAY_BASE}</code> · REST · JSON · GET only
+          </div>
+          <p className="apidoc-p">
+            The FaceitLens API exposes the same data that powers the app — player
+            summaries, trust scores, inventories, match histories, the HLTV pro
+            scene and more. Everything is read-only, returns JSON, and is cached
+            hard. No key required.
+          </p>
+
+          <h2 className="apidoc-h2">Quick example</h2>
+          <pre className="apidoc-code">curl "{DISPLAY_BASE}/api/player/donk666/"</pre>
+
+          <h2 className="apidoc-h2">What you'll find</h2>
+          <ul className="apidoc-list">
+            <li><b>Authentication</b> — none needed, it's open.</li>
+            <li><b>Rate limits</b> — be gentle; responses are cached.</li>
+            <li><b>Attribution</b> — a link back is appreciated.</li>
+            <li><b>Endpoints</b> — every URL the API supports, with live "Try it".</li>
+          </ul>
+        </section>
+
+        <section id="doc-auth" className="apidoc-sec">
+          <h2 className="apidoc-h2">Authentication</h2>
+          <p className="apidoc-p">
+            None. The API is public and read-only — just call the URLs directly.
+            There are no keys, tokens or headers to set.
+          </p>
+        </section>
+
+        <section id="doc-limits" className="apidoc-sec">
+          <h2 className="apidoc-h2">Rate limits</h2>
+          <p className="apidoc-p">
+            No hard limit yet, but please be reasonable — this runs on a hobby
+            budget. Every response is cached (player summaries ~3 min, match &
+            inventory data hours), so hammering the same endpoint won't get you
+            fresher data, just a slower site for everyone. Cache your own results
+            where you can.
+          </p>
+        </section>
+
+        <section id="doc-attribution" className="apidoc-sec">
+          <h2 className="apidoc-h2">Attribution</h2>
+          <p className="apidoc-p">
+            If you build something with this, a "Powered by FaceitLens" credit
+            linking to <a href="https://faceit-lens.com" target="_blank" rel="noopener noreferrer">faceit-lens.com</a> is
+            appreciated. Data ultimately comes from the FACEIT API, Steam, Leetify
+            and HLTV — respect their terms too.
+          </p>
+        </section>
+
+        {ENDPOINTS.map((g) => (
+          <section id={`doc-${g.id}`} className="apidoc-sec" key={g.id}>
+            <h2 className="apidoc-h2">{g.group}</h2>
+            {g.items.map((e) => <Endpoint e={e} key={e.path} />)}
+          </section>
+        ))}
+
+        <div className="apidoc-foot">
+          Provided as-is for hobby / community use — no uptime guarantees, endpoints
+          may change. Built something cool? Ping me on Discord.
         </div>
       </div>
-
-      {ENDPOINTS.map((g) => (
-        <div key={g.group} style={{ marginBottom: 24 }}>
-          <div className="section-title">{g.group}</div>
-          {g.items.map((e) => <Endpoint e={e} key={e.path} />)}
-        </div>
-      ))}
-
-      <div className="hltv-note" style={{ textAlign: "left", padding: "12px 2px 0" }}>
-        Data comes from the FACEIT API, Steam, Leetify and HLTV. This API is provided
-        as-is for hobby / community use — no uptime guarantees, and endpoints may
-        change. If you build something cool with it, let me know.
-      </div>
-    </>
+    </div>
   );
 }

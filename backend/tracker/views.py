@@ -54,6 +54,15 @@ def match_detail(request, match_id):
 
 
 @require_GET
+def health(request):
+    """GET /api/health/ - lightweight liveness probe for the API status badge."""
+    return JsonResponse({
+        "status": "ok",
+        "service": "faceitlens-api",
+    })
+
+
+@require_GET
 def clubs_search(request):
     """GET /api/clubs/?q=name - search FACEIT clubs by name."""
     q = (request.GET.get("q") or "").strip()
