@@ -30,6 +30,7 @@ import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
+import EloProjector from "./components/EloProjector.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -247,6 +248,10 @@ export default function App() {
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [roastText, setRoastText] = useState("");
+  const [roastLoading, setRoastLoading] = useState(false);
+  const [roastError, setRoastError] = useState("");
+  const [roastCopied, setRoastCopied] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
@@ -281,10 +286,13 @@ export default function App() {
     setFavs(getFavorites());
   }
 
-  // reset AI panel when the player changes
+  // reset AI + roast panels when the player changes
   useEffect(() => {
     setAiText("");
     setAiError("");
+    setRoastText("");
+    setRoastError("");
+    setRoastCopied(false);
   }, [routeNick, data?.nickname]);
 
   async function runAnalysis() {
@@ -301,6 +309,32 @@ export default function App() {
     } finally {
       setAiLoading(false);
     }
+  }
+
+  async function runRoast() {
+    if (!data) return;
+    setRoastLoading(true);
+    setRoastError("");
+    setRoastCopied(false);
+    try {
+      const resp = await fetch(`${API_BASE}/api/roast/${encodeURIComponent(data.nickname)}/`);
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      setRoastText(json.roast);
+    } catch (e) {
+      setRoastError(e.message);
+    } finally {
+      setRoastLoading(false);
+    }
+  }
+
+  function copyRoast() {
+    if (!roastText) return;
+    const text = `${roastText}\n\n— roasted by faceit-lens.com/player/${data.nickname}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setRoastCopied(true);
+      setTimeout(() => setRoastCopied(false), 1600);
+    });
   }
 
   // Backward-compat: old ?player= links -> /player/<nick>
@@ -791,6 +825,9 @@ export default function App() {
                 <button className="act-btn ai" onClick={runAnalysis} disabled={aiLoading}>
                   {aiLoading ? "Analyzing…" : "✨ AI Analysis"}
                 </button>
+                <button className="act-btn roast" onClick={runRoast} disabled={roastLoading}>
+                  {roastLoading ? "Cooking…" : "🔥 Roast me"}
+                </button>
                 {data.form && <span className="form-badge">Last 10: {data.form}</span>}
               </PlayerHeader>
 
@@ -799,6 +836,19 @@ export default function App() {
                 <div className="ai-panel">
                   <div className="ai-panel-head">✨ AI Scouting Report</div>
                   <div className="ai-panel-body">{aiText}</div>
+                </div>
+              )}
+
+              {roastError && <div className="state error">{roastError}</div>}
+              {roastText && (
+                <div className="roast-panel">
+                  <div className="roast-panel-head">
+                    <span>🔥 Roasted</span>
+                    <button className="roast-copy" onClick={copyRoast}>
+                      {roastCopied ? "✓ Copied" : "Copy & share"}
+                    </button>
+                  </div>
+                  <div className="roast-panel-body">{roastText}</div>
                 </div>
               )}
 
@@ -842,6 +892,7 @@ export default function App() {
                     onMapFilter={applyMapFilter}
                   />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
+                  <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                   <div className="duo">
                     <div><MapStats maps={data.map_stats} /></div>
                     <div><Activity activity={data.activity} /></div>

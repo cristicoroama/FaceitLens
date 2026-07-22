@@ -135,6 +135,20 @@ def analyze(request, nickname):
 
 
 @require_GET
+def roast(request, nickname):
+    """GET /api/roast/<nickname>/ - a short, funny AI roast (cached 12h)."""
+    try:
+        summary = faceit.build_player_summary(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    try:
+        text = ai.roast_player(summary)
+    except ai.AIError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    return JsonResponse({"roast": text})
+
+
+@require_GET
 def collectibles(request, nickname):
     """
     GET /api/player/<nickname>/collectibles/ - Account Trust Score + Steam level

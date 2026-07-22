@@ -23,6 +23,7 @@ urlpatterns = [
     path("leaderboard/", views.leaderboard, name="leaderboard"),
     path("hltv/<str:section>/", views.hltv, name="hltv"),
     path("analyze/<str:nickname>/", views.analyze, name="analyze"),
+    path("roast/<str:nickname>/", views.roast, name="roast"),
     path("met/", views.have_we_met, name="have-we-met"),
     path("games/leaderboard/", views.game_leaderboard, name="game-leaderboard"),
     path("games/score/", views.game_score, name="game-score"),
