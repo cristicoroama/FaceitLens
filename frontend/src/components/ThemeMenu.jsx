@@ -3,12 +3,13 @@ import { useState, useEffect, useRef } from "react";
 /** All selectable themes. `dot`/`dot2` drive the swatch preview in the menu;
     the actual colors live in index.css under :root[data-theme="id"]. */
 export const THEMES = [
-  { id: "dark", label: "Volt Green", dot: "#00e888", dot2: "#38bdf8" },
-  { id: "purple", label: "Cyber Purple", dot: "#a855f7", dot2: "#38bdf8" },
-  { id: "crimson", label: "Inferno", dot: "#ff4d4d", dot2: "#ffb020" },
+  { id: "dark", label: "Aurora", dot: "#8b5cf6", dot2: "#22d3ee" },
+  { id: "volt", label: "Volt Green", dot: "#00e888", dot2: "#38bdf8" },
+  { id: "purple", label: "Nebula", dot: "#d946ef", dot2: "#818cf8" },
+  { id: "crimson", label: "Inferno", dot: "#ff4d6d", dot2: "#ffb020" },
   { id: "ocean", label: "Deep Ocean", dot: "#38bdf8", dot2: "#818cf8" },
-  { id: "gold", label: "Royal Gold", dot: "#ffb703", dot2: "#e07a5f" },
-  { id: "light", label: "Daylight", dot: "#00b368", dot2: "#2c9fd8" },
+  { id: "gold", label: "Solar Gold", dot: "#fbbf24", dot2: "#fb7185" },
+  { id: "light", label: "Daylight", dot: "#7c3aed", dot2: "#0891b2" },
 ];
 
 export default function ThemeMenu({ theme, setTheme }) {
