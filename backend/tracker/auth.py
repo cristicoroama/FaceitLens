@@ -128,6 +128,22 @@ def steam_return(request):
     persona, avatar = _steam_summary(steamid)
 
     user, _created = User.objects.get_or_create(username=f"steam:{steamid}")
+
+    # Auto-promote configured owner SteamID(s) to Django admin. Set
+    # ADMIN_STEAM_IDS="7656...,7656..." on the backend. This means you get the
+    # /admin/ panel just by signing in with Steam — no separate password, and it
+    # survives the free-tier database resets (re-applied on every login).
+    admin_ids = {
+        s.strip()
+        for s in os.environ.get("ADMIN_STEAM_IDS", "").split(",")
+        if s.strip()
+    }
+    should_be_admin = steamid in admin_ids
+    if user.is_staff != should_be_admin or user.is_superuser != should_be_admin:
+        user.is_staff = should_be_admin
+        user.is_superuser = should_be_admin
+        user.save(update_fields=["is_staff", "is_superuser"])
+
     prof, _created = SteamProfile.objects.get_or_create(
         user=user, defaults={"steamid": steamid}
     )
