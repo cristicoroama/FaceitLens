@@ -338,6 +338,7 @@ export default function App() {
     setError("");
     setData(null);
     setData2(null);
+    setComparePlayers(null);
     setSquad(null);
     setSteamProfile(null);
     try {
@@ -357,6 +358,7 @@ export default function App() {
     setError("");
     setData(null);
     setData2(null);
+    setComparePlayers(null);
     setSquad(null);
     try {
       setData(await fetchPlayer(nick));
@@ -368,21 +370,20 @@ export default function App() {
   }
 
   async function runCompare() {
-    const n1 = nickname.trim();
-    const n2 = nickname2.trim();
-    if (!n1 || !n2) {
-      setError("Enter both players to compare.");
+    const names = compareInputs.map((n) => n.trim()).filter(Boolean);
+    if (names.length < 2) {
+      setError("Enter at least two players to compare.");
       return;
     }
     setLoading(true);
     setError("");
     setData(null);
     setData2(null);
+    setComparePlayers(null);
     setSquad(null);
     try {
-      const [a, b] = await Promise.all([fetchPlayer(n1), fetchPlayer(n2)]);
-      setData(a);
-      setData2(b);
+      const results = await Promise.all(names.map((n) => fetchPlayer(n)));
+      setComparePlayers(results);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -390,11 +391,22 @@ export default function App() {
     }
   }
 
+  function setCompareAt(i, v) {
+    setCompareInputs((arr) => arr.map((x, idx) => (idx === i ? v : x)));
+  }
+  function addCompareSlot() {
+    setCompareInputs((arr) => (arr.length >= 5 ? arr : [...arr, ""]));
+  }
+  function removeCompareSlot(i) {
+    setCompareInputs((arr) => (arr.length <= 2 ? arr : arr.filter((_, idx) => idx !== i)));
+  }
+
   async function runSquad() {
     setLoading(true);
     setError("");
     setData(null);
     setData2(null);
+    setComparePlayers(null);
     setSquad(null);
     try {
       setSquad(await fetchSquad(squadInput));
@@ -686,25 +698,29 @@ export default function App() {
           {/* ---------- TOOL PAGES ---------- */}
           {mode === "compare" && (
             <>
-              <div className="section-title">Compare 1v1</div>
-              <div className="search">
-                <input
-                  type="text"
-                  className="compare-input"
-                  placeholder="First player"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && runCompare()}
-                />
-                <input
-                  type="text"
-                  className="compare-input"
-                  placeholder="Second player"
-                  value={nickname2}
-                  onChange={(e) => setNickname2(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && runCompare()}
-                />
-                <button onClick={runCompare} disabled={loading}>
+              <div className="section-title">Compare players <span className="section-count">up to 5</span></div>
+              <div className="cmp-inputs">
+                {compareInputs.map((v, i) => (
+                  <div className="cmp-input-row" key={i}>
+                    <input
+                      type="text"
+                      className="compare-input"
+                      placeholder={`Player ${i + 1}`}
+                      value={v}
+                      onChange={(e) => setCompareAt(i, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && runCompare()}
+                    />
+                    {compareInputs.length > 2 && (
+                      <button className="cmp-x" onClick={() => removeCompareSlot(i)} title="Remove">✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="cmp-actions">
+                {compareInputs.length < 5 && (
+                  <button className="act-btn" onClick={addCompareSlot}>+ Add player</button>
+                )}
+                <button className="btn-primary" onClick={runCompare} disabled={loading}>
                   {loading ? "..." : "Compare"}
                 </button>
               </div>
@@ -731,6 +747,8 @@ export default function App() {
 
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
           {mode === "hltv" && <HltvView onPick={go} />}
+          {mode === "matchroom" && <MatchRoom onPick={go} />}
+          {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "crosshair" && <Crosshair />}
 
@@ -745,10 +763,18 @@ export default function App() {
             <SteamProfileView profile={steamProfile} />
           )}
 
-          {!loading && data && data2 && (
+          {!loading && comparePlayers && comparePlayers.length >= 2 && (
             <>
-              <CompareView a={data} b={data2} />
-              {eloSeries.length > 0 && <EloChart series={eloSeries} />}
+              <CompareView players={comparePlayers} onPick={go} />
+              {(() => {
+                const cs = comparePlayers
+                  .map((p, i) => {
+                    const d = eloData(p);
+                    return d.length ? { name: p.nickname, color: i === 0 ? "var(--accent)" : i === 1 ? "var(--accent-2)" : ["#f59e0b", "#ef4444", "#a855f7"][i - 2], data: d } : null;
+                  })
+                  .filter(Boolean);
+                return cs.length > 0 ? <EloChart series={cs} /> : null;
+              })()}
             </>
           )}
 
@@ -798,7 +824,7 @@ export default function App() {
               ) : profileTab === "hltv" ? (
                 <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (
-                <TeammatesFull mates={data.teammates_full} />
+                <TeammatesFull mates={data.teammates_full} onPick={go} />
               ) : profileTab === "hubs" ? (
                 <Hubs hubs={data.hubs} />
               ) : profileTab === "met" ? (
@@ -820,8 +846,8 @@ export default function App() {
                     <div><MapStats maps={data.map_stats} /></div>
                     <div><Activity activity={data.activity} /></div>
                   </div>
-                  <BestTeammates mates={data.best_teammates} />
-                  <MatchHistory matches={data.recent_matches} me={data.nickname} />
+                  <BestTeammates mates={data.best_teammates} onPick={go} />
+                  <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
                 </>
               )}
             </>
