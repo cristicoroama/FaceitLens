@@ -13,7 +13,7 @@ async function fetchMatch(id) {
   return resp.json();
 }
 
-function Team({ team, me }) {
+function Team({ team, me, onPick }) {
   return (
     <div className={`mt ${team.win ? "win" : "loss"}`}>
       <div className="mt-head">
@@ -32,7 +32,12 @@ function Team({ team, me }) {
       </div>
       {team.players.map((p, i) => (
         <div className={`mt-row ${p.nickname === me ? "me" : ""}`} key={i}>
-          <span className="mt-player">{p.nickname}</span>
+          <span
+            className={`mt-player ${onPick && p.nickname ? "mt-link" : ""}`}
+            onClick={onPick && p.nickname ? (e) => { e.stopPropagation(); onPick(p.nickname); } : undefined}
+          >
+            {p.nickname}
+          </span>
           <span>{p.kills}</span>
           <span>{p.deaths}</span>
           <span>{p.assists ?? "—"}</span>
@@ -45,7 +50,7 @@ function Team({ team, me }) {
   );
 }
 
-function MatchRow({ m, me }) {
+function MatchRow({ m, me, onPick }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -98,7 +103,7 @@ function MatchRow({ m, me }) {
                 </div>
               )}
               {detail.teams.map((t, ti) => (
-                <Team team={t} me={me} key={ti} />
+                <Team team={t} me={me} onPick={onPick} key={ti} />
               ))}
             </>
           )}

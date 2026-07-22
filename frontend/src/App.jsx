@@ -28,6 +28,8 @@ import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
+import MatchRoom from "./components/MatchRoom.jsx";
+import Watchlist from "./components/Watchlist.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -118,18 +120,30 @@ const I = {
       <path d="M4 19V5M4 12h8M12 19V5M20 19V5M12 12h8" />
     </svg>
   ),
+  room: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M16 3h5v5M8 21H3v-5M21 3l-7.5 7.5M3 21l7.5-7.5" />
+    </svg>
+  ),
+  star: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 2 2.9 6.3 6.8.7-5 4.6 1.4 6.7L12 17.8 5.9 20.3l1.4-6.7-5-4.6 6.8-.7L12 2Z" />
+    </svg>
+  ),
 };
 
 const NAV = [
   { group: "FACEIT", items: [
     { id: "single", label: "Player Search", icon: I.search },
+    { id: "watchlist", label: "Watchlist", icon: I.star },
     { id: "leaderboard", label: "Leaderboard", icon: I.board },
   ]},
   { group: "HLTV — Pro Scene", items: [
     { id: "hltv", label: "HLTV Hub", icon: I.hltv },
   ]},
   { group: "Tools", items: [
-    { id: "compare", label: "Compare 1v1", icon: I.vs },
+    { id: "matchroom", label: "Match Room", icon: I.room },
+    { id: "compare", label: "Compare", icon: I.vs },
     { id: "squad", label: "Squad", icon: I.squad },
   ]},
   { group: "Extras", items: [
@@ -212,10 +226,12 @@ export default function App() {
   const [nickname, setNickname] = useState(routeNick || "");
   const [mode, setMode] = useState("single");
   const [nickname2, setNickname2] = useState("");
+  const [compareInputs, setCompareInputs] = useState(["", ""]);
   const [squadInput, setSquadInput] = useState("");
 
   const [data, setData] = useState(null);
   const [data2, setData2] = useState(null);
+  const [comparePlayers, setComparePlayers] = useState(null);
   const [squad, setSquad] = useState(null);
   const [steamProfile, setSteamProfile] = useState(null);
   const [loading, setLoading] = useState(false);

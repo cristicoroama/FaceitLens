@@ -364,6 +364,113 @@ def get_match_detail(match_id):
     return detail
 
 
+def _extract_match_id(raw):
+    """Pull a FACEIT match id out of a room URL or accept a bare id.
+    Handles .../room/1-<uuid>, .../room/<uuid>, or the id pasted directly."""
+    import re
+    s = (raw or "").strip()
+    # room links: /room/<id> (optionally with query/hash after)
+    m = re.search(r"/room/([0-9A-Za-z-]+)", s)
+    if m:
+        return m.group(1)
+    # a bare "1-<uuid>" style id
+    m = re.search(r"\b(1-[0-9a-fA-F-]{30,})\b", s)
+    if m:
+        return m.group(1)
+    # last resort: a lone token that looks like an id
+    if re.fullmatch(r"[0-9A-Za-z-]{6,}", s):
+        return s
+    return None
+
+
+def _player_elo_level(player_id):
+    """Current CS2 ELO + skill level for one player (cached 5 min)."""
+    ck = f"pel:{player_id}"
+    hit = cache.get(ck)
+    if hit is not None:
+        return hit
+    try:
+        p = _get(f"/players/{player_id}")
+    except FaceitError:
+        return {"elo": None, "level": None, "country": None, "avatar": None}
+    cs2 = (p.get("games", {}) or {}).get("cs2", {}) or {}
+    out = {
+        "elo": cs2.get("faceit_elo"),
+        "level": cs2.get("skill_level"),
+        "country": p.get("country"),
+        "avatar": p.get("avatar") or None,
+    }
+    cache.set(ck, out, 300)
+    return out
+
+
+def get_match_room(raw):
+    """
+    Scout a FACEIT match room: both teams' rosters with current ELO/level, team
+    averages and a simple ELO-based win probability. Works for upcoming, live or
+    finished matches (anything the /matches/<id> endpoint returns).
+    """
+    match_id = _extract_match_id(raw)
+    if not match_id:
+        raise FaceitError("Couldn't read a match id. Paste a faceit.com room link.")
+
+    meta = _get(f"/matches/{match_id}")
+    teams_in = meta.get("teams", {}) or {}
+
+    def build_team(faction):
+        f = teams_in.get(faction, {}) or {}
+        roster = f.get("roster", []) or []
+        players = []
+        for r in roster:
+            pid = r.get("player_id")
+            info = _player_elo_level(pid) if pid else {}
+            players.append({
+                "player_id": pid,
+                "nickname": r.get("nickname"),
+                "elo": info.get("elo"),
+                "level": info.get("level") or r.get("game_skill_level"),
+                "country": info.get("country"),
+                "avatar": info.get("avatar") or r.get("avatar") or None,
+            })
+        players.sort(key=lambda x: (x["elo"] or 0), reverse=True)
+        elos = [p["elo"] for p in players if p["elo"]]
+        avg = round(sum(elos) / len(elos)) if elos else None
+        return {
+            "name": f.get("name") or faction,
+            "players": players,
+            "avg_elo": avg,
+            "leader": f.get("leader"),
+        }
+
+    t1 = build_team("faction1")
+    t2 = build_team("faction2")
+
+    # ELO win probability (logistic on the average-ELO gap)
+    prob1 = None
+    if t1["avg_elo"] and t2["avg_elo"]:
+        prob1 = round(1 / (1 + 10 ** ((t2["avg_elo"] - t1["avg_elo"]) / 400)) * 100)
+
+    status = meta.get("status")
+    voting = meta.get("voting", {}) or {}
+    picked_map = None
+    mp = (voting.get("map", {}) or {}).get("pick")
+    if isinstance(mp, list) and mp:
+        picked_map = mp[0]
+
+    return {
+        "match_id": match_id,
+        "status": status,
+        "competition": meta.get("competition_name"),
+        "region": meta.get("region"),
+        "map": picked_map,
+        "faceit_url": (meta.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "team1": t1,
+        "team2": t2,
+        "prob1": prob1,
+        "prob2": (100 - prob1) if prob1 is not None else None,
+    }
+
+
 def build_squad_stats(nicknames):
     """
     For a list of nicknames, find matches they played in together and the

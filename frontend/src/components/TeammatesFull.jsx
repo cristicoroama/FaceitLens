@@ -2,7 +2,7 @@ function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
-export default function TeammatesFull({ mates }) {
+export default function TeammatesFull({ mates, onPick }) {
   if (!mates || mates.length === 0) {
     return <div className="state">No teammates found in recent matches.</div>;
   }
@@ -23,7 +23,11 @@ export default function TeammatesFull({ mates }) {
           const wr = Number(m.win_rate) || 0;
           const color = wr >= 50 ? "var(--win)" : "var(--loss)";
           return (
-            <div className="lrow" key={m.nickname}>
+            <div
+              className={`lrow ${onPick ? "lrow-click" : ""}`}
+              key={m.nickname}
+              onClick={onPick ? () => onPick(m.nickname) : undefined}
+            >
               <span className="lrow-rank">#{i + 1}</span>
               <div className="lrow-ava">{initials(m.nickname)}</div>
               <div className="lrow-main">

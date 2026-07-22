@@ -54,6 +54,22 @@ def match_detail(request, match_id):
 
 
 @require_GET
+def match_room(request):
+    """GET /api/matchroom/?url=<faceit room link> - scout both teams + prediction."""
+    raw = request.GET.get("url") or request.GET.get("id") or ""
+    if not raw.strip():
+        return JsonResponse({"error": "Paste a FACEIT match room link."}, status=400)
+    try:
+        data = faceit.get_match_room(raw)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
+
+
+@require_GET
 def squad_stats(request):
     """GET /api/squad/?players=a,b,c - leaderboard + matches played together."""
     raw = request.GET.get("players", "")

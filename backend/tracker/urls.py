@@ -16,6 +16,7 @@ urlpatterns = [
     path("steam/", views.player_by_steam, name="player-by-steam"),
     path("steamprofile/", views.steam_profile, name="steam-profile"),
     path("match/<str:match_id>/", views.match_detail, name="match-detail"),
+    path("matchroom/", views.match_room, name="match-room"),
     path("squad/", views.squad_stats, name="squad-stats"),
     path("search/", views.search, name="search"),
     path("recent/", views.recent, name="recent"),
