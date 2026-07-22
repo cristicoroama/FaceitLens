@@ -6,6 +6,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
+# Safety net: never run in production with the public dev key from the repo.
+if not DEBUG and SECRET_KEY == "dev-only-change-me":
+    raise RuntimeError("SECRET_KEY must be set in production (env var).")
+
 # Comma-separated list in production, e.g. "faceitlens.onrender.com"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
@@ -73,13 +77,27 @@ else:
     CORS_ALLOW_ALL_ORIGINS = True
 
 # Sessions must ride along on fetch() calls from the frontend (Sign in with
-# Steam). In production the frontend (Vercel) and backend (Render) are on
-# different domains, so the session cookie needs SameSite=None + Secure.
+# Steam).
 CORS_ALLOW_CREDENTIALS = True
+
+# BEST: put the backend on a subdomain of the site (api.faceit-lens.com) and set
+# COOKIE_DOMAIN=.faceit-lens.com — then the session cookie is first-party for
+# BOTH the site and the API, so it works in Brave / Safari / everywhere.
+COOKIE_DOMAIN = os.environ.get("COOKIE_DOMAIN", "")
+
 if not DEBUG:
-    SESSION_COOKIE_SAMESITE = "None"
+    if COOKIE_DOMAIN:
+        # Same-site setup (shared parent domain): Lax is enough and robust.
+        SESSION_COOKIE_DOMAIN = COOKIE_DOMAIN
+        CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
+        SESSION_COOKIE_SAMESITE = "Lax"
+        CSRF_COOKIE_SAMESITE = "Lax"
+    else:
+        # Cross-domain fallback (onrender.com): needs SameSite=None, but modern
+        # browsers block these third-party cookies (Brave/Safari).
+        SESSION_COOKIE_SAMESITE = "None"
+        CSRF_COOKIE_SAMESITE = "None"
     SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
 
 # Trust the Render proxy for HTTPS / CSRF

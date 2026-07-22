@@ -36,8 +36,20 @@ from .models import Favorite, SteamProfile
 STEAM_OPENID = "https://steamcommunity.com/openid/login"
 
 
-def _frontend() -> str:
-    return os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+def _frontend(request=None) -> str:
+    """Where to send the user after login.
+
+    Priority: FRONTEND_URL env  ->  the origin they came from (captured in the
+    session at login time)  ->  localhost dev default. The session capture means
+    it "just works" on Vercel+Render even if FRONTEND_URL isn't set."""
+    env = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    if env:
+        return env
+    if request is not None:
+        origin = request.session.get("login_origin")
+        if origin:
+            return origin.rstrip("/")
+    return "http://localhost:3000"
 
 
 def _backend_base(request) -> str:
@@ -73,6 +85,18 @@ def _steam_summary(steamid: str):
 
 def steam_login(request):
     """Kick off OpenID: redirect the browser to Steam's login page."""
+    # Remember which frontend the user clicked from (Origin/Referer header),
+    # so we can send them back there after Steam — no env var required.
+    origin = request.META.get("HTTP_ORIGIN")
+    if not origin:
+        ref = request.META.get("HTTP_REFERER")
+        if ref:
+            p = urllib.parse.urlparse(ref)
+            if p.scheme and p.netloc:
+                origin = f"{p.scheme}://{p.netloc}"
+    if origin:
+        request.session["login_origin"] = origin
+
     return_to = _backend_base(request) + "/api/auth/steam/return/"
     params = {
         "openid.ns": "http://specs.openid.net/auth/2.0",
@@ -98,7 +122,7 @@ def steam_return(request):
     claimed = request.GET.get("openid.claimed_id", "")
     m = re.search(r"/openid/id/(\d{15,20})$", claimed)
     if not valid or not m:
-        return HttpResponseRedirect(_frontend() + "/?login=failed")
+        return HttpResponseRedirect(_frontend(request) + "/?login=failed")
 
     steamid = m.group(1)
     persona, avatar = _steam_summary(steamid)
@@ -115,7 +139,7 @@ def steam_return(request):
     prof.save()
 
     dj_login(request, user)
-    return HttpResponseRedirect(_frontend() + "/?login=ok")
+    return HttpResponseRedirect(_frontend(request) + "/?login=ok")
 
 
 def me(request):
