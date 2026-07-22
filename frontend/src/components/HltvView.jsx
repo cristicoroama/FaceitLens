@@ -48,6 +48,26 @@ export default function HltvView({ onPick }) {
   const [query, setQuery] = useState("");
   const [teamModal, setTeamModal] = useState(null); // { url, name }
   const [playerModal, setPlayerModal] = useState(null); // { url?, id?, name }
+  const [openTeam, setOpenTeam] = useState(null); // team_url of the expanded ranking row
+  const [rosters, setRosters] = useState({}); // team_url -> { loading, data, error }
+
+  /** Rankings: expand a team inline and lazy-load its roster once. */
+  function toggleTeam(t) {
+    const url = t.team_url;
+    if (!url) return;
+    if (openTeam === url) {
+      setOpenTeam(null);
+      return;
+    }
+    setOpenTeam(url);
+    if (!rosters[url]) {
+      setRosters((r) => ({ ...r, [url]: { loading: true } }));
+      fetch(`${API_BASE}/api/hltv/team-details/?url=${encodeURIComponent(url)}`)
+        .then((res) => res.json())
+        .then((j) => setRosters((r) => ({ ...r, [url]: { loading: false, data: j } })))
+        .catch((e) => setRosters((r) => ({ ...r, [url]: { loading: false, error: e.message } })));
+    }
+  }
 
   async function load(section) {
     setLoading(true);
@@ -149,31 +169,88 @@ export default function HltvView({ onPick }) {
               const pct = Math.max(4, Math.round(((Number(t.points) || 0) / maxPts) * 100));
               const top = pos <= 3 ? `top${pos}` : "";
               const initials = (t.name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+              const isOpen = openTeam === t.team_url && t.team_url;
+              const st = (t.team_url && rosters[t.team_url]) || null;
+              const roster = st?.data?.available ? st.data.roster || [] : [];
               return (
-                <div
-                  className={`rank-card ${top} ${t.team_url ? "clickable" : ""}`}
-                  key={`${t.name}-${i}`}
-                  style={{ animationDelay: `${Math.min(i, 14) * 0.03}s` }}
-                  onClick={t.team_url ? () => setTeamModal({ url: t.team_url, name: t.name }) : undefined}
-                >
-                  <div className="rank-pos">#{pos}</div>
-                  <div className="rank-logo-wrap">
-                    {t.logo ? (
-                      <Logo src={t.logo} alt={t.name} className="rank-logo-img" />
-                    ) : (
-                      <span className="rank-logo-ph">{initials}</span>
-                    )}
-                  </div>
-                  <div className="rank-main">
-                    <div className="rank-name">{t.name}</div>
-                    <div className="rank-bar-track">
-                      <div className="rank-bar-fill" style={{ width: `${pct}%` }} />
+                <div className="rank-item" key={`${t.name}-${i}`}>
+                  <div
+                    className={`rank-card ${top} ${t.team_url ? "clickable" : ""} ${isOpen ? "open" : ""}`}
+                    style={{ animationDelay: `${Math.min(i, 14) * 0.03}s` }}
+                    onClick={t.team_url ? () => toggleTeam(t) : undefined}
+                  >
+                    <div className="rank-pos">#{pos}</div>
+                    <div className="rank-logo-wrap">
+                      {t.logo ? (
+                        <Logo src={t.logo} alt={t.name} className="rank-logo-img" />
+                      ) : (
+                        <span className="rank-logo-ph">{initials}</span>
+                      )}
                     </div>
+                    <div className="rank-main">
+                      <div className="rank-name">{t.name}</div>
+                      {t.players && t.players.length > 0 && !isOpen && (
+                        <div className="rank-players">{t.players.join(" · ")}</div>
+                      )}
+                      <div className="rank-bar-track">
+                        <div className="rank-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                    <div className="rank-pts">
+                      <span className="rank-pts-num">{t.points ?? "—"}</span>
+                      <span className="rank-pts-label">points</span>
+                    </div>
+                    {t.team_url && <span className="rank-chev">▾</span>}
                   </div>
-                  <div className="rank-pts">
-                    <span className="rank-pts-num">{t.points ?? "—"}</span>
-                    <span className="rank-pts-label">points</span>
-                  </div>
+
+                  {isOpen && (
+                    <div className="rank-roster">
+                      {st?.loading && <div className="state" style={{ padding: "18px 0" }}>Loading roster…</div>}
+                      {st?.error && <div className="state error">{st.error}</div>}
+                      {st?.data && !st.data.available && (
+                        <div className="state" style={{ padding: "14px 0" }}>
+                          Roster unavailable for this team right now.
+                        </div>
+                      )}
+                      {roster.length > 0 && (
+                        <div className="rr-grid">
+                          {roster.map((p, pi) => (
+                            <button
+                              className="rr-card"
+                              key={pi}
+                              onClick={() =>
+                                setPlayerModal({ url: p.player_url, id: p.player_id, name: p.name })
+                              }
+                              title={`View ${p.name}`}
+                            >
+                              {p.photo ? (
+                                <Logo src={p.photo} alt={p.name} className="rr-photo" />
+                              ) : (
+                                <span className="rr-photo ph">
+                                  {(p.name || "?").slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="rr-name">{p.name}</span>
+                              {p.country && <span className="rr-country">{p.country}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {st?.data?.available && roster.length === 0 && (
+                        <div className="state" style={{ padding: "14px 0" }}>No roster data.</div>
+                      )}
+                      <div className="rr-foot">
+                        <a
+                          href={t.team_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          HLTV team profile →
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

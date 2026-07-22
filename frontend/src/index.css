@@ -1975,3 +1975,83 @@ html[data-theme="light"] .g2-marker { background: #222; box-shadow: 0 0 6px rgba
   background: var(--glass-bg-2); border: 1px solid var(--glass-brd);
   border-radius: 999px; padding: 3px 11px; font-size: 12px;
 }
+
+/* ============================================================
+   HLTV ranking — inline expandable roster (like hltv.org)
+   ============================================================ */
+.rank-item { display: flex; flex-direction: column; }
+.rank-players {
+  color: var(--text-dim); font-size: 11.5px; margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rank-players + .rank-bar-track { margin-top: 6px; }
+.rank-chev {
+  color: var(--text-dim); font-size: 11px; flex: 0 0 auto;
+  margin-left: 4px; transition: transform 0.22s ease, color 0.2s;
+}
+.rank-card.open { border-radius: var(--radius) var(--radius) 0 0; border-bottom-color: transparent; }
+.rank-card.open .rank-chev { transform: rotate(180deg); color: var(--accent); }
+.rank-card.open::before { opacity: 1; }
+
+.rank-roster {
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.05), transparent 60px),
+    color-mix(in srgb, var(--bg-elev-2) 55%, transparent);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.5);
+  backdrop-filter: blur(var(--blur)) saturate(1.5);
+  border: 1px solid var(--glass-brd); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 16px 18px 12px;
+  animation: rosterIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: top;
+}
+@keyframes rosterIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rr-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+}
+@media (max-width: 720px) { .rr-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 480px) { .rr-grid { grid-template-columns: repeat(2, 1fr); } }
+.rr-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+  border-radius: 14px; padding: 14px 8px 12px;
+  color: var(--text); cursor: pointer;
+  animation: fadeUp 0.3s ease both;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.rr-card:nth-child(1) { animation-delay: 0.03s; }
+.rr-card:nth-child(2) { animation-delay: 0.07s; }
+.rr-card:nth-child(3) { animation-delay: 0.11s; }
+.rr-card:nth-child(4) { animation-delay: 0.15s; }
+.rr-card:nth-child(5) { animation-delay: 0.19s; }
+.rr-card:nth-child(6) { animation-delay: 0.23s; }
+.rr-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-rgb), 0.6);
+  box-shadow: 0 8px 22px rgba(var(--accent-rgb), 0.14);
+}
+.rr-photo {
+  width: 62px; height: 62px; border-radius: 50%; object-fit: cover; object-position: top;
+  background: var(--bg-elev-3);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.35);
+}
+.rr-card:hover .rr-photo { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.8), 0 0 18px rgba(var(--accent-rgb), 0.3); }
+.rr-photo.ph {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--accent);
+}
+.rr-name {
+  font-weight: 700; font-size: 13px; font-family: var(--font-display);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.rr-country { color: var(--text-dim); font-size: 10.5px; }
+.rr-foot { display: flex; justify-content: flex-end; padding: 10px 2px 2px; }
+.rr-foot a {
+  color: var(--text-dim); font-size: 11.5px; font-weight: 600; text-decoration: none;
+  transition: color 0.15s;
+}
+.rr-foot a:hover { color: var(--accent); }

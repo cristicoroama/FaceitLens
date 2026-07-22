@@ -172,8 +172,32 @@ def _wrap(items, ok: dict) -> dict:
 
 # --- Public getters -------------------------------------------------------- #
 
+def _roster_names(row: dict) -> list | None:
+    """Player nicknames if the ranking scraper includes them (HLTV lists the
+    lineup under each ranked team). Tolerates list-of-dicts, list-of-strings
+    or a single separated string."""
+    for key in ("players", "roster", "lineup", "player_names"):
+        v = row.get(key)
+        if isinstance(v, list) and v:
+            out = []
+            for p in v:
+                if isinstance(p, str) and p.strip():
+                    out.append(p.strip())
+                elif isinstance(p, dict):
+                    n = _pick(p, "name", "nickname", "player")
+                    if n:
+                        out.append(str(n))
+            if out:
+                return out[:6]
+        elif isinstance(v, str) and v.strip():
+            parts = [s.strip() for s in re.split(r"[,·•|]+", v) if s.strip()]
+            if parts:
+                return parts[:6]
+    return None
+
+
 def get_team_rankings(limit: int = 30) -> dict:
-    """HLTV world team ranking: rank, team, points."""
+    """HLTV world team ranking: rank, team, points (+ lineup when available)."""
     limit = max(1, min(int(limit or 30), 50))
     ok = _call("get_team_rankings", cache_suffix="all")
     if not ok.get("available"):
@@ -189,6 +213,7 @@ def get_team_rankings(limit: int = 30) -> dict:
             "change": _pick(row, "change", "delta"),
             "logo": _team_logo(row),
             "team_url": _pick(row, "team_url", "url", "link"),
+            "players": _roster_names(row),
         })
     items = [it for it in items if it["name"]][:limit]
     return _wrap(items, ok)
