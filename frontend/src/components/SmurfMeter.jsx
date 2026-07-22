@@ -18,6 +18,7 @@ function analyze(data) {
   const streak = Number(s.longest_win_streak) || 0;
   const hours = steam.hours_cs2 != null ? Number(steam.hours_cs2) : null;
   const created = steam.created ? Number(steam.created) : null;
+  const ageYears = created ? (Date.now() / 1000 - created) / (365.25 * 24 * 3600) : null;
 
   const signals = [];
   let score = 0;
@@ -27,34 +28,67 @@ function analyze(data) {
     signals.push({ label, detail, weight: pts });
   };
 
-  // --- gameplay dominance ---
-  add(26, "Elite headshot rate", `${hs}% HS — way above the average for this rank`, hs >= 55);
-  add(12, "High headshot rate", `${hs}% HS`, hs >= 48 && hs < 55);
+  // A smurf plays BELOW their true rank on an IMMATURE account. Raw dominance
+  // alone is not smurfing — pros crush lobbies legitimately. So the real signal
+  // is a MISMATCH: elite performance on a young / low-games / low-hours account
+  // that hasn't yet climbed to where it belongs.
 
-  add(22, "Crushing K/D", `${kd} K/D — dominating lobbies`, kd >= 1.3);
-  add(11, "Strong K/D", `${kd} K/D`, kd >= 1.15 && kd < 1.3);
+  const dominates = hs >= 52 || kd >= 1.2 || wr >= 60;      // clearly above-average play
+  const veryDominant = hs >= 58 || kd >= 1.35 || wr >= 66;
 
-  add(16, "Very high win rate", `${wr}% wins`, wr >= 65);
-  add(8, "High win rate", `${wr}% wins`, wr >= 58 && wr < 65);
-
-  add(8, "Long win streak", `${streak}-game best streak`, streak >= 10);
-
-  // --- account / progression mismatch ---
-  add(22, "Climbed on very few games", `Level ${level} in only ${matches} matches`, matches > 0 && matches < 100 && level >= 7);
-  add(12, "High rank, low games", `${matches} matches`, matches >= 100 && matches < 250 && (level >= 8 || elo >= 2000));
+  // --- account immaturity (the core of smurf detection) ---
+  add(32, "Sky-high rank on almost no games",
+    `Level ${level} in only ${matches} matches`,
+    dominates && matches > 0 && matches < 60 && level >= 7);
+  add(18, "High rank, few games",
+    `Level ${level} · ${matches} matches`,
+    dominates && matches >= 60 && matches < 180 && (level >= 8 || elo >= 1900));
 
   if (hours != null) {
-    add(20, "Low CS2 hours for the skill", `${hours}h in CS2 but performing at level ${level}`, hours < 500 && level >= 6);
-    add(10, "Modest hours, high skill", `${hours}h in CS2`, hours >= 500 && hours < 1000 && level >= 9);
+    add(28, "Elite skill, very low CS2 hours",
+      `${hours}h in CS2 but playing at level ${level}`,
+      dominates && hours < 400 && level >= 6);
+    add(14, "Modest hours for the skill",
+      `${hours}h in CS2`,
+      dominates && hours >= 400 && hours < 900 && level >= 8);
   }
 
-  if (created) {
-    const ageYears = (Date.now() / 1000 - created) / (365.25 * 24 * 3600);
-    add(12, "Young Steam account", `Steam account ~${ageYears.toFixed(1)} yrs old`, ageYears < 1.5);
-    add(6, "Fairly new Steam account", `~${ageYears.toFixed(1)} yrs old`, ageYears >= 1.5 && ageYears < 3);
+  if (ageYears != null) {
+    add(16, "Fresh Steam account already stomping",
+      `Steam account ~${ageYears.toFixed(1)} yrs old`,
+      dominates && ageYears < 1.5 && matches < 300);
   }
+
+  // dominance only *amplifies* once at least one mismatch signal fired
+  if (signals.length > 0) {
+    add(10, "Elite headshot rate", `${hs}% HS — above the norm for the rank`, hs >= 55);
+    add(8, "Crushing K/D", `${kd} K/D`, kd >= 1.35);
+    add(6, "Long win streak", `${streak}-game best streak`, streak >= 12);
+  }
+
+  // --- legitimacy gates ---
+  const verified = !!data.verified;
+  const premium = Array.isArray(data.memberships) && data.memberships.some((m) => /premium/i.test(m));
+  const vac = !!(steam.vac_banned);
+  const established = matches >= 400 || (hours != null && hours >= 1500);
+  const maxedRank = level >= 10 || elo >= 2200;
+
+  // Verified (phone-tied) and Premium (paid) accounts are rarely throwaway
+  // smurfs — people don't invest in accounts they'll ditch. Strong reducers.
+  const legit = [];
+  if (verified) { score -= 18; legit.push("FACEIT verified"); }
+  if (premium) { score -= 16; legit.push("FACEIT Premium"); }
+
+  if (established) score = Math.min(score, 12);
+  if (maxedRank) score = Math.min(score, 18); // already at the ceiling — nowhere to smurf
 
   score = Math.max(0, Math.min(100, score));
+
+  // reason to show when clean
+  let cleanReason = "Stats and account line up with the rank — no smurf red flags.";
+  if (established) cleanReason = `Established account — ${matches} matches${hours != null ? ` · ${hours}h` : ""}. This rank was earned.`;
+  else if (maxedRank) cleanReason = `Already at the top of the ladder (level ${level}${elo ? ` · ${elo} ELO` : ""}) — not smurfing.`;
+  else if (legit.length) cleanReason = `${legit.join(" + ")} — invested account, unlikely a throwaway smurf.`;
 
   let tier, color;
   if (score >= 70) { tier = "TEXTBOOK SMURF"; color = "#ef4444"; }
@@ -62,9 +96,8 @@ function analyze(data) {
   else if (score >= 25) { tier = "SOME SMURF SIGNS"; color = "#eab308"; }
   else { tier = "LOOKS LEGIT"; color = "#22c55e"; }
 
-  // sort signals by weight (strongest first)
   signals.sort((a, b) => b.weight - a.weight);
-  return { score, tier, color, signals, matches };
+  return { score, tier, color, signals, matches, cleanReason, legit, verified, premium };
 }
 
 export default function SmurfMeter({ data }) {
@@ -108,9 +141,7 @@ export default function SmurfMeter({ data }) {
 
           <div className="smurf-signals">
             {r.signals.length === 0 ? (
-              <div className="smurf-clean">
-                ✓ No smurf red flags — stats and account line up with the rank.
-              </div>
+              <div className="smurf-clean">✓ {r.cleanReason}</div>
             ) : (
               r.signals.map((sig) => (
                 <div className="smurf-sig" key={sig.label}>
@@ -122,6 +153,13 @@ export default function SmurfMeter({ data }) {
                   <span className="smurf-sig-w">+{sig.weight}</span>
                 </div>
               ))
+            )}
+            {r.legit.length > 0 && (
+              <div className="smurf-legit">
+                {r.legit.map((l) => (
+                  <span className="smurf-legit-badge" key={l}>✓ {l}</span>
+                ))}
+              </div>
             )}
           </div>
         </div>
