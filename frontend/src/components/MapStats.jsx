@@ -1,27 +1,41 @@
-// Per-map accent colors + short codes for the generated thumbnails.
+import { useState } from "react";
+
+// Maps we ship a real thumbnail for (public/maps/<name>.webp).
+const HAS_IMAGE = new Set([
+  "ancient", "anubis", "baggage", "basalt", "dust2", "edin", "inferno",
+  "italy", "mills", "mirage", "nuke", "office", "overpass", "palais",
+  "pool_day", "shoots", "thera", "train", "vertigo", "whistle",
+  "agency", "grail", "jura",
+]);
+
+// Fallback accent colors + codes for maps without a shipped image.
 const MAP_META = {
-  de_mirage:   { c: "#e8b84b", code: "MRG" },
-  de_inferno:  { c: "#e5622e", code: "INF" },
-  de_nuke:     { c: "#5bb6d6", code: "NUK" },
-  de_overpass: { c: "#7fae52", code: "OVP" },
-  de_vertigo:  { c: "#8a8f98", code: "VTG" },
-  de_ancient:  { c: "#3fa46a", code: "ANC" },
-  de_anubis:   { c: "#d4a24e", code: "ANB" },
-  de_dust2:    { c: "#d8b46a", code: "DST" },
-  de_train:    { c: "#6b7784", code: "TRN" },
-  de_cache:    { c: "#c98a3c", code: "CCH" },
-  de_cbble:    { c: "#7d9b4e", code: "CBL" },
+  cache: { c: "#c98a3c", code: "CCH" },
+  cbble: { c: "#7d9b4e", code: "CBL" },
 };
 
-function metaFor(map) {
-  const key = (map || "").toLowerCase();
-  if (MAP_META[key]) return MAP_META[key];
-  const code = key.replace(/^de_/, "").slice(0, 3).toUpperCase() || "MAP";
-  return { c: "var(--accent)", code };
+function keyFor(map) {
+  return (map || "").toLowerCase().replace(/^(de|cs)_/, "").replace(/\s+/g, "_");
+}
+
+function codeFor(map) {
+  const k = keyFor(map);
+  if (MAP_META[k]) return MAP_META[k];
+  return { c: "var(--accent)", code: k.replace(/_/g, "").slice(0, 3).toUpperCase() || "MAP" };
 }
 
 function Thumb({ map }) {
-  const { c, code } = metaFor(map);
+  const key = keyFor(map);
+  const [failed, setFailed] = useState(false);
+
+  if (HAS_IMAGE.has(key) && !failed) {
+    return (
+      <span className="map-thumb img">
+        <img src={`/maps/${key}.webp`} alt={map} loading="lazy" onError={() => setFailed(true)} />
+      </span>
+    );
+  }
+  const { c, code } = codeFor(map);
   return (
     <span className="map-thumb" style={{ "--mc": c }}>
       <span className="map-thumb-code">{code}</span>

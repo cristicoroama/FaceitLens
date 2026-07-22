@@ -2358,20 +2358,31 @@ html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
 /* ============================================================
    Map Stats — generated thumbnails
    ============================================================ */
-.map-row2 { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.map-row2 { display: flex; align-items: center; gap: 13px; padding: 8px 0; }
 .map-thumb {
-  width: 46px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  width: 62px; height: 40px; border-radius: 9px; flex-shrink: 0;
   display: grid; place-items: center; position: relative; overflow: hidden;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--mc) 45%, transparent), color-mix(in srgb, var(--mc) 12%, transparent));
   border: 1px solid color-mix(in srgb, var(--mc) 40%, var(--glass-brd));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }
+.map-thumb.img {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--glass-brd);
+}
+.map-thumb.img img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform 0.25s ease;
+}
+.map-row2:hover .map-thumb.img img { transform: scale(1.08); }
 .map-thumb::before {
-  content: ""; position: absolute; inset: 0;
+  content: ""; position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.04) 5px, rgba(255,255,255,0.04) 6px);
 }
+.map-thumb.img::before { display: none; }
 .map-thumb-code {
-  position: relative; font-family: var(--font-display); font-weight: 800; font-size: 11px;
+  position: relative; font-family: var(--font-display); font-weight: 800; font-size: 12px;
   letter-spacing: 0.5px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 .map-row2-main { flex: 1; min-width: 0; }
