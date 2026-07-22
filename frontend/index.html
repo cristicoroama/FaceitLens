@@ -9,18 +9,42 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap"
       rel="stylesheet"
     />
-    <title>FaceitLens — CS2 Stats Tracker</title>
-    <meta name="description" content="Track FACEIT CS2 stats: ELO, win rate, K/D, map stats, match history, 1v1 compare and squad analysis." />
+    <title>FaceitLens — FACEIT CS2 Stats, ELO Tracker & Account Checker</title>
+    <meta name="description" content="Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and the live HLTV pro scene." />
+    <meta name="keywords" content="faceit finder, faceit tracker, cs2 stats, faceit elo, cs2 tracker, faceit stats checker, smurf checker, cs2 account checker, faceit level, hltv ranking" />
+    <link rel="canonical" href="https://faceit-lens.com/" />
+    <meta name="robots" content="index, follow" />
 
     <!-- Open Graph (Discord / WhatsApp / Twitter link previews) -->
-    <meta property="og:title" content="FaceitLens — CS2 Stats Tracker" />
-    <meta property="og:description" content="ELO, win rate, K/D, maps, match history, 1v1 compare and squad stats for FACEIT CS2." />
+    <meta property="og:title" content="FaceitLens — FACEIT CS2 Stats & Account Checker" />
+    <meta property="og:description" content="Scan any CS2 player: ELO, K/D, trust score, inventory, Leetify stats, match-room analyzer and the live HLTV pro scene — all on one page." />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="FaceitLens" />
+    <meta property="og:url" content="https://faceit-lens.com/" />
+    <meta property="og:image" content="https://faceit-lens.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="theme-color" content="#05060f" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FaceitLens — CS2 Stats Tracker" />
-    <meta name="twitter:description" content="ELO, win rate, K/D, maps, match history, 1v1 compare and squad stats for FACEIT CS2." />
+    <meta name="twitter:title" content="FaceitLens — FACEIT CS2 Stats & Account Checker" />
+    <meta name="twitter:description" content="Scan any CS2 player: ELO, K/D, trust score, inventory, Leetify stats and a match-room analyzer — all on one page." />
+    <meta name="twitter:image" content="https://faceit-lens.com/og.png" />
+
+    <!-- Structured data: helps Google show a rich result + search box -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "FaceitLens",
+      "url": "https://faceit-lens.com/",
+      "description": "FACEIT CS2 stats tracker, ELO checker and account trust score.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": "https://faceit-lens.com/player/{search_term_string}" },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
