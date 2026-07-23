@@ -56,8 +56,8 @@ export default function ProSettings() {
       <div className="ps-table-wrap">
         <div className="ps-row ps-head">
           <span>Player</span><span>Sens</span><span>DPI</span><span>eDPI</span>
-          <span className="hide-sm">Res</span><span className="hide-sm">Hz</span>
-          <span className="hide-sm">Mouse</span><span className="hide-sm">Crosshair</span>
+          <span className="hide-sm">Res</span><span className="hide-sm">Ratio</span>
+          <span className="hide-sm">Poll</span><span className="hide-sm">Mouse</span>
         </div>
         <div className="stagger">
           {rows.map((p, i) => (
@@ -69,17 +69,17 @@ export default function ProSettings() {
               <span className="ps-mono">{p.dpi}</span>
               <span className="ps-mono ps-edpi">{p.edpi}</span>
               <span className="ps-mono hide-sm">{p.res}</span>
-              <span className="ps-mono hide-sm">{p.hz}</span>
+              <span className="ps-mono hide-sm">{p.ratio}</span>
+              <span className="ps-mono hide-sm">{p.hz ? `${p.hz}Hz` : "—"}</span>
               <span className="ps-gear hide-sm">{p.mouse}</span>
-              <span className="ps-cross hide-sm">{p.cross}</span>
             </div>
           ))}
         </div>
       </div>
 
       <div className="hltv-note" style={{ textAlign: "left", padding: "12px 2px 0" }}>
-        Community-sourced and approximate — pros change settings often, treat as a
-        reference not gospel. Almost everyone plays 400 DPI, 4:3 stretched, 240Hz+.
+        Live data from <a href="https://prosettings.net/lists/cs2/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>prosettings.net</a> — {rows.length} pros.
+        “Poll” is the mouse polling rate. Almost everyone plays 400–800 DPI, 4:3 stretched.
       </div>
     </>
   );
