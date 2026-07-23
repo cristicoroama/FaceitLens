@@ -27,6 +27,9 @@ import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
 import Clubs from "./components/Clubs.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
+import ProSettings from "./components/ProSettings.jsx";
+import FaceitBans from "./components/FaceitBans.jsx";
+import SteamStatus from "./components/SteamStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
@@ -144,6 +147,11 @@ const I = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </svg>
   ),
+  ban: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" /><path d="m5.5 5.5 13 13" />
+    </svg>
+  ),
 };
 
 const NAV = [
@@ -157,6 +165,8 @@ const NAV = [
   ]},
   { group: "Live", items: [
     { id: "faceitstatus", label: "FACEIT Status", icon: I.pulse },
+    { id: "steamstatus", label: "Steam / CS2 Status", icon: I.pulse },
+    { id: "bans", label: "Recent Bans", icon: I.ban },
   ]},
   { group: "Tools", items: [
     { id: "matchroom", label: "Match Room", icon: I.room },
@@ -166,6 +176,7 @@ const NAV = [
   ]},
   { group: "Extras", items: [
     { id: "proguesser", label: "ProGuesser", icon: I.star },
+    { id: "prosettings", label: "Pro Settings", icon: I.xhair },
     { id: "games", label: "Minigames", icon: I.game },
     { id: "crosshair", label: "Crosshair", icon: I.xhair },
   ]},
@@ -231,7 +242,8 @@ const TI = {
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
-  "squad", "clubs", "proguesser", "games", "crosshair", "docs", "faceitstatus",
+  "squad", "clubs", "proguesser", "games", "crosshair", "docs",
+  "faceitstatus", "prosettings", "bans", "steamstatus",
 ]);
 
 const PROFILE_TABS = [
@@ -850,6 +862,9 @@ export default function App() {
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
           {mode === "hltv" && <HltvView onPick={go} />}
           {mode === "faceitstatus" && <FaceitStatus />}
+          {mode === "steamstatus" && <SteamStatus />}
+          {mode === "bans" && <FaceitBans onPick={go} />}
+          {mode === "prosettings" && <ProSettings />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
           {mode === "clubs" && <Clubs onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}

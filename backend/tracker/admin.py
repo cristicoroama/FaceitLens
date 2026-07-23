@@ -26,6 +26,17 @@ class FavoriteAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
 
+from .models import BanRecord  # noqa: E402
+
+
+@admin.register(BanRecord)
+class BanRecordAdmin(admin.ModelAdmin):
+    list_display = ("nickname", "ban_type", "player_id", "detected_at")
+    search_fields = ("nickname", "player_id", "ban_type")
+    list_filter = ("ban_type",)
+    ordering = ("-detected_at",)
+
+
 @admin.register(TrackedPlayer)
 class TrackedPlayerAdmin(admin.ModelAdmin):
     list_display = ("nickname", "player_id", "added_at", "last_searched")

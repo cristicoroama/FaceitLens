@@ -7,6 +7,29 @@ from . import faceit
 from . import ai
 
 
+def _record_bans(data):
+    """If a looked-up player is banned, log it into the recent-bans feed.
+    Safe/best-effort — never breaks the request."""
+    try:
+        bans = data.get("bans") or []
+        if not bans:
+            return
+        from .models import BanRecord
+        for b in bans:
+            btype = (b.get("reason") or b.get("type") or "ban").strip()[:64]
+            BanRecord.objects.get_or_create(
+                player_id=data.get("player_id") or data.get("nickname"),
+                ban_type=btype,
+                defaults={
+                    "nickname": data.get("nickname") or "",
+                    "avatar": data.get("avatar") or "",
+                    "reason": btype,
+                },
+            )
+    except Exception:
+        pass
+
+
 @require_GET
 def player_summary(request, nickname):
     """GET /api/player/<nickname>/ - full profile. Optional ?map=de_mirage filters averages."""
@@ -17,6 +40,8 @@ def player_summary(request, nickname):
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    _record_bans(data)
 
     # Optional map filter recomputes the recent averages from match items.
     map_filter = request.GET.get("map")
@@ -60,6 +85,82 @@ def health(request):
         "status": "ok",
         "service": "faceitlens-api",
     })
+
+
+@require_GET
+def recent_bans(request):
+    """GET /api/bans/ - recently observed bans among searched/tracked players."""
+    from .models import BanRecord
+    items = [
+        {
+            "nickname": b.nickname,
+            "player_id": b.player_id,
+            "avatar": b.avatar or None,
+            "ban_type": b.ban_type,
+            "detected_at": b.detected_at.isoformat(),
+        }
+        for b in BanRecord.objects.all()[:60]
+    ]
+    return JsonResponse({"items": items, "count": len(items)})
+
+
+@require_GET
+def steam_status(request):
+    """GET /api/steamstatus/ - official CS2 / Steam status via Valve's Web API
+    (ICSGOServers_730/GetGameServersStatus). Cached 2 min. Needs STEAM_API_KEY."""
+    import os
+    import requests as _rq
+    from django.core.cache import cache
+
+    cached = cache.get("steam_status")
+    if cached is not None:
+        return JsonResponse(cached)
+
+    key = os.environ.get("STEAM_API_KEY", "")
+    if not key:
+        return JsonResponse({"available": False, "reason": "no_key"})
+
+    try:
+        r = _rq.get(
+            "https://api.steampowered.com/ICSGOServers_730/GetGameServersStatus/v1/",
+            params={"key": key}, timeout=10,
+        )
+        res = (r.json() or {}).get("result", {})
+    except Exception as exc:
+        return JsonResponse({"available": False, "reason": str(exc)[:80]})
+
+    if not res:
+        return JsonResponse({"available": False, "reason": "empty"})
+
+    svc = res.get("services", {}) or {}
+    mm = res.get("matchmaking", {}) or {}
+    dcs = res.get("datacenters", {}) or {}
+
+    services = [{"name": k, "state": v} for k, v in svc.items()]
+    datacenters = [
+        {"name": k, "capacity": (v or {}).get("capacity"), "load": (v or {}).get("load")}
+        for k, v in dcs.items()
+    ]
+
+    good = (mm.get("scheduler") == "normal") and all(
+        s["state"] == "normal" for s in services
+    )
+    payload = {
+        "available": True,
+        "overall": "operational" if good else "issues",
+        "matchmaking": {
+            "scheduler": mm.get("scheduler"),
+            "online_players": mm.get("online_players"),
+            "online_servers": mm.get("online_servers"),
+            "searching_players": mm.get("searching_players"),
+            "search_seconds_avg": mm.get("search_seconds_avg"),
+        },
+        "services": services,
+        "datacenters": datacenters,
+        "app_version": res.get("app", {}).get("version"),
+    }
+    cache.set("steam_status", payload, 2 * 60)
+    return JsonResponse(payload)
 
 
 @require_GET

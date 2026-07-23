@@ -42,6 +42,25 @@ class TrackedPlayer(models.Model):
         return self.nickname
 
 
+class BanRecord(models.Model):
+    """A ban we've observed on a searched/tracked player. The 'recent bans' feed
+    is built from these — populated as banned players get looked up, and by the
+    check_bans management command re-scanning tracked players."""
+    player_id = models.CharField(max_length=64, db_index=True)
+    nickname = models.CharField(max_length=100)
+    avatar = models.URLField(blank=True)
+    ban_type = models.CharField(max_length=64, blank=True)   # e.g. smurfing, cheating
+    reason = models.CharField(max_length=200, blank=True)
+    detected_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("player_id", "ban_type")
+        ordering = ["-detected_at"]
+
+    def __str__(self):
+        return f"{self.nickname} — {self.ban_type or 'ban'}"
+
+
 class EloSnapshot(models.Model):
     """One ELO reading for a player on a given day (built by the cron job)."""
     player_id = models.CharField(max_length=64, db_index=True)
