@@ -18,6 +18,7 @@ urlpatterns = [
     path("match/<str:match_id>/", views.match_detail, name="match-detail"),
     path("health/", views.health, name="health"),
     path("status/", views.status, name="status"),
+    path("faceitstatus/", views.faceit_status, name="faceit-status"),
     path("matchroom/", views.match_room, name="match-room"),
     path("clubs/", views.clubs_search, name="clubs-search"),
     path("club/<str:club_id>/", views.club_detail, name="club-detail"),

@@ -63,6 +63,66 @@ def health(request):
 
 
 @require_GET
+def faceit_status(request):
+    """GET /api/faceitstatus/ - FACEIT platform status from the official
+    incident.io RSS feed (faceitstatus.com). Cached 5 min."""
+    import re as _re
+    import requests as _rq
+    from django.core.cache import cache
+    from xml.etree import ElementTree as ET
+
+    cached = cache.get("faceit_status")
+    if cached is not None:
+        return JsonResponse(cached)
+
+    COMPONENTS = ["Play", "Login", "Subscriptions", "Anti Cheat"]
+    incidents = []
+    active_components = set()
+
+    try:
+        resp = _rq.get("https://www.faceitstatus.com/feed.rss", timeout=10,
+                       headers={"User-Agent": "FaceitLens/1.0"})
+        root = ET.fromstring(resp.content)
+        for item in list(root.iter("item"))[:8]:
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            pub = (item.findtext("pubDate") or "").strip()
+            desc = item.findtext("description") or ""
+            m = _re.search(r"Status:\s*(?:</?b>\s*)?([A-Za-z]+)", desc)
+            state = (m.group(1).strip() if m else "Unknown")
+            comps = _re.findall(r"<li>\s*([A-Za-z ]+?)\s*\(", desc)
+            resolved = state.lower() == "resolved"
+            if not resolved:
+                for c in comps:
+                    active_components.add(c.strip())
+            incidents.append({
+                "title": title, "link": link, "date": pub,
+                "state": state, "resolved": resolved,
+                "components": [c.strip() for c in comps],
+            })
+        reachable = True
+    except Exception:
+        reachable = False
+
+    components = [
+        {"name": c, "ok": c not in active_components}
+        for c in COMPONENTS
+    ]
+    all_ok = reachable and len(active_components) == 0
+    overall = "operational" if all_ok else ("issues" if reachable else "unknown")
+
+    payload = {
+        "overall": overall,
+        "reachable": reachable,
+        "components": components,
+        "incidents": incidents,
+        "source": "https://www.faceitstatus.com/",
+    }
+    cache.set("faceit_status", payload, 5 * 60)
+    return JsonResponse(payload)
+
+
+@require_GET
 def status(request):
     """GET /api/status/ - per-upstream health for the status page. Cached 3 min
     so it never hammers the providers. Each data source is probed independently

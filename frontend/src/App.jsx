@@ -26,6 +26,7 @@ import Crosshair from "./components/Crosshair.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
 import Clubs from "./components/Clubs.jsx";
+import FaceitStatus from "./components/FaceitStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
 import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
@@ -138,6 +139,11 @@ const I = {
       <path d="m12 2 2.9 6.3 6.8.7-5 4.6 1.4 6.7L12 17.8 5.9 20.3l1.4-6.7-5-4.6 6.8-.7L12 2Z" />
     </svg>
   ),
+  pulse: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  ),
 };
 
 const NAV = [
@@ -148,6 +154,9 @@ const NAV = [
   ]},
   { group: "HLTV — Pro Scene", items: [
     { id: "hltv", label: "HLTV Hub", icon: I.hltv },
+  ]},
+  { group: "Live", items: [
+    { id: "faceitstatus", label: "FACEIT Status", icon: I.pulse },
   ]},
   { group: "Tools", items: [
     { id: "matchroom", label: "Match Room", icon: I.room },
@@ -222,7 +231,7 @@ const TI = {
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
-  "squad", "clubs", "proguesser", "games", "crosshair", "docs",
+  "squad", "clubs", "proguesser", "games", "crosshair", "docs", "faceitstatus",
 ]);
 
 const PROFILE_TABS = [
@@ -840,6 +849,7 @@ export default function App() {
 
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
           {mode === "hltv" && <HltvView onPick={go} />}
+          {mode === "faceitstatus" && <FaceitStatus />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
           {mode === "clubs" && <Clubs onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
