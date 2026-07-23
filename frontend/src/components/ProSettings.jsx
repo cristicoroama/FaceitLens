@@ -2,9 +2,56 @@ import { useState, useMemo } from "react";
 import { PRO_SETTINGS } from "../prosettings-data.js";
 import { Flag } from "./RankIcons.jsx";
 
+function Detail({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="ps-d">
+      <span className="ps-d-label">{label}</span>
+      <span className="ps-d-value">{value}</span>
+    </div>
+  );
+}
+
+function Row({ p, open, onToggle }) {
+  return (
+    <div className={`ps-block ${open ? "open" : ""}`}>
+      <div className="ps-row2" onClick={onToggle}>
+        <span className="ps-name">
+          <Flag country={p.country} size={16} />{p.nick}
+          {p.team && <span className="ps-team">{p.team}</span>}
+        </span>
+        <span className="ps-role hide-sm">{p.role}</span>
+        <span className="ps-mono">{p.sens}</span>
+        <span className="ps-mono">{p.dpi}</span>
+        <span className="ps-mono ps-edpi">{p.edpi}</span>
+        <span className="ps-mono hide-sm">{p.res}</span>
+        <span className="ps-mono hide-sm">{p.hz ? `${p.hz}Hz` : "—"}</span>
+        <span className="ps-chev">▾</span>
+      </div>
+      {open && (
+        <div className="ps-detail">
+          <Detail label="Mouse" value={p.mouse} />
+          <Detail label="Monitor" value={p.monitor} />
+          <Detail label="GPU" value={p.gpu} />
+          <Detail label="Keyboard" value={p.keyboard} />
+          <Detail label="Mousepad" value={p.mousepad} />
+          <Detail label="Headset" value={p.headset} />
+          <Detail label="Chair" value={p.chair} />
+          <Detail label="Zoom sens" value={p.zoom} />
+          <Detail label="Aspect ratio" value={p.ratio} />
+          <Detail label="Scaling" value={p.scaling} />
+          <Detail label="Resolution" value={p.res} />
+          <Detail label="Polling" value={p.hz ? `${p.hz} Hz` : null} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProSettings() {
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState("nick"); // nick | edpi | sens
+  const [sort, setSort] = useState("nick");
+  const [open, setOpen] = useState(null);
 
   const rows = useMemo(() => {
     let list = PRO_SETTINGS.map((p) => ({ ...p, edpi: Math.round(p.sens * p.dpi) }));
@@ -17,6 +64,7 @@ export default function ProSettings() {
     list.sort((a, b) => {
       if (sort === "edpi") return a.edpi - b.edpi;
       if (sort === "sens") return a.sens - b.sens;
+      if (sort === "team") return (a.team || "").localeCompare(b.team || "");
       return a.nick.localeCompare(b.nick);
     });
     return list;
@@ -34,52 +82,38 @@ export default function ProSettings() {
           Pro <em>Settings</em>
         </div>
         <div className="page-hero-sub">
-          Mouse sensitivity, DPI, eDPI, resolution and gear used by the top CS2 pros.
-          Copy a setup, then tweak your own in the Crosshair tool.
+          Full CS2 pro settings &amp; gear — sensitivity, DPI, eDPI, resolution plus
+          mouse, monitor, GPU, keyboard, mousepad and headset. Click a player for the
+          full setup.
         </div>
       </div>
 
       <div className="lb-controls">
-        <input
-          type="text"
-          placeholder="Search pro or team…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <input type="text" placeholder="Search pro or team…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="map-filter" value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="nick">Sort: Name</option>
+          <option value="team">Sort: Team</option>
           <option value="edpi">Sort: eDPI</option>
           <option value="sens">Sort: Sensitivity</option>
         </select>
       </div>
 
       <div className="ps-table-wrap">
-        <div className="ps-row ps-head">
-          <span>Player</span><span>Sens</span><span>DPI</span><span>eDPI</span>
-          <span className="hide-sm">Res</span><span className="hide-sm">Ratio</span>
-          <span className="hide-sm">Poll</span><span className="hide-sm">Mouse</span>
+        <div className="ps-row2 ps-head">
+          <span>Player</span><span className="hide-sm">Role</span><span>Sens</span><span>DPI</span><span>eDPI</span>
+          <span className="hide-sm">Res</span><span className="hide-sm">Poll</span><span />
         </div>
         <div className="stagger">
           {rows.map((p, i) => (
-            <div className="ps-row" key={`${p.nick}-${i}`}>
-              <span className="ps-name"><Flag country={p.country} size={16} />{p.nick}
-                {p.team && p.team !== "—" && <span className="ps-team">{p.team}</span>}
-              </span>
-              <span className="ps-mono">{p.sens}</span>
-              <span className="ps-mono">{p.dpi}</span>
-              <span className="ps-mono ps-edpi">{p.edpi}</span>
-              <span className="ps-mono hide-sm">{p.res}</span>
-              <span className="ps-mono hide-sm">{p.ratio}</span>
-              <span className="ps-mono hide-sm">{p.hz ? `${p.hz}Hz` : "—"}</span>
-              <span className="ps-gear hide-sm">{p.mouse}</span>
-            </div>
+            <Row key={`${p.nick}-${i}`} p={p} open={open === `${p.nick}-${i}`}
+              onToggle={() => setOpen(open === `${p.nick}-${i}` ? null : `${p.nick}-${i}`)} />
           ))}
         </div>
       </div>
 
       <div className="hltv-note" style={{ textAlign: "left", padding: "12px 2px 0" }}>
-        Live data from <a href="https://prosettings.net/lists/cs2/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>prosettings.net</a> — {rows.length} pros.
-        “Poll” is the mouse polling rate. Almost everyone plays 400–800 DPI, 4:3 stretched.
+        Data from <a href="https://prosettings.net/lists/cs2/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>prosettings.net</a> — {rows.length} pros.
+        Full gear shown for top-team players; click any row to expand. “Poll” is the mouse polling rate.
       </div>
     </>
   );

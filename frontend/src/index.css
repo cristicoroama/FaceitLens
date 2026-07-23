@@ -2570,27 +2570,45 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 /* ============================================================
    Pro Settings table
    ============================================================ */
-.ps-table-wrap { overflow-x: auto; margin-bottom: 6px; }
-.ps-row {
+.ps-table-wrap { margin-bottom: 6px; }
+.ps-block { margin-bottom: 7px; animation: fadeUp 0.3s ease both; }
+.ps-row2 {
   display: grid;
-  grid-template-columns: 1.6fr 0.7fr 0.7fr 0.8fr 1fr 0.6fr 1.6fr 1.4fr;
-  gap: 10px; align-items: center; min-width: 720px;
+  grid-template-columns: 2fr 0.9fr 0.7fr 0.7fr 0.8fr 1fr 0.7fr 28px;
+  gap: 10px; align-items: center;
   padding: 12px 14px; border-radius: 12px;
-  animation: fadeUp 0.3s ease both;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+  cursor: pointer; transition: border-color 0.15s, transform 0.15s;
 }
-.ps-row:not(.ps-head) { background: var(--glass-bg); border: 1px solid var(--glass-brd); margin-bottom: 7px; }
+.ps-row2:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-brd)); }
+.ps-block.open .ps-row2 { border-radius: 12px 12px 0 0; border-bottom-color: transparent; }
 .ps-head {
+  background: none !important; border: none !important; cursor: default;
   color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
   font-weight: 700; padding: 4px 14px;
 }
-.ps-name { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; }
-.ps-team { color: var(--text-dim); font-size: 11px; font-family: var(--font-body); font-weight: 500; }
+.ps-name { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; min-width: 0; }
+.ps-name .flag-icon { flex: 0 0 auto; }
+.ps-team { color: var(--text-dim); font-size: 11px; font-family: var(--font-body); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-role { color: var(--text-dim); font-size: 12.5px; }
 .ps-mono { font-family: var(--font-mono); font-size: 13.5px; }
 .ps-edpi { color: var(--accent); font-weight: 700; }
-.ps-gear { color: var(--text-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ps-cross { color: var(--text-dim); font-size: 12px; }
-@media (max-width: 700px) {
-  .ps-row { grid-template-columns: 1.6fr 0.8fr 0.8fr 0.9fr; min-width: 0; }
+.ps-chev { color: var(--text-dim); font-size: 11px; text-align: center; transition: transform 0.2s; }
+.ps-block.open .ps-chev { transform: rotate(180deg); color: var(--accent); }
+
+.ps-detail {
+  background: color-mix(in srgb, var(--bg-elev-2) 55%, transparent);
+  border: 1px solid var(--glass-brd); border-top: none; border-radius: 0 0 12px 12px;
+  padding: 14px 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  animation: rosterIn 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (max-width: 700px) { .ps-detail { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .ps-detail { grid-template-columns: 1fr; } }
+.ps-d { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-d-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 700; }
+.ps-d-value { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  .ps-row2 { grid-template-columns: 1.8fr 0.7fr 0.7fr 0.8fr 24px; }
 }
 
 /* ============================================================
