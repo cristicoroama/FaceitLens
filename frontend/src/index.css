@@ -246,11 +246,22 @@ a { color: inherit; }
   opacity: 0.55; pointer-events: none;
 }
 .side-brand {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
   font-family: var(--font-display); font-weight: 700; font-size: 20px;
   letter-spacing: 0.4px; cursor: pointer;
   padding: 4px 8px 18px;
 }
+
+/* scrollable nav area: brand stays pinned top, contact pinned bottom */
+.side-nav {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  margin: 0 -6px; padding: 0 6px;
+  scrollbar-width: thin;
+}
+.side-nav::-webkit-scrollbar { width: 6px; }
+.side-nav::-webkit-scrollbar-track { background: transparent; }
+.side-nav::-webkit-scrollbar-thumb { background: var(--bg-elev-3); border-radius: 99px; }
+.side-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.5); }
 .side-brand .logo {
   width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
   display: grid; place-items: center;
@@ -296,7 +307,7 @@ a { color: inherit; }
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
   box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.8);
 }
-.side-foot { margin-top: auto; padding: 12px 10px 4px; border-top: 1px solid var(--glass-brd); }
+.side-foot { flex-shrink: 0; padding: 12px 10px 4px; border-top: 1px solid var(--glass-brd); }
 .side-contact-title {
   color: var(--text-dim); font-size: 10px; font-weight: 700;
   letter-spacing: 2.2px; text-transform: uppercase; opacity: 0.8;

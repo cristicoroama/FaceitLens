@@ -636,21 +636,23 @@ export default function App() {
           Faceit<span>Lens</span>
         </div>
 
-        {NAV.map((g) => (
-          <div key={g.group}>
-            <div className="side-group">{g.group}</div>
-            {g.items.map((it) => (
-              <button
-                key={it.id}
-                className={`side-link ${mode === it.id ? "active" : ""}`}
-                onClick={() => pickNav(it.id)}
-              >
-                {it.icon}
-                {it.label}
-              </button>
-            ))}
-          </div>
-        ))}
+        <div className="side-nav">
+          {NAV.map((g) => (
+            <div key={g.group}>
+              <div className="side-group">{g.group}</div>
+              {g.items.map((it) => (
+                <button
+                  key={it.id}
+                  className={`side-link ${mode === it.id ? "active" : ""}`}
+                  onClick={() => pickNav(it.id)}
+                >
+                  {it.icon}
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
 
         <div className="side-foot">
           <div className="side-contact-title">Contact</div>
