@@ -317,6 +317,8 @@ a { color: inherit; }
 }
 .side-contact-btn:hover { color: var(--accent); transform: translateX(2px); }
 .side-contact-btn svg { flex-shrink: 0; }
+.side-coffee { color: #ffdd00 !important; }
+.side-coffee:hover { color: #ffe83a !important; filter: drop-shadow(0 0 6px rgba(255, 221, 0, 0.4)); }
 .side-note { color: var(--text-dim); font-size: 10.5px; opacity: 0.7; padding-top: 6px; }
 
 /* backdrop for mobile drawer */
