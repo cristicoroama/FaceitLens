@@ -241,6 +241,26 @@ const TI = {
   ),
 };
 
+/* popular pros shown on the home page when there's no search history */
+const POPULAR_PROS = ["donk666", "ZywOo", "s1mple", "NiKo", "m0NESY", "ropz", "sh1ro", "b1t"];
+
+/* flagship features showcased on the home page. nav = tool page id (clickable),
+   no nav = feature lives inside a player profile → focus the search box. */
+const HOME_FEATURES = [
+  { icon: "🕵️", title: "Smurf Detector", nav: null,
+    desc: "Combines HS%, K/D, hours and account age into a smurf likelihood — and flags FACEIT bans." },
+  { icon: "◈", title: "Account Trust Score", nav: null,
+    desc: "Steam age, hours, level, bans and inventory in one legit-o-meter. Spot throwaways instantly." },
+  { icon: "⚔️", title: "Match Room Analyzer", nav: "matchroom",
+    desc: "Paste a FACEIT room link and scout all 10 players + an ELO win prediction." },
+  { icon: "🎯", title: "Pro Settings", nav: "prosettings",
+    desc: "Sensitivity, DPI, eDPI, resolution and full gear for 180+ CS2 pros." },
+  { icon: "🎮", title: "ProGuesser", nav: "proguesser",
+    desc: "Guess the mystery CS pro of the day — a daily Wordle for Counter-Strike." },
+  { icon: "📡", title: "Live Status", nav: "faceitstatus",
+    desc: "Is FACEIT or CS2 matchmaking down? Live platform status and recent bans." },
+];
+
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
@@ -297,6 +317,7 @@ export default function App() {
   const [discordCopied, setDiscordCopied] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const [showWrapped, setShowWrapped] = useState(false);
+  const [cs2Online, setCs2Online] = useState(null);
   const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
@@ -339,6 +360,17 @@ export default function App() {
     setUser(null);
     setFavs(getFavorites());
   }
+
+  // Live CS2 online count for the homepage (social proof)
+  useEffect(() => {
+    fetch(`${API_BASE}/api/steamstatus/`)
+      .then((r) => r.json())
+      .then((j) => {
+        const n = j?.matchmaking?.online_players;
+        if (n) setCs2Online(n);
+      })
+      .catch(() => {});
+  }, []);
 
   // reset AI + roast panels when the player changes
   useEffect(() => {
@@ -745,9 +777,17 @@ export default function App() {
                 Scan any <em>CS2 player</em>
               </h1>
               <p className="home-sub">
-                FACEIT stats, account trust score, Leetify demo data, medals &amp;
-                inventory — every signal on one page.
+                FACEIT stats, a smurf detector &amp; account trust score, inventory
+                value, Leetify demos, a live match-room analyzer and the pro scene —
+                every signal on one page.
               </p>
+
+              {cs2Online && (
+                <div className="home-live">
+                  <span className="home-live-dot" />
+                  <b>{cs2Online.toLocaleString()}</b> players in CS2 right now
+                </div>
+              )}
 
               <div className="home-search">
                 <div className="search">
@@ -765,7 +805,7 @@ export default function App() {
                       onChange={setNickname}
                       onPick={go}
                       onEnter={searchHome}
-                      placeholder="FACEIT nickname (e.g. s1mple)"
+                      placeholder="FACEIT nickname (e.g. donk666)"
                     />
                   )}
                   <button onClick={searchHome} disabled={loading}>
@@ -788,44 +828,30 @@ export default function App() {
                   </div>
                 </div>
               )}
-              {recent.length > 0 && (
-                <div className="recent">
-                  <div className="recent-label">Recently searched</div>
-                  <div className="recent-chips">
-                    {recent.map((r) => (
-                      <button key={r.nickname} className="recent-chip" onClick={() => go(r.nickname)}>
-                        {r.nickname}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
+              <div className="recent">
+                <div className="recent-label">{recent.length > 0 ? "Recently searched" : "Try a pro"}</div>
+                <div className="recent-chips">
+                  {(recent.length > 0 ? recent.map((r) => r.nickname) : POPULAR_PROS).map((n) => (
+                    <button key={n} className="recent-chip" onClick={() => go(n)}>{n}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="home-section-label">Everything you can do</div>
               <div className="home-features">
-                <div className="hf-card">
-                  <div className="hf-ic">◈</div>
-                  <div className="hf-title">Account Trust Score</div>
-                  <div className="hf-desc">
-                    Steam age, hours, level, bans and inventory combined into one
-                    legit-o-meter — spot smurfs and throwaways instantly.
-                  </div>
-                </div>
-                <div className="hf-card">
-                  <div className="hf-ic">⌖</div>
-                  <div className="hf-title">Demo-based stats</div>
-                  <div className="hf-desc">
-                    Premier rating, aim &amp; utility ratings, preaim, reaction time
-                    — data provided by Leetify, no setup needed.
-                  </div>
-                </div>
-                <div className="hf-card">
-                  <div className="hf-ic">⇄</div>
-                  <div className="hf-title">Compare &amp; Squad</div>
-                  <div className="hf-desc">
-                    1v1 side-by-side breakdowns, squad win rates together, best
-                    teammates and "have we met?" lookups.
-                  </div>
-                </div>
+                {HOME_FEATURES.map((f) => (
+                  <button
+                    key={f.title}
+                    className="hf-card hf-clickable"
+                    onClick={() => (f.nav ? pickNav(f.nav) : document.querySelector(".home-search input")?.focus())}
+                  >
+                    <div className="hf-ic">{f.icon}</div>
+                    <div className="hf-title">{f.title}</div>
+                    <div className="hf-desc">{f.desc}</div>
+                    <div className="hf-go">{f.nav ? "Open →" : "Search a player →"}</div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
