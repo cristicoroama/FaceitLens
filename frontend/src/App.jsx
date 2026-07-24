@@ -676,7 +676,7 @@ export default function App() {
       <div className={`side-backdrop ${sideOpen ? "show" : ""}`} onClick={() => setSideOpen(false)} />
       <aside className={`sidebar ${sideOpen ? "open" : ""}`}>
         <div className="side-brand" onClick={() => { setSideOpen(false); setMode("single"); navigate("/"); }}>
-          <div className="logo">◎</div>
+          <img className="logo-img" src="/logo.png" alt="FaceitLens" width="36" height="36" />
           Faceit<span>Lens</span>
         </div>
 

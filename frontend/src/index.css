@@ -270,6 +270,11 @@ a { color: inherit; }
   box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.45), inset 0 1px 0 rgba(255,255,255,0.35);
   animation: logoPulse 4s ease-in-out infinite;
 }
+.side-brand .logo-img {
+  width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; object-fit: cover;
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3);
+  animation: logoPulse 4s ease-in-out infinite;
+}
 @keyframes logoPulse {
   0%, 100% { box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.35), inset 0 1px 0 rgba(255,255,255,0.35); }
   50% { box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.6), inset 0 1px 0 rgba(255,255,255,0.35); }
