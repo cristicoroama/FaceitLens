@@ -87,3 +87,37 @@ class DemoPlayerStatAdmin(admin.ModelAdmin):
     list_display = ("name", "steamid", "match", "kills", "deaths", "rating")
     search_fields = ("name", "steamid")
     ordering = ("-rating",)
+
+
+from .models import Incident, IncidentUpdate  # noqa: E402
+
+
+class IncidentUpdateInline(admin.TabularInline):
+    model = IncidentUpdate
+    extra = 1
+    fields = ("at", "status", "text")
+    ordering = ("-at",)
+
+
+@admin.register(Incident)
+class IncidentAdmin(admin.ModelAdmin):
+    list_display = ("title", "component", "impact", "status", "started", "resolved", "published")
+    list_filter = ("status", "impact", "published")
+    list_editable = ("impact", "status", "published")
+    search_fields = ("title", "component", "endpoint")
+    ordering = ("-started",)
+    date_hierarchy = "started"
+    inlines = [IncidentUpdateInline]
+    fields = (
+        "title", "component", "endpoint",
+        ("impact", "status"),
+        ("started", "resolved"),
+        "published",
+    )
+
+
+@admin.register(IncidentUpdate)
+class IncidentUpdateAdmin(admin.ModelAdmin):
+    list_display = ("incident", "status", "at")
+    list_filter = ("status",)
+    ordering = ("-at",)

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class SteamProfile(models.Model):
@@ -153,3 +154,74 @@ class DemoPlayerStat(models.Model):
 
     def __str__(self):
         return f"{self.name} @ {self.match_id}: {self.rating}"
+
+
+# Shared choices for incidents and their updates.
+INCIDENT_STATUS_CHOICES = [
+    ("investigating", "Investigating"),
+    ("identified", "Identified"),
+    ("monitoring", "Monitoring"),
+    ("resolved", "Resolved"),
+]
+
+INCIDENT_IMPACT_CHOICES = [
+    ("minor", "Minor"),
+    ("major", "Major"),
+    ("critical", "Critical"),
+    ("maintenance", "Maintenance"),
+]
+
+
+class Incident(models.Model):
+    """A status-page incident, editable from the Django admin. The public status
+    feed (/api/incidents/) is built from these plus their timestamped updates."""
+
+    title = models.CharField(max_length=200)
+    component = models.CharField(max_length=100, help_text="e.g. FACEIT Data API")
+    endpoint = models.CharField(
+        max_length=120, blank=True, help_text="Optional, e.g. open.faceit.com"
+    )
+    impact = models.CharField(
+        max_length=20, choices=INCIDENT_IMPACT_CHOICES, default="minor"
+    )
+    status = models.CharField(
+        max_length=20, choices=INCIDENT_STATUS_CHOICES, default="investigating"
+    )
+    started = models.DateTimeField(default=timezone.now)
+    resolved = models.DateTimeField(
+        null=True, blank=True, help_text="Set when the incident is over."
+    )
+    published = models.BooleanField(
+        default=True, help_text="Untick to hide this incident from the public status page."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-started"]
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.title}"
+
+    @property
+    def is_active(self):
+        return self.status != "resolved"
+
+
+class IncidentUpdate(models.Model):
+    """One timestamped update inside an incident's timeline (newest first)."""
+
+    incident = models.ForeignKey(
+        Incident, on_delete=models.CASCADE, related_name="updates"
+    )
+    status = models.CharField(
+        max_length=20, choices=INCIDENT_STATUS_CHOICES, default="investigating"
+    )
+    at = models.DateTimeField(default=timezone.now)
+    text = models.TextField()
+
+    class Meta:
+        ordering = ["-at"]
+
+    def __str__(self):
+        return f"{self.incident_id} · {self.get_status_display()} @ {self.at:%Y-%m-%d %H:%M}"

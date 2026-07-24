@@ -694,3 +694,61 @@ def game_score(request):
     except Exception as exc:
         return JsonResponse({"error": f"Could not save: {exc}"}, status=500)
     return JsonResponse({"ok": True})
+
+
+@require_GET
+def incidents(request):
+    """Public status feed: overall system state + incident history with a
+    timestamped update timeline. All content is editable from the Django admin."""
+    from django.utils import timezone
+    from .models import Incident
+
+    qs = (
+        Incident.objects.filter(published=True)
+        .prefetch_related("updates")
+        .order_by("-started")
+    )
+
+    incidents_data = []
+    active_impacts = []
+    latest_ts = None
+
+    for inc in qs:
+        if inc.is_active:
+            active_impacts.append(inc.impact)
+
+        updates = []
+        for u in inc.updates.all():  # model Meta orders these newest-first
+            updates.append({"at": u.at.isoformat(), "status": u.status, "text": u.text})
+            if latest_ts is None or u.at > latest_ts:
+                latest_ts = u.at
+
+        for ts in (inc.started, inc.resolved):
+            if ts and (latest_ts is None or ts > latest_ts):
+                latest_ts = ts
+
+        incidents_data.append({
+            "id": inc.id,
+            "title": inc.title,
+            "component": inc.component,
+            "endpoint": inc.endpoint,
+            "impact": inc.impact,
+            "status": inc.status,
+            "started": inc.started.isoformat() if inc.started else None,
+            "resolved": inc.resolved.isoformat() if inc.resolved else None,
+            "updates": updates,
+        })
+
+    # Overall banner derived from any still-active incidents.
+    if not active_impacts:
+        system = {"state": "operational", "text": "All systems operational", "active": False}
+    elif "critical" in active_impacts:
+        system = {"state": "outage", "text": "Service outage", "active": True}
+    elif set(active_impacts) == {"maintenance"}:
+        system = {"state": "maintenance", "text": "Under maintenance", "active": True}
+    else:
+        system = {"state": "degraded", "text": "Degraded performance", "active": True}
+
+    system["updated"] = (latest_ts or timezone.now()).isoformat()
+
+    return JsonResponse({"system": system, "incidents": incidents_data})

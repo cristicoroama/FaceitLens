@@ -1,11 +1,8 @@
-import { hasActiveIncident } from "../news.js";
-
-// Topbar status indicator next to the theme menu.
-//  - active incident  -> amber ⚠️ that blinks
-//  - all operational  -> calm green dot
-export default function NewsButton({ onClick }) {
-  const active = hasActiveIncident();
-
+// Topbar status indicator next to the theme menu. `active` comes from the live
+// /api/incidents/ feed (fetched once in App):
+//   - active incident  -> amber ⚠️ that blinks
+//   - all operational  -> calm green dot
+export default function NewsButton({ onClick, active }) {
   return (
     <button
       className="tb-btn news-btn"

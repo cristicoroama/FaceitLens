@@ -1,4 +1,6 @@
-import { INCIDENTS, SYSTEM_STATUS } from "../news.js";
+// System status & incident history. Data comes from /api/incidents/ (fetched
+// in App and passed down as `data`), so everything here is managed from the
+// Django admin — impact, status, timeline updates, etc.
 
 const STATUS_META = {
   investigating: { label: "Investigating" },
@@ -15,13 +17,12 @@ const IMPACT_META = {
 };
 
 const BANNER = {
-  operational: "System operational",
+  operational: "All systems operational",
   degraded: "Degraded performance",
   outage: "Service outage",
   maintenance: "Under maintenance",
 };
 
-// Full date + time, 24h, timezone-safe (renders in the viewer's locale).
 function fmtDateTime(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso;
@@ -40,7 +41,10 @@ function fmtTime(iso) {
   });
 }
 
-export default function NewsPage() {
+export default function NewsPage({ data }) {
+  const system = data?.system;
+  const incidents = data?.incidents;
+
   return (
     <>
       <div className="page-hero">
@@ -59,63 +63,75 @@ export default function NewsPage() {
         </div>
       </div>
 
-      <div className={`sys-banner ${SYSTEM_STATUS.state}`}>
-        <span className="sys-banner-dot" />
-        <span className="sys-banner-text">
-          {BANNER[SYSTEM_STATUS.state] || SYSTEM_STATUS.text}
-        </span>
-        <span className="sys-banner-time">
-          Updated {fmtDateTime(SYSTEM_STATUS.updated)}
-        </span>
-      </div>
-
-      <div className="section-title">Incident history</div>
-
-      {INCIDENTS.length === 0 ? (
-        <div className="state">No incidents recorded. All systems nominal.</div>
+      {!data ? (
+        <div className="state">Loading status…</div>
       ) : (
-        <div className="inc-list">
-          {INCIDENTS.map((inc) => (
-            <article key={inc.id} className={`inc-card status-${inc.status}`}>
-              <div className="inc-head">
-                <span className={`inc-status status-${inc.status}`}>
-                  {STATUS_META[inc.status]?.label || inc.status}
+        <>
+          {system && (
+            <div className={`sys-banner ${system.state}`}>
+              <span className="sys-banner-dot" />
+              <span className="sys-banner-text">
+                {BANNER[system.state] || system.text}
+              </span>
+              {system.updated && (
+                <span className="sys-banner-time">
+                  Updated {fmtDateTime(system.updated)}
                 </span>
-                <span className={`inc-impact impact-${inc.impact}`}>
-                  {IMPACT_META[inc.impact] || inc.impact}
-                </span>
-                <span className="inc-component">
-                  {inc.component}
-                  {inc.endpoint ? ` · ${inc.endpoint}` : ""}
-                </span>
-              </div>
+              )}
+            </div>
+          )}
 
-              <h3 className="inc-title">{inc.title}</h3>
+          <div className="section-title">Incident history</div>
 
-              <div className="inc-window">
-                <span>Started {fmtDateTime(inc.started)}</span>
-                {inc.resolved && <span> · Resolved {fmtDateTime(inc.resolved)}</span>}
-              </div>
-
-              <div className="inc-timeline">
-                {inc.updates.map((u, i) => (
-                  <div key={i} className={`inc-update status-${u.status}`}>
-                    <span className="inc-up-marker" />
-                    <div className="inc-up-body">
-                      <div className="inc-up-meta">
-                        <span className={`inc-up-status status-${u.status}`}>
-                          {STATUS_META[u.status]?.label || u.status}
-                        </span>
-                        <time className="inc-up-time">{fmtTime(u.at)}</time>
-                      </div>
-                      <p className="inc-up-text">{u.text}</p>
-                    </div>
+          {!incidents || incidents.length === 0 ? (
+            <div className="state">No incidents recorded. All systems nominal.</div>
+          ) : (
+            <div className="inc-list">
+              {incidents.map((inc) => (
+                <article key={inc.id} className={`inc-card status-${inc.status}`}>
+                  <div className="inc-head">
+                    <span className={`inc-status status-${inc.status}`}>
+                      {STATUS_META[inc.status]?.label || inc.status}
+                    </span>
+                    <span className={`inc-impact impact-${inc.impact}`}>
+                      {IMPACT_META[inc.impact] || inc.impact}
+                    </span>
+                    <span className="inc-component">
+                      {inc.component}
+                      {inc.endpoint ? ` · ${inc.endpoint}` : ""}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+
+                  <h3 className="inc-title">{inc.title}</h3>
+
+                  <div className="inc-window">
+                    <span>Started {fmtDateTime(inc.started)}</span>
+                    {inc.resolved && <span> · Resolved {fmtDateTime(inc.resolved)}</span>}
+                  </div>
+
+                  {inc.updates && inc.updates.length > 0 && (
+                    <div className="inc-timeline">
+                      {inc.updates.map((u, i) => (
+                        <div key={i} className={`inc-update status-${u.status}`}>
+                          <span className="inc-up-marker" />
+                          <div className="inc-up-body">
+                            <div className="inc-up-meta">
+                              <span className={`inc-up-status status-${u.status}`}>
+                                {STATUS_META[u.status]?.label || u.status}
+                              </span>
+                              <time className="inc-up-time">{fmtTime(u.at)}</time>
+                            </div>
+                            <p className="inc-up-text">{u.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   );
