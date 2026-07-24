@@ -25,6 +25,7 @@ import Games from "./components/Games.jsx";
 import Crosshair from "./components/Crosshair.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
+import NewsPage from "./components/NewsPage.jsx";
 import Clubs from "./components/Clubs.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
 import ProSettings from "./components/ProSettings.jsx";
@@ -35,6 +36,7 @@ import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
+import NewsButton from "./components/NewsButton.jsx";
 import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
@@ -243,7 +245,7 @@ const TI = {
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "crosshair", "docs",
-  "faceitstatus", "prosettings", "bans", "steamstatus",
+  "faceitstatus", "prosettings", "bans", "steamstatus", "news",
 ]);
 
 const PROFILE_TABS = [
@@ -279,6 +281,7 @@ export default function App() {
   const [recent, setRecent] = useState([]);
   const [favs, setFavs] = useState(getFavorites());
   const [user, setUser] = useState(null);
+  const [incidentStatus, setIncidentStatus] = useState(null);
   const [copied, setCopied] = useState(false);
   const [bySteam, setBySteam] = useState(false);
   const [steamInput, setSteamInput] = useState("");
@@ -318,6 +321,15 @@ export default function App() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  // Live status / incident feed (managed from the Django admin). Drives the
+  // header indicator (blink on active incident) and the /news status page.
+  useEffect(() => {
+    fetch(`${API_BASE}/api/incidents/`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => setIncidentStatus(j))
+      .catch(() => setIncidentStatus({ system: { state: "operational", active: false }, incidents: [] }));
   }, []);
 
   async function logout() {
@@ -719,6 +731,7 @@ export default function App() {
             />
           </div>
           <div className="tb-actions">
+            <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
             <ThemeMenu theme={theme} setTheme={setTheme} />
             <AccountMenu user={user} onLogout={logout} />
           </div>
@@ -879,6 +892,7 @@ export default function App() {
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}
           {mode === "docs" && <ApiDocs />}
+          {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "crosshair" && <Crosshair />}
 
           {/* ---------- STATES ---------- */}

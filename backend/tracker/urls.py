@@ -18,6 +18,7 @@ urlpatterns = [
     path("match/<str:match_id>/", views.match_detail, name="match-detail"),
     path("health/", views.health, name="health"),
     path("status/", views.status, name="status"),
+    path("incidents/", views.incidents, name="incidents"),
     path("faceitstatus/", views.faceit_status, name="faceit-status"),
     path("steamstatus/", views.steam_status, name="steam-status"),
     path("bans/", views.recent_bans, name="recent-bans"),
