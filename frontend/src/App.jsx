@@ -10,6 +10,7 @@ import Skeleton from "./components/Skeleton.jsx";
 import BanBanner from "./components/BanBanner.jsx";
 import SearchInput from "./components/SearchInput.jsx";
 import BestTeammates from "./components/BestTeammates.jsx";
+import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
@@ -205,6 +206,11 @@ const TI = {
       <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2" />
     </svg>
   ),
+  hltv: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 19V5M4 12h8M12 19V5M20 19V5M12 12h8" />
+    </svg>
+  ),
   teammates: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17.5" cy="9.5" r="2.5" /><path d="M15.5 15.5a5 5 0 0 1 6 4.5" />
@@ -265,6 +271,7 @@ const PROFILE_TABS = [
   ["account", "Trust", TI.trust],
   ["leetify", "Leetify", TI.leetify],
   ["real", "Demos", TI.real],
+  ["hltv", "HLTV Stats", TI.hltv],
   ["teammates", "Teammates", TI.teammates],
   ["steam", "Steam", TI.steam],
   ["hubs", "Hubs", TI.hubs],
@@ -1106,6 +1113,8 @@ export default function App() {
                 <LeetifyStats nickname={data.nickname} />
               ) : profileTab === "real" ? (
                 <RealStats nickname={data.nickname} />
+              ) : profileTab === "hltv" ? (
+                <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (
                 <TeammatesFull mates={data.teammates_full} onPick={go} />
               ) : profileTab === "hubs" ? (
