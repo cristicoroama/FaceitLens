@@ -241,7 +241,19 @@ export default function PublicProfile({ handle, onPick, onEdit, currentUser }) {
           <div className="empty-state">
             <div className="empty-ico">◈</div>
             <h3>No FACEIT account linked yet</h3>
-            {isOwner && <p>Link yours in settings to show your stats here.</p>}
+            {isOwner ? (
+              <>
+                <p>
+                  Sign in with FACEIT to link your account — stats only appear once
+                  ownership is proven, so nobody can put someone else's name here.
+                </p>
+                <a className="btn faceit-login" href={`${API_BASE}/api/auth/faceit/login/`}>
+                  Sign in with FACEIT
+                </a>
+              </>
+            ) : (
+              <p>This player hasn't linked a FACEIT account.</p>
+            )}
           </div>
         </div>
       )}

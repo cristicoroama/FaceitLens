@@ -123,6 +123,22 @@ class IncidentUpdateAdmin(admin.ModelAdmin):
     ordering = ("-at",)
 
 
+# --- Changelog ("What's New") ---------------------------------------------
+
+from .models import ChangelogEntry  # noqa: E402
+
+
+@admin.register(ChangelogEntry)
+class ChangelogEntryAdmin(admin.ModelAdmin):
+    list_display = ("title", "kind", "published_at", "published", "highlight")
+    list_filter = ("kind", "published", "highlight")
+    list_editable = ("published", "highlight")
+    search_fields = ("title", "body")
+    ordering = ("-published_at",)
+    date_hierarchy = "published_at"
+    fields = ("title", "kind", "body", ("published_at", "published"), "highlight")
+
+
 # --- User profiles + moderation -------------------------------------------
 
 from django.utils.html import format_html  # noqa: E402

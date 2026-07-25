@@ -1,5 +1,5 @@
 from django.urls import path
-from . import auth, profiles, views
+from . import auth, faceit_oauth, profiles, views
 
 urlpatterns = [
     # --- Sign in with Steam + account ---
@@ -9,10 +9,17 @@ urlpatterns = [
     path("auth/logout/", auth.logout_view, name="auth-logout"),
     path("auth/favorites/", auth.favorites, name="auth-favorites"),
 
+    # --- Sign in with FACEIT (FACEIT Connect / OAuth2 + PKCE) ---
+    path("auth/faceit/login/", faceit_oauth.faceit_login, name="auth-faceit-login"),
+    path("auth/faceit/return/", faceit_oauth.faceit_return, name="auth-faceit-return"),
+    path("auth/faceit/unlink/", faceit_oauth.faceit_unlink, name="auth-faceit-unlink"),
+    path("auth/faceit/config/", faceit_oauth.faceit_config, name="auth-faceit-config"),
+
     # --- User profiles (order matters: the literal paths must beat <handle>) ---
     path("profile/me/", profiles.my_profile, name="profile-me"),
     path("profile/avatar/", profiles.avatar_upload, name="profile-avatar"),
     path("profile/handle/", profiles.check_handle, name="profile-handle"),
+    path("profile/relink/", profiles.relink_faceit, name="profile-relink"),
     path("profile/report/", profiles.report_profile, name="profile-report"),
     path("profiles/", profiles.profile_directory, name="profile-directory"),
     path("profile/<str:handle>/progress/", profiles.elo_progress, name="profile-progress"),
@@ -29,6 +36,7 @@ urlpatterns = [
     path("health/", views.health, name="health"),
     path("status/", views.status, name="status"),
     path("incidents/", views.incidents, name="incidents"),
+    path("changelog/", views.changelog, name="changelog"),
     path("faceitstatus/", views.faceit_status, name="faceit-status"),
     path("steamstatus/", views.steam_status, name="steam-status"),
     path("bans/", views.recent_bans, name="recent-bans"),

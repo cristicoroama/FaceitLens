@@ -139,30 +139,89 @@ def my_profile(request):
     if "is_public" in body:
         profile.is_public = bool(body.get("is_public"))
 
-    # Manual FACEIT link, for people whose Steam account isn't registered on
-    # FACEIT. Verified stays False — the badge has to mean something.
-    if "faceit_nickname" in body and not profile.faceit_verified:
+    # Unlinking is always allowed. Linking, however, is not something you can
+    # do by typing a name: proving you own a FACEIT account requires signing in
+    # through Steam or FACEIT (see faceit_oauth.py). Anything typed here would
+    # be an unverifiable claim, and the old behaviour let anyone put "donk666"
+    # on their page.
+    if "faceit_nickname" in body:
         nick = _clean(body.get("faceit_nickname"), 100)
         if not nick:
             profile.faceit_nickname = ""
             profile.faceit_player_id = ""
-        else:
-            try:
-                from .faceit import get_player_by_nickname
-                data = get_player_by_nickname(nick) or {}
-            except Exception:
-                data = {}
-            if data.get("player_id"):
-                profile.faceit_nickname = data.get("nickname") or nick
-                profile.faceit_player_id = data["player_id"]
-            else:
-                errors["faceit_nickname"] = "No FACEIT player with that nickname."
+            profile.faceit_verified = False
+        elif nick.lower() != (profile.faceit_nickname or "").lower():
+            errors["faceit_nickname"] = (
+                "Link your FACEIT account by signing in with FACEIT — "
+                "nicknames can't be claimed by typing them."
+            )
 
     if errors:
         return JsonResponse({"errors": errors}, status=400)
 
     profile.save()
     return JsonResponse({"profile": profile_payload(profile), "ok": True})
+
+
+@csrf_exempt
+def relink_faceit(request):
+    """Re-run the Steam -> FACEIT lookup on demand.
+
+    The automatic link happens at sign-in, which leaves a gap: someone who
+    connects Steam to their FACEIT account *after* signing up here would have
+    to log out and back in for us to notice. This lets them just press a
+    button instead.
+    """
+    profile = _get_profile(request)
+    if profile is None:
+        return JsonResponse({"error": "Not signed in."}, status=401)
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed."}, status=405)
+
+    if profile.faceit_verified:
+        return JsonResponse({
+            "ok": True, "found": True, "already": True,
+            "profile": profile_payload(profile),
+        })
+
+    steam = getattr(request.user, "steam_profile", None)
+    if not steam or not steam.steamid:
+        return JsonResponse({
+            "ok": False, "found": False, "reason": "no_steam",
+            "message": "Your account isn't signed in through Steam.",
+        })
+
+    from .auth import link_faceit_account
+
+    found = link_faceit_account(profile, steam.steamid)
+    if not found:
+        return JsonResponse({
+            "ok": False, "found": False, "reason": "not_found",
+            "message": (
+                "No FACEIT account is registered to your Steam ID. Connect Steam "
+                "in your FACEIT settings, then try again."
+            ),
+        })
+
+    # Someone else already proved they own this account — don't hand it over.
+    clash = (
+        UserProfile.objects
+        .filter(faceit_player_id=profile.faceit_player_id, faceit_verified=True)
+        .exclude(user_id=request.user.id)
+        .exists()
+    )
+    if clash:
+        return JsonResponse({
+            "ok": False, "found": False, "reason": "taken",
+            "message": "That FACEIT account is already linked to another profile.",
+        })
+
+    profile.save()
+    return JsonResponse({
+        "ok": True, "found": True, "already": False,
+        "profile": profile_payload(profile),
+    })
 
 
 @csrf_exempt
@@ -288,8 +347,15 @@ def avatar_serve(request, handle):
 # --------------------------------------------------------------------------
 
 def _live_faceit(profile: UserProfile) -> dict | None:
-    """A compact live snapshot of the linked FACEIT account."""
-    if not profile.faceit_nickname:
+    """A compact live snapshot of the linked FACEIT account.
+
+    Only ever returned for VERIFIED links. An unverified link is just a claim
+    someone typed, and rendering another player's ELO, avatar and stats on
+    their page is impersonation whether or not a badge says "unverified" — most
+    visitors don't read badges. Verified means Steam or FACEIT itself vouched
+    for the link.
+    """
+    if not profile.faceit_nickname or not profile.faceit_verified:
         return None
     try:
         from .faceit import get_player_by_nickname

@@ -29,6 +29,15 @@ function shrinkToDataUrl(file, size = 512) {
   });
 }
 
+/** FACEIT's arrow mark, drawn rather than using their logo file. */
+function FaceitIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M21.6 3.2 9.1 10.7h12.5v10.1L2.4 10.7c-.6-.4-.5-1.3.2-1.5L21.6 3.2Z" />
+    </svg>
+  );
+}
+
 function VerifiedBadge() {
   return (
     <span className="ps-verified" title="Ownership proven through Steam">
@@ -55,7 +64,9 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [faceitNick, setFaceitNick] = useState("");
+  // Set from ?faceit=… when FACEIT bounces the user back here.
+  const [linkError, setLinkError] = useState(null);
+  const [rechecking, setRechecking] = useState(false);
 
   const [handleState, setHandleState] = useState(null); // null | "checking" | "free" | "taken"
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -73,7 +84,6 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
         setDisplayName(p.display_name || "");
         setBio(p.bio || "");
         setIsPublic(p.is_public !== false);
-        setFaceitNick(p.faceit_nickname || "");
         setAvatarPreview(p.avatar ? `${API_BASE}${p.avatar}` : null);
       })
       .catch(() => setStatus("Couldn't load your profile."))
@@ -81,6 +91,57 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
   }, []);
 
   useEffect(() => { if (user) load(); }, [user, load]);
+
+  // Read the result of a FACEIT round trip, then clean the URL so a refresh
+  // doesn't re-show the message.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get("faceit");
+    if (!r) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (r === "linked") setStatus("FACEIT account linked");
+    else if (r === "taken") setLinkError("taken");
+    else if (r === "denied") setStatus("FACEIT sign-in cancelled");
+    else if (r === "failed") setStatus("Couldn't link your FACEIT account");
+    else if (r === "unconfigured") setStatus("FACEIT sign-in isn't set up yet");
+  }, []);
+
+  async function recheckFaceit() {
+    setRechecking(true);
+    setLinkError(null);
+    setStatus("");
+    try {
+      const resp = await fetch(`${API_BASE}/api/profile/relink/`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = await resp.json();
+      if (j.found) {
+        setProfile(j.profile);
+        setStatus(`Linked to ${j.profile.faceit_nickname}`);
+        onSaved?.(j.profile);
+      } else if (j.reason === "taken") {
+        setLinkError("taken");
+      } else {
+        setStatus(j.message || "Still nothing found.");
+      }
+    } catch {
+      setStatus("Couldn't check right now.");
+    } finally {
+      setRechecking(false);
+    }
+  }
+
+  async function unlinkFaceit() {
+    if (!window.confirm("Unlink your FACEIT account from this profile?")) return;
+    try {
+      const resp = await fetch(`${API_BASE}/api/auth/faceit/unlink/`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (resp.ok) { load(); setStatus("FACEIT account unlinked"); }
+    } catch { setStatus("Couldn't unlink."); }
+  }
 
   // Debounced availability check while the user types a handle.
   useEffect(() => {
@@ -107,14 +168,14 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
     setStatus("");
     setErrors({});
     try {
+      // The FACEIT link isn't editable here — it's established by signing in
+      // with Steam or FACEIT, and removed with the Unlink button.
       const body = {
         handle: handle.trim().toLowerCase(),
         display_name: displayName,
         bio,
         is_public: isPublic,
       };
-      // Only send the FACEIT nickname when it's ours to set.
-      if (!profile?.faceit_verified) body.faceit_nickname = faceitNick.trim();
 
       const resp = await fetch(`${API_BASE}/api/profile/me/`, {
         method: "PATCH",
@@ -322,33 +383,69 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
             <div>
               <div className="ps-linked-nick">{profile.faceit_nickname}</div>
               <p className="ps-hint">
-                Linked automatically through Steam. Steam proved you own this account,
-                so nobody else can claim it.
+                Ownership proven — nobody else can claim this account.
               </p>
             </div>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => onOpenProfile?.(profile.faceit_nickname)}
-            >
-              View stats
-            </button>
+            <div className="ps-btn-row">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => onOpenProfile?.(profile.faceit_nickname)}
+              >
+                View stats
+              </button>
+              <button type="button" className="btn ghost" onClick={unlinkFaceit}>
+                Unlink
+              </button>
+            </div>
           </div>
         ) : (
           <div className="ps-field">
             <p className="ps-hint">
-              We couldn't find a FACEIT account registered to your Steam ID. You can set it
-              by hand — but it won't get the verified badge.
+              We couldn't find a FACEIT account registered to your Steam ID.
             </p>
-            <input
-              className="ps-input"
-              value={faceitNick}
-              maxLength={100}
-              placeholder="Your FACEIT nickname"
-              spellCheck="false"
-              onChange={(e) => setFaceitNick(e.target.value)}
-            />
-            {errors.faceit_nickname && <p className="ps-err">{errors.faceit_nickname}</p>}
+
+            {linkError === "taken" && (
+              <p className="ps-err">
+                That FACEIT account is already linked to another FaceitLens profile.
+              </p>
+            )}
+
+            <ol className="ps-steps">
+              <li>
+                Open your FACEIT settings and connect your Steam account
+                {" "}(<a
+                  href="https://www.faceit.com/en/settings/profile"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >faceit.com/settings</a>).
+              </li>
+              <li>Come back here and press the button below — no need to sign out.</li>
+            </ol>
+
+            <div className="ps-btn-row">
+              <button
+                type="button"
+                className="btn primary"
+                disabled={rechecking}
+                onClick={recheckFaceit}
+              >
+                {rechecking ? "Checking…" : "Check for my FACEIT account"}
+              </button>
+            </div>
+
+            <div className="ps-alt">
+              <span className="ps-alt-line">or</span>
+            </div>
+
+            <a className="btn faceit-login" href={`${API_BASE}/api/auth/faceit/login/`}>
+              <FaceitIcon />
+              Sign in with FACEIT instead
+            </a>
+            <p className="ps-hint dim">
+              Either way we only ever read your nickname and account id. We never see
+              your password and we can't act on your behalf.
+            </p>
           </div>
         )}
       </div>

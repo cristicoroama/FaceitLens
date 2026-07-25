@@ -46,6 +46,9 @@ import ShareCard from "./components/ShareCard.jsx";
 import Wrapped from "./components/Wrapped.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
 import PublicProfile from "./components/PublicProfile.jsx";
+import WhatsNew, {
+  useChangelog, WhatsNewPopup, WhatsNewButton,
+} from "./components/WhatsNew.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -187,6 +190,9 @@ const NAV = [
   { group: "Developers", items: [
     { id: "docs", label: "API Docs", icon: I.vs },
   ]},
+  { group: "About", items: [
+    { id: "whatsnew", label: "What's New", icon: I.star },
+  ]},
 ];
 
 /* profile tab icons (inline, stroke) */
@@ -268,7 +274,7 @@ const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "crosshair", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings",
+  "settings", "whatsnew",
 ]);
 
 const PROFILE_TABS = [
@@ -321,6 +327,7 @@ export default function App() {
   const [showCard, setShowCard] = useState(false);
   const [showWrapped, setShowWrapped] = useState(false);
   const [cs2Online, setCs2Online] = useState(null);
+  const changelog = useChangelog();
   const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
@@ -820,6 +827,7 @@ export default function App() {
             />
           </div>
           <div className="tb-actions">
+            <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")} />
             <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
             <ThemeMenu theme={theme} setTheme={setTheme} />
             <AccountMenu
@@ -988,6 +996,7 @@ export default function App() {
           {mode === "proguesser" && <ProGuesser />}
           {mode === "docs" && <ApiDocs />}
           {mode === "news" && <NewsPage data={incidentStatus} />}
+          {mode === "whatsnew" && <WhatsNew />}
           {mode === "crosshair" && <Crosshair />}
           {mode === "settings" && (
             <ProfileSettings
@@ -1137,6 +1146,17 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* Announce what's new — but not to someone who followed a shared link
+          straight to a player, and not while they're already reading the
+          page it would send them to. */}
+      <WhatsNewPopup
+        unread={changelog.unread}
+        entries={changelog.entries}
+        markSeen={changelog.markSeen}
+        onOpenPage={() => pickNav("whatsnew")}
+        suppressed={mode === "whatsnew" || !!routeNick || !!routeSteam || !!routeHandle}
+      />
     </div>
   );
 }

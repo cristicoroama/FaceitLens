@@ -11,6 +11,15 @@ function SteamIcon({ size = 16 }) {
   );
 }
 
+/** FACEIT's arrow mark, drawn rather than using their logo file. */
+function FaceitIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M21.6 3.2 9.1 10.7h12.5v10.1L2.4 10.7c-.6-.4-.5-1.3.2-1.5L21.6 3.2Z" />
+    </svg>
+  );
+}
+
 /**
  * Topbar account widget.
  * Signed out: "Sign in with Steam" button (redirects to the backend OpenID flow).
@@ -30,10 +39,19 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
 
   if (!user) {
     return (
-      <a className="tb-btn steam-login" href={`${API_BASE}/api/auth/steam/login/`}>
-        <SteamIcon />
-        <span className="steam-login-label">Sign in with Steam</span>
-      </a>
+      <div className="acc-signin">
+        <a className="tb-btn steam-login" href={`${API_BASE}/api/auth/steam/login/`}>
+          <SteamIcon />
+          <span className="steam-login-label">Sign in with Steam</span>
+        </a>
+        <a
+          className="tb-btn faceit-login-sm"
+          href={`${API_BASE}/api/auth/faceit/login/`}
+          title="Sign in with FACEIT"
+        >
+          <FaceitIcon />
+        </a>
+      </div>
     );
   }
 

@@ -697,6 +697,36 @@ def game_score(request):
 
 
 @require_GET
+def changelog(request):
+    """The "What's New" feed, written from the Django admin.
+
+    `latest_id` is what drives the popup: the frontend stores the highest id
+    it has shown and only interrupts the visitor again once a newer entry
+    exists. Comparing ids rather than dates means backdating an old post in
+    the admin won't re-nag everyone.
+    """
+    from .models import ChangelogEntry
+
+    rows = ChangelogEntry.objects.filter(published=True)[:60]
+    entries = [
+        {
+            "id": e.id,
+            "title": e.title,
+            "kind": e.kind,
+            "kind_label": e.get_kind_display(),
+            "lines": e.lines,
+            "date": e.published_at.date().isoformat(),
+            "highlight": e.highlight,
+        }
+        for e in rows
+    ]
+    return JsonResponse({
+        "entries": entries,
+        "latest_id": max((e["id"] for e in entries), default=0),
+        "count": len(entries),
+    })
+
+
 def incidents(request):
     """Public status feed: overall system state + incident history with a
     timestamped update timeline. All content is editable from the Django admin."""

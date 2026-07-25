@@ -17,6 +17,50 @@ class SteamProfile(models.Model):
         return self.name or self.steamid
 
 
+class ChangelogEntry(models.Model):
+    """A "What's New" post, written from the Django admin.
+
+    Kept deliberately separate from Incident: incidents are "something is
+    broken right now", these are "here's what got built". Both feed different
+    pages and neither should drown out the other.
+    """
+
+    KIND_CHOICES = [
+        ("feature", "New feature"),
+        ("improvement", "Improvement"),
+        ("fix", "Fix"),
+        ("note", "Note"),
+    ]
+
+    title = models.CharField(max_length=120)
+    body = models.TextField(
+        blank=True,
+        help_text="One idea per line — the page renders each line as a bullet.",
+    )
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="feature")
+    published_at = models.DateTimeField(default=timezone.now)
+    published = models.BooleanField(
+        default=True, help_text="Untick to draft this without showing it on the site."
+    )
+    highlight = models.BooleanField(
+        default=False,
+        help_text="Pin to the top of the popup — use for the one thing you most want people to see.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-published_at", "-id"]
+        verbose_name_plural = "Changelog entries"
+
+    def __str__(self):
+        return f"[{self.get_kind_display()}] {self.title}"
+
+    @property
+    def lines(self):
+        """Body split into bullet lines, blanks dropped."""
+        return [ln.strip(" -•\t") for ln in self.body.splitlines() if ln.strip()]
+
+
 class UserProfile(models.Model):
     """The public-facing account: a stable handle, editable display info, an
     uploaded avatar, and the FACEIT account this user owns.
