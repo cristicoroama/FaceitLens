@@ -6,7 +6,7 @@ import RingGauge from "./RingGauge.jsx";
  * skill, young Steam account) into a 0-100 smurf likelihood + the reasons.
  * Not proof — smurfing can only be confirmed by demos — but a strong sniff test.
  */
-function analyze(data) {
+function analyze(data, leetifyBans) {
   const s = data.stats || {};
   const steam = data.steam || {};
   const matches = Number(s.matches) || 0;
@@ -34,6 +34,30 @@ function analyze(data) {
   const bannedForSmurf = /smurf/.test(banText);
   const banned = bans.length > 0;
   add(100, "Banned by FACEIT for smurfing", "This account has an active smurfing ban — confirmed.", bannedForSmurf);
+
+  // --- Ban history on other platforms (via Leetify) ---
+  // Leetify tracks bans across platforms and records the nickname the account
+  // carried at the time. A ban under a *different* name is about as strong as
+  // evidence gets: it means this person has been here before, under another
+  // identity, and got removed for it.
+  const priorBans = Array.isArray(leetifyBans) ? leetifyBans : [];
+  const currentNick = (data.nickname || "").toLowerCase();
+  const banAliases = priorBans
+    .map((b) => b.nickname)
+    .filter((n) => n && n.toLowerCase() !== currentNick);
+
+  add(
+    70,
+    `Previously banned as "${banAliases[0]}"`,
+    "Leetify has this account banned on another platform under a different nickname.",
+    banAliases.length > 0
+  );
+  add(
+    35,
+    "Ban history on another platform",
+    "Leetify records a ban for this account outside FACEIT.",
+    priorBans.length > 0 && banAliases.length === 0
+  );
 
   // A smurf plays BELOW their true rank on an IMMATURE account. Raw dominance
   // alone is not smurfing — pros crush lobbies legitimately. So the real signal
@@ -84,7 +108,7 @@ function analyze(data) {
   // smurfs — people don't invest in accounts they'll ditch. Strong reducers.
   const legit = [];
   // legit reducers only apply to *unbanned* accounts — a smurfing ban is final
-  if (!bannedForSmurf) {
+  if (!bannedForSmurf && banAliases.length === 0) {
     if (verified) { score -= 18; legit.push("FACEIT verified"); }
     if (premium) { score -= 16; legit.push("FACEIT Premium"); }
     if (established) score = Math.min(score, 12);
@@ -110,8 +134,8 @@ function analyze(data) {
   return { score, tier, color, signals, matches, cleanReason, legit, verified, premium };
 }
 
-export default function SmurfMeter({ data }) {
-  const r = analyze(data);
+export default function SmurfMeter({ data, leetifyBans }) {
+  const r = analyze(data, leetifyBans);
   const enoughData = r.matches >= 5;
 
   return (

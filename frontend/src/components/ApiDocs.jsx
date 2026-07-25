@@ -28,7 +28,6 @@ const ENDPOINTS = [
     id: "scene", group: "Leaderboards & pro scene",
     items: [
       { m: "GET", path: "/api/leaderboard/?region={EU|NA|SA|OCE}", desc: "Regional FACEIT ranking. Optional &country=ro filter.", ex: "/api/leaderboard/?region=EU&country=ro" },
-      { m: "GET", path: "/api/hltv/{section}/", desc: "HLTV pro scene: rankings, results, upcoming, team-stats, player-stats.", ex: "/api/hltv/rankings/" },
     ],
   },
   {

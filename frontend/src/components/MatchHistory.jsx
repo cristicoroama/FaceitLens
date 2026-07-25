@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 function formatDate(ts) {
   if (!ts) return "—";
@@ -7,7 +9,6 @@ function formatDate(ts) {
 }
 
 async function fetchMatch(id) {
-  const API_BASE = import.meta.env.VITE_API_URL || "";
   const resp = await fetch(`${API_BASE}/api/match/${id}/`);
   if (!resp.ok) throw new Error("Failed to load match");
   return resp.json();
@@ -105,10 +106,82 @@ function MatchRow({ m, me, onPick }) {
               {detail.teams.map((t, ti) => (
                 <Team team={t} me={me} onPick={onPick} key={ti} />
               ))}
+              <LeetifyMatch matchId={m.match_id} me={me} />
             </>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Demo-parsed stats for one match, courtesy of Leetify.
+ *
+ * FACEIT's own API stops at kills/deaths/K-D. Leetify has already downloaded
+ * and parsed the demo, so for matches they cover we get ratings, multi-kills,
+ * ADR and utility for free — no demo worker, no bandwidth.
+ * Loaded lazily: only when someone actually opens the match.
+ */
+function LeetifyMatch({ matchId, me }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/api/leetify/match/?source=faceit&id=${encodeURIComponent(matchId)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => alive && setData(j))
+      .catch(() => alive && setData({ available: false }))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [matchId]);
+
+  if (loading) return <div className="match-detail-loading">Checking Leetify…</div>;
+  if (!data?.available || !data.players?.length) return null;
+
+  const num = (v, d = 2) => (v == null ? "—" : Math.round(v * 10 ** d) / 10 ** d);
+
+  return (
+    <div className="lm-wrap">
+      <div className="lm-head">
+        <span className="lm-title">Demo stats</span>
+        <a className="lm-credit" href="https://leetify.com/" target="_blank" rel="noopener noreferrer">
+          via Leetify
+        </a>
+      </div>
+      <div className="lm-scroll">
+        <table className="lm-table">
+          <thead>
+            <tr>
+              <th className="lm-l">Player</th>
+              <th>Rating</th><th>K</th><th>D</th><th>A</th>
+              <th>ADR</th><th>HS</th><th>MVP</th>
+              <th>3K</th><th>4K</th><th>5K</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.players.map((p) => (
+              <tr key={p.steam64_id}
+                  className={me && p.name && p.name.toLowerCase() === me.toLowerCase() ? "lm-me" : ""}>
+                <td className="lm-l">{p.name}</td>
+                <td style={{ color: (p.leetify_rating ?? 0) >= 0 ? "#22c55e" : "#ef4444" }}>
+                  {p.leetify_rating != null ? `${p.leetify_rating >= 0 ? "+" : ""}${num(p.leetify_rating, 3)}` : "—"}
+                </td>
+                <td>{p.total_kills ?? "—"}</td>
+                <td>{p.total_deaths ?? "—"}</td>
+                <td>{p.total_assists ?? "—"}</td>
+                <td>{num(p.dpr, 1)}</td>
+                <td>{p.total_hs_kills ?? "—"}</td>
+                <td>{p.mvps ?? "—"}</td>
+                <td>{p.multi3k || 0}</td>
+                <td>{p.multi4k || 0}</td>
+                <td>{p.multi5k || 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

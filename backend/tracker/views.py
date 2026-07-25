@@ -244,18 +244,6 @@ def status(request):
     except Exception as exc:
         services.append({"name": "FACEIT API", "ok": False, "detail": str(exc)[:80], "core": True})
 
-    # --- HLTV via parse.bot — checks credits / key ---
-    try:
-        from . import parsebot
-        r = parsebot.get_team_rankings(limit=1)
-        if r.get("available"):
-            services.append({"name": "HLTV (parse.bot)", "ok": True, "detail": "pro scene / rankings"})
-        else:
-            reason = r.get("reason", "unavailable")
-            services.append({"name": "HLTV (parse.bot)", "ok": False, "detail": reason})
-    except Exception as exc:
-        services.append({"name": "HLTV (parse.bot)", "ok": False, "detail": str(exc)[:80]})
-
     # --- Steam — reachable + not on cooldown ---
     try:
         from . import steam as steam_mod
@@ -563,6 +551,59 @@ def leetify_stats(request, nickname):
 
 
 @require_GET
+def leetify_match(request):
+    """
+    GET /api/leetify/match/?source=faceit&id=<match_id> - demo-parsed scoreboard
+    for one match, straight from Leetify.
+
+    This is the cheap version of our own demo worker: Leetify has already
+    downloaded and parsed the demo, so for any match they cover we get per-player
+    ratings, multi-kills, opening duels, trading and utility without spending
+    bandwidth or CPU on it. Returns {available: false} for matches they don't
+    have. Proxied live, never stored (Leetify rule).
+    """
+    source = request.GET.get("source", "faceit")
+    match_id = request.GET.get("id", "")
+    if not match_id:
+        return JsonResponse({"error": "id is required."}, status=400)
+    if source not in ("faceit", "matchmaking"):
+        return JsonResponse({"error": "source must be faceit or matchmaking."}, status=400)
+
+    try:
+        from . import leetify
+        return JsonResponse(leetify.get_match(source, match_id))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+@require_GET
+def leetify_matches(request, nickname):
+    """
+    GET /api/player/<nickname>/leetify/matches/ - the player's recent matches
+    with their own parsed stat line for each.
+    """
+    try:
+        summary = faceit.build_player_summary(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    steamid = summary.get("steam_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import leetify
+        return JsonResponse(leetify.get_player_matches(steamid))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+@require_GET
 def real_stats(request, nickname):
     """
     GET /api/player/<nickname>/real/ - REAL demo-parsed stats (HLTV 2.0, KAST,
@@ -613,42 +654,6 @@ def _int_arg(request, name, default):
         return int(request.GET.get(name, default))
     except (TypeError, ValueError):
         return default
-
-
-@require_GET
-def hltv(request, section):
-    """
-    GET /api/hltv/<section>/ - HLTV.org data via parse.bot. Sections:
-    rankings, results, upcoming, team-stats, player-stats. Returns
-    {available: false, reason: 'not_configured'} when PARSE_API_KEY isn't set.
-    """
-    from . import parsebot
-    limit = _int_arg(request, "limit", 30)
-    days = _int_arg(request, "days", 30)
-    try:
-        if section == "rankings":
-            data = parsebot.get_team_rankings(limit=limit)
-        elif section == "results":
-            data = parsebot.get_results(limit=limit)
-        elif section == "upcoming":
-            filter_cct = request.GET.get("cct") in ("1", "true", "yes")
-            data = parsebot.get_upcoming(limit=limit, filter_cct=filter_cct)
-        elif section == "team-stats":
-            data = parsebot.get_team_stats(days=days, limit=limit)
-        elif section == "player-stats":
-            data = parsebot.get_player_stats(days=days, limit=limit)
-        elif section == "team-details":
-            data = parsebot.get_team_details(
-                team_url=request.GET.get("url"), team_id=request.GET.get("id"))
-        elif section == "player-details":
-            data = parsebot.get_player_details(
-                player_url=request.GET.get("url"), player_id=request.GET.get("id"))
-        else:
-            return JsonResponse({"error": "Unknown HLTV section."}, status=404)
-    except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
-    return JsonResponse(data)
 
 
 VALID_GAMES = {"price", "trivia"}

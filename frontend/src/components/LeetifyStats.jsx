@@ -71,11 +71,20 @@ export function LeetifyView({ data }) {
     );
   }
 
-  const { ranks = {}, rating = {}, stats = [] } = data;
+  const {
+    ranks = {}, rating = {}, stats = [], ratings = [], bans = [],
+    stat_groups: groups = [], recent_matches: recent = [],
+    recent_teammates: teammates = [],
+  } = data;
   const compMaps = (ranks.competitive || []).filter((m) => Number(m.rank) > 0);
   const hasRanks =
-    ranks.premier != null || ranks.faceit != null ||
-    ranks.wingman != null || ranks.leetify != null;
+    ranks.premier != null || ranks.faceit != null || ranks.wingman != null ||
+    ranks.leetify != null || ranks.renown != null;
+
+  // The three 0-100 skill ratings already have their own rings above; these
+  // four are impact numbers on a different scale, so they get their own row.
+  const IMPACT = new Set(["clutch", "opening", "ct_leetify", "t_leetify"]);
+  const impact = ratings.filter((r) => IMPACT.has(r.key) && r.value != null);
 
   return (
     <>
@@ -110,6 +119,12 @@ export function LeetifyView({ data }) {
                 <div className="leet-rank-label">Leetify Rating</div>
               </div>
             )}
+            {ranks.renown != null && (
+              <div className="leet-rank">
+                <div className="leet-rank-val">{Number(ranks.renown).toLocaleString()}</div>
+                <div className="leet-rank-label">Renown</div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -139,18 +154,109 @@ export function LeetifyView({ data }) {
         </>
       )}
 
-      {stats.length > 0 && (
+      {impact.length > 0 && (
         <>
-          <div className="section-title">Detailed stats</div>
-          <div className="real-grid">
-            {stats.map((s) => (
-              <div className="real-stat" key={s.key}>
-                <div className="real-stat-val">
-                  {fmt(s.value, s.unit)}
-                  {s.unit && <span className="leet-unit">{s.unit}</span>}
+          <div className="section-title">Impact</div>
+          <div className="leet-impact">
+            {impact.map((r) => (
+              <div className="leet-impact-cell" key={r.key}>
+                <div
+                  className="leet-impact-val"
+                  style={{ color: r.value > 0 ? "#22c55e" : r.value < 0 ? "#ef4444" : "var(--text-dim)" }}
+                >
+                  {r.value > 0 ? "+" : ""}{Math.round(r.value * 1000) / 1000}
                 </div>
-                <div className="real-stat-label">{s.label}</div>
+                <div className="real-stat-label">{r.label}</div>
               </div>
+            ))}
+          </div>
+          <p className="leet-note">Impact figures are centred on zero: above is better than average, below is worse.</p>
+        </>
+      )}
+
+      {bans.length > 0 && (
+        <>
+          <div className="section-title">Ban history</div>
+          <div className="leet-bans">
+            {bans.map((b, i) => (
+              <div className="leet-ban" key={i}>
+                <span className="leet-ban-platform">{b.platform}</span>
+                {b.nickname && <span className="leet-ban-nick">as {b.nickname}</span>}
+                {b.banned_since && (
+                  <span className="leet-ban-date">
+                    {new Date(b.banned_since).toLocaleDateString("en-GB",
+                      { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {stats.length > 0 && groups.map((g) => {
+        const rows = stats.filter((x) => x.group === g.key);
+        if (!rows.length) return null;
+        return (
+          <div key={g.key}>
+            <div className="section-title">{g.label}</div>
+            <div className="real-grid">
+              {rows.map((x) => (
+                <div className="real-stat" key={x.key}>
+                  <div className="real-stat-val">
+                    {fmt(x.value, x.unit)}
+                    {x.unit && <span className="leet-unit">{x.unit}</span>}
+                  </div>
+                  <div className="real-stat-label">{x.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {recent.length > 1 && (
+        <>
+          <div className="section-title">Recent form</div>
+          <div className="leet-form">
+            {recent.slice().reverse().map((m) => {
+              const r = m.leetify_rating;
+              const good = r != null && r >= 0;
+              return (
+                <div
+                  className={`leet-form-cell ${m.outcome === "win" ? "win" : m.outcome === "loss" ? "loss" : ""}`}
+                  key={m.id}
+                  title={`${(m.map_name || "").replace(/^(de|cs)_/, "")} · ${(m.score || []).join("-")}` +
+                         (r != null ? ` · rating ${Math.round(r * 1000) / 1000}` : "")}
+                >
+                  <div className="leet-form-map">{(m.map_name || "").replace(/^(de|cs)_/, "").slice(0, 4)}</div>
+                  {r != null && (
+                    <div className="leet-form-rating" style={{ color: good ? "#22c55e" : "#ef4444" }}>
+                      {good ? "+" : ""}{Math.round(r * 100) / 100}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {teammates.length > 0 && (
+        <>
+          <div className="section-title">Plays most with</div>
+          <div className="leet-mates">
+            {teammates.map((t) => (
+              <a
+                className="leet-mate"
+                key={t.steam64_id}
+                href={`https://leetify.com/app/profile/${t.steam64_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="leet-mate-id">{t.steam64_id.slice(-8)}</span>
+                <span className="leet-mate-n">{t.matches} matches</span>
+              </a>
             ))}
           </div>
         </>

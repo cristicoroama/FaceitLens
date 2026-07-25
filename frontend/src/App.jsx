@@ -10,7 +10,6 @@ import Skeleton from "./components/Skeleton.jsx";
 import BanBanner from "./components/BanBanner.jsx";
 import SearchInput from "./components/SearchInput.jsx";
 import BestTeammates from "./components/BestTeammates.jsx";
-import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
@@ -22,7 +21,6 @@ import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
 import OverviewGrid from "./components/OverviewGrid.jsx";
 import Games from "./components/Games.jsx";
-import Crosshair from "./components/Crosshair.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
 import NewsPage from "./components/NewsPage.jsx";
@@ -32,7 +30,6 @@ import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
 import SteamStatus from "./components/SteamStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
-import HltvView from "./components/HltvView.jsx";
 import ThemeMenu from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
@@ -134,11 +131,6 @@ const I = {
       <circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
     </svg>
   ),
-  hltv: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M4 19V5M4 12h8M12 19V5M20 19V5M12 12h8" />
-    </svg>
-  ),
   room: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M16 3h5v5M8 21H3v-5M21 3l-7.5 7.5M3 21l7.5-7.5" />
@@ -167,9 +159,6 @@ const NAV = [
     { id: "watchlist", label: "Watchlist", icon: I.star },
     { id: "leaderboard", label: "Leaderboard", icon: I.board },
   ]},
-  { group: "HLTV — Pro Scene", items: [
-    { id: "hltv", label: "HLTV Hub", icon: I.hltv },
-  ]},
   { group: "Live", items: [
     { id: "faceitstatus", label: "FACEIT Status", icon: I.pulse },
     { id: "steamstatus", label: "Steam / CS2 Status", icon: I.pulse },
@@ -185,7 +174,6 @@ const NAV = [
     { id: "proguesser", label: "ProGuesser", icon: I.star },
     { id: "prosettings", label: "Pro Settings", icon: I.xhair },
     { id: "games", label: "Minigames", icon: I.game },
-    { id: "crosshair", label: "Crosshair", icon: I.xhair },
   ]},
   { group: "Developers", items: [
     { id: "docs", label: "API Docs", icon: I.vs },
@@ -215,11 +203,6 @@ const TI = {
   real: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2" />
-    </svg>
-  ),
-  hltv: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" />
     </svg>
   ),
   teammates: (
@@ -271,8 +254,8 @@ const HOME_FEATURES = [
 
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
-  "watchlist", "leaderboard", "hltv", "matchroom", "compare",
-  "squad", "clubs", "proguesser", "games", "crosshair", "docs",
+  "watchlist", "leaderboard", "matchroom", "compare",
+  "squad", "clubs", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew",
 ]);
@@ -282,7 +265,6 @@ const PROFILE_TABS = [
   ["account", "Trust", TI.trust],
   ["leetify", "Leetify", TI.leetify],
   ["real", "Demos", TI.real],
-  ["hltv", "HLTV", TI.hltv],
   ["teammates", "Teammates", TI.teammates],
   ["steam", "Steam", TI.steam],
   ["hubs", "Hubs", TI.hubs],
@@ -327,6 +309,9 @@ export default function App() {
   const [showCard, setShowCard] = useState(false);
   const [showWrapped, setShowWrapped] = useState(false);
   const [cs2Online, setCs2Online] = useState(null);
+  // Leetify ban history, fetched alongside the profile (not blocking it) so
+  // the smurf detector can use cross-platform bans as a signal.
+  const [leetifyBans, setLeetifyBans] = useState(null);
   const changelog = useChangelog();
   const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
@@ -353,6 +338,21 @@ export default function App() {
       })
       .catch(() => {});
   }, []);
+
+  // Leetify ban history for the player on screen. Fetched separately so it
+  // never delays the profile itself — the smurf meter simply sharpens once it
+  // lands. Players Leetify doesn't know about just return nothing.
+  useEffect(() => {
+    const nick = data?.nickname;
+    if (!nick) { setLeetifyBans(null); return; }
+    let cancelled = false;
+    setLeetifyBans(null);
+    fetch(`${API_BASE}/api/player/${encodeURIComponent(nick)}/leetify/`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j) => !cancelled && setLeetifyBans(j.bans || []))
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [data?.nickname]);
 
   // Live status / incident feed (managed from the Django admin). Drives the
   // header indicator (blink on active incident) and the /news status page.
@@ -441,7 +441,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tool pages have their own URLs (/docs, /proguesser, /hltv…) so they're
+  // Tool pages have their own URLs (/docs, /proguesser, /whatsnew…) so they're
   // directly shareable. Map the path segment to the internal mode.
   useEffect(() => {
     if (routePage && TOOL_PAGES.has(routePage)) setMode(routePage);
@@ -984,7 +984,6 @@ export default function App() {
           )}
 
           {mode === "leaderboard" && <Leaderboard onPick={go} />}
-          {mode === "hltv" && <HltvView onPick={go} />}
           {mode === "faceitstatus" && <FaceitStatus />}
           {mode === "steamstatus" && <SteamStatus />}
           {mode === "bans" && <FaceitBans onPick={go} />}
@@ -997,7 +996,6 @@ export default function App() {
           {mode === "docs" && <ApiDocs />}
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
-          {mode === "crosshair" && <Crosshair />}
           {mode === "settings" && (
             <ProfileSettings
               user={user}
@@ -1108,8 +1106,6 @@ export default function App() {
                 <LeetifyStats nickname={data.nickname} />
               ) : profileTab === "real" ? (
                 <RealStats nickname={data.nickname} />
-              ) : profileTab === "hltv" ? (
-                <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (
                 <TeammatesFull mates={data.teammates_full} onPick={go} />
               ) : profileTab === "hubs" ? (
@@ -1122,7 +1118,7 @@ export default function App() {
                 <Nicknames nicknames={data.nicknames} />
               ) : (
                 <>
-                  <SmurfMeter data={data} />
+                  <SmurfMeter data={data} leetifyBans={leetifyBans} />
                   <OverviewGrid
                     data={data}
                     maps={data.maps_played}

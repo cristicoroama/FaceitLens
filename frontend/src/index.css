@@ -3658,3 +3658,85 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   padding: 0 12px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase;
   color: var(--text-dim); opacity: 0.7;
 }
+
+/* --- Leetify: impact ratings, bans, form strip, duos ---------------------- */
+.leet-impact {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;
+}
+.leet-impact-cell {
+  text-align: center; padding: 13px 10px; border-radius: 13px;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-brd);
+}
+.leet-impact-val { font-family: var(--font-mono); font-size: 19px; font-weight: 800; line-height: 1.1; }
+.leet-note { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; opacity: 0.8; }
+
+.leet-bans { display: flex; flex-direction: column; gap: 8px; }
+.leet-ban {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 12px;
+  background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.32);
+}
+.leet-ban-platform {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px; color: #ef4444;
+  padding: 3px 9px; border-radius: 999px; background: rgba(239, 68, 68, 0.15);
+}
+.leet-ban-nick { font-size: 13px; font-weight: 650; color: var(--text); }
+.leet-ban-date { margin-left: auto; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); }
+
+.leet-form { display: flex; gap: 6px; flex-wrap: wrap; }
+.leet-form-cell {
+  min-width: 52px; padding: 9px 7px; border-radius: 10px; text-align: center;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-brd);
+  border-bottom-width: 3px; cursor: default;
+}
+.leet-form-cell.win { border-bottom-color: #22c55e; }
+.leet-form-cell.loss { border-bottom-color: #ef4444; }
+.leet-form-map {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--text-dim); font-weight: 700;
+}
+.leet-form-rating { font-family: var(--font-mono); font-size: 12.5px; font-weight: 800; margin-top: 3px; }
+
+.leet-mates { display: flex; flex-wrap: wrap; gap: 8px; }
+.leet-mate {
+  display: flex; flex-direction: column; gap: 2px; text-decoration: none;
+  padding: 8px 14px; border-radius: 11px;
+  background: var(--glass-bg-2); border: 1px solid var(--glass-brd);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.leet-mate:hover { border-color: var(--accent); transform: translateY(-1px); }
+.leet-mate-id { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); }
+.leet-mate-n { font-size: 10.5px; color: var(--text-dim); }
+
+/* --- demo-stats scoreboard inside an expanded match ----------------------- */
+.lm-wrap {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--glass-brd);
+}
+.lm-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.lm-title {
+  font-size: 11px; font-weight: 750; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--accent);
+}
+.lm-credit {
+  margin-left: auto; font-size: 11px; color: var(--text-dim); text-decoration: none;
+}
+.lm-credit:hover { color: var(--accent); text-decoration: underline; }
+
+.lm-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.lm-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+.lm-table th {
+  padding: 6px 8px; text-align: right; white-space: nowrap;
+  font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 700;
+  border-bottom: 1px solid var(--glass-brd);
+}
+.lm-table td {
+  padding: 7px 8px; text-align: right; white-space: nowrap; color: var(--text);
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-brd) 55%, transparent);
+}
+.lm-table tr:last-child td { border-bottom: none; }
+.lm-table .lm-l { text-align: left; font-family: var(--font-body, inherit); }
+.lm-table td.lm-l { font-weight: 650; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.lm-table tr.lm-me td { background: rgba(var(--accent-rgb), 0.09); }
+.lm-table tr.lm-me td.lm-l { color: var(--accent); font-weight: 800; }

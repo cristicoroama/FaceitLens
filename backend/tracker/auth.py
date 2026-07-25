@@ -53,9 +53,40 @@ def slugify_handle(raw: str) -> str:
     return s
 
 
+# Separators people put between a clan/team tag and their actual name.
+_TAG_SPLIT = re.compile(r"\s*[|/•·:›»~]+\s*|\]\s*|\)\s*")
+
+
+def strip_clan_tag(name: str) -> str:
+    """Pull the actual nickname out of a decorated Steam persona.
+
+    Steam names are routinely "Team Dorohoi | LorduKiki" or "[BOT] Player".
+    Slugifying the whole thing gives handles like @team-dorohoi-lordukiki,
+    which is not what anyone wants on their profile. Gaming personas put the
+    tag first and the name last, so when there's an explicit separator we keep
+    the last segment. Names with no separator are left alone — splitting
+    "Cristi Coroama" on the space would throw away half of it.
+    """
+    name = (name or "").strip()
+    if not name:
+        return ""
+
+    parts = [p.strip(" -_[](){}") for p in _TAG_SPLIT.split(name)]
+    parts = [p for p in parts if p]
+    if len(parts) > 1:
+        # Take the last meaningful segment, but not if it's a scrap like "TR".
+        last = parts[-1]
+        if len(slugify_handle(last)) >= 3:
+            return last
+        for p in reversed(parts[:-1]):
+            if len(slugify_handle(p)) >= 3:
+                return p
+    return name
+
+
 def unique_handle(preferred: str, taken_by_user_id=None) -> str:
     """A free handle close to `preferred` — appends 2, 3, ... only if needed."""
-    base = slugify_handle(preferred)
+    base = slugify_handle(strip_clan_tag(preferred))
     if len(base) < 3 or base in RESERVED_HANDLES:
         base = f"player-{base}" if base else "player"
     base = base[:26]
