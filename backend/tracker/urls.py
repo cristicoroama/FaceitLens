@@ -1,5 +1,5 @@
 from django.urls import path
-from . import auth, views
+from . import auth, profiles, views
 
 urlpatterns = [
     # --- Sign in with Steam + account ---
@@ -8,6 +8,16 @@ urlpatterns = [
     path("auth/me/", auth.me, name="auth-me"),
     path("auth/logout/", auth.logout_view, name="auth-logout"),
     path("auth/favorites/", auth.favorites, name="auth-favorites"),
+
+    # --- User profiles (order matters: the literal paths must beat <handle>) ---
+    path("profile/me/", profiles.my_profile, name="profile-me"),
+    path("profile/avatar/", profiles.avatar_upload, name="profile-avatar"),
+    path("profile/handle/", profiles.check_handle, name="profile-handle"),
+    path("profile/report/", profiles.report_profile, name="profile-report"),
+    path("profiles/", profiles.profile_directory, name="profile-directory"),
+    path("profile/<str:handle>/progress/", profiles.elo_progress, name="profile-progress"),
+    path("profile/<str:handle>/", profiles.public_profile, name="profile-public"),
+    path("avatar/<str:handle>/", profiles.avatar_serve, name="profile-avatar-serve"),
 
     path("player/<str:nickname>/", views.player_summary, name="player-summary"),
     path("player/<str:nickname>/real/", views.real_stats, name="player-real-stats"),

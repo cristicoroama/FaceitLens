@@ -16,7 +16,7 @@ function SteamIcon({ size = 16 }) {
  * Signed out: "Sign in with Steam" button (redirects to the backend OpenID flow).
  * Signed in: avatar + name with a small dropdown (sign out).
  */
-export default function AccountMenu({ user, onLogout }) {
+export default function AccountMenu({ user, onLogout, onSettings, onMyProfile }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -57,9 +57,34 @@ export default function AccountMenu({ user, onLogout }) {
             {user.avatar && <img className="acc-avatar lg" src={user.avatar} alt="" />}
             <div>
               <div className="acc-pop-name">{user.name}</div>
-              <div className="acc-pop-sub">Signed in with Steam</div>
+              <div className="acc-pop-sub">
+                {user.profile?.handle ? `@${user.profile.handle}` : "Signed in with Steam"}
+              </div>
             </div>
           </div>
+
+          {user.profile?.handle && (
+            <button
+              className="theme-opt"
+              onClick={() => { setOpen(false); onMyProfile?.(user.profile.handle); }}
+            >
+              My profile
+              {user.profile.faceit_verified && <span className="acc-verified" title="FACEIT linked">✓</span>}
+            </button>
+          )}
+          <button className="theme-opt" onClick={() => { setOpen(false); onSettings?.(); }}>
+            Settings
+          </button>
+
+          {user.profile?.faceit_nickname && (
+            <button
+              className="theme-opt"
+              onClick={() => { setOpen(false); onMyProfile?.(user.profile.handle, true); }}
+            >
+              My FACEIT stats →
+            </button>
+          )}
+
           {user.steamid && (
             <a
               className="theme-opt"

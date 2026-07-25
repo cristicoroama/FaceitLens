@@ -44,6 +44,8 @@ import Nemeses from "./components/Nemeses.jsx";
 import SmurfMeter from "./components/SmurfMeter.jsx";
 import ShareCard from "./components/ShareCard.jsx";
 import Wrapped from "./components/Wrapped.jsx";
+import ProfileSettings from "./components/ProfileSettings.jsx";
+import PublicProfile from "./components/PublicProfile.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -266,6 +268,7 @@ const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "hltv", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "crosshair", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
+  "settings",
 ]);
 
 const PROFILE_TABS = [
@@ -282,7 +285,7 @@ const PROFILE_TABS = [
 ];
 
 export default function App() {
-  const { nickname: routeNick, steamid: routeSteam, page: routePage } = useParams();
+  const { nickname: routeNick, steamid: routeSteam, page: routePage, handle: routeHandle } = useParams();
   const navigate = useNavigate();
 
   const [nickname, setNickname] = useState(routeNick || "");
@@ -437,6 +440,26 @@ export default function App() {
     if (routePage && TOOL_PAGES.has(routePage)) setMode(routePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePage]);
+
+  // /u/<handle> -> someone's public profile page.
+  useEffect(() => {
+    if (routeHandle) setMode("publicprofile");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeHandle]);
+
+  // Coming back from Steam: "nolink" means we signed them in but couldn't find
+  // a FACEIT account for their Steam ID, so send them to settings to set it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const login = params.get("login");
+    if (!login) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (login === "nolink") {
+      setMode("settings");
+      navigate("/settings");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // React to the URL: /player/<nick> or /steam/<id64> loads that profile.
   useEffect(() => {
@@ -681,6 +704,40 @@ export default function App() {
         </div>
 
         <div className="side-nav">
+          {user?.profile?.handle && (
+            <div>
+              <div className="side-group">You</div>
+              <button
+                className={`side-link side-me ${mode === "publicprofile" ? "active" : ""}`}
+                onClick={() => {
+                  setSideOpen(false);
+                  setMode("publicprofile");
+                  navigate(`/u/${user.profile.handle}`);
+                }}
+              >
+                {user.avatar
+                  ? <img className="side-me-av" src={user.avatar} alt="" />
+                  : <span className="side-me-av ph">{(user.name || "?").slice(0, 1).toUpperCase()}</span>}
+                My profile
+              </button>
+              {user.profile.faceit_nickname && (
+                <button
+                  className="side-link"
+                  onClick={() => { setSideOpen(false); go(user.profile.faceit_nickname); }}
+                >
+                  <span className="side-ico">◈</span>
+                  My stats
+                </button>
+              )}
+              <button
+                className={`side-link ${mode === "settings" ? "active" : ""}`}
+                onClick={() => { setSideOpen(false); pickNav("settings"); }}
+              >
+                <span className="side-ico">⚙</span>
+                Settings
+              </button>
+            </div>
+          )}
           {NAV.map((g) => (
             <div key={g.group}>
               <div className="side-group">{g.group}</div>
@@ -765,7 +822,19 @@ export default function App() {
           <div className="tb-actions">
             <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
             <ThemeMenu theme={theme} setTheme={setTheme} />
-            <AccountMenu user={user} onLogout={logout} />
+            <AccountMenu
+              user={user}
+              onLogout={logout}
+              onSettings={() => { setMode("settings"); navigate("/settings"); }}
+              onMyProfile={(handle, faceitStats) => {
+                if (faceitStats && user?.profile?.faceit_nickname) {
+                  go(user.profile.faceit_nickname);
+                } else {
+                  setMode("publicprofile");
+                  navigate(`/u/${handle}`);
+                }
+              }}
+            />
           </div>
         </header>
 
@@ -920,6 +989,21 @@ export default function App() {
           {mode === "docs" && <ApiDocs />}
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "crosshair" && <Crosshair />}
+          {mode === "settings" && (
+            <ProfileSettings
+              user={user}
+              onSaved={(p) => setUser((u) => (u ? { ...u, profile: p, name: p.name, avatar: p.avatar ? `${API_BASE}${p.avatar}` : u.steam_avatar } : u))}
+              onOpenProfile={go}
+            />
+          )}
+          {mode === "publicprofile" && (
+            <PublicProfile
+              handle={routeHandle}
+              currentUser={user}
+              onPick={go}
+              onEdit={() => { setMode("settings"); navigate("/settings"); }}
+            />
+          )}
 
           {/* ---------- STATES ---------- */}
           {error && <div className="state error">{error}</div>}

@@ -17,6 +17,99 @@ class SteamProfile(models.Model):
         return self.name or self.steamid
 
 
+class UserProfile(models.Model):
+    """The public-facing account: a stable handle, editable display info, an
+    uploaded avatar, and the FACEIT account this user owns.
+
+    The FACEIT link is established automatically at Steam sign-in: Steam hands
+    us a cryptographically verified SteamID64, and FACEIT tells us which account
+    that SteamID belongs to. Nobody can claim a profile that isn't theirs, so
+    `faceit_verified` is real proof of ownership — not an honour system.
+
+    Avatars live in the database as WebP bytes (~12KB each after resizing to
+    256px). Render's filesystem is wiped on every deploy, so writing them to
+    disk would silently lose every picture; Postgres persists.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+
+    # Stable public identity. Chosen once, used in the URL (/u/<handle>), and
+    # deliberately NOT tied to the FACEIT nickname — people rename themselves on
+    # FACEIT and we don't want their shared links to rot.
+    handle = models.SlugField(max_length=30, unique=True, db_index=True)
+    display_name = models.CharField(max_length=40, blank=True)
+    bio = models.CharField(max_length=200, blank=True)
+
+    avatar = models.BinaryField(null=True, blank=True, editable=True)
+    avatar_updated = models.DateTimeField(null=True, blank=True)
+
+    # The FACEIT account this user owns.
+    faceit_nickname = models.CharField(max_length=100, blank=True, db_index=True)
+    faceit_player_id = models.CharField(max_length=64, blank=True, db_index=True)
+    faceit_verified = models.BooleanField(
+        default=False,
+        help_text="True when the link was proven through Steam rather than typed in by hand.",
+    )
+
+    is_public = models.BooleanField(
+        default=True, help_text="Untick to hide this profile from /u/<handle>."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"@{self.handle}"
+
+    @property
+    def name(self):
+        """Best display name available, in order of how much the user chose it."""
+        if self.display_name:
+            return self.display_name
+        if self.faceit_nickname:
+            return self.faceit_nickname
+        steam = getattr(self.user, "steam_profile", None)
+        if steam and steam.name:
+            return steam.name
+        return self.handle
+
+    @property
+    def has_avatar(self):
+        return bool(self.avatar)
+
+
+class ProfileReport(models.Model):
+    """A user-submitted report about a public profile (bad name, bad picture).
+
+    Public profiles with free-text names and uploaded images eventually attract
+    something you don't want on your site. This gives people a way to flag it
+    and gives you a queue in the admin to act on.
+    """
+
+    REASON_CHOICES = [
+        ("avatar", "Inappropriate picture"),
+        ("name", "Inappropriate name or bio"),
+        ("impersonation", "Impersonating someone"),
+        ("other", "Other"),
+    ]
+
+    profile = models.ForeignKey(
+        UserProfile, on_delete=models.CASCADE, related_name="reports"
+    )
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, default="other")
+    detail = models.CharField(max_length=300, blank=True)
+    reporter_ip = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    handled = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.profile} — {self.get_reason_display()}"
+
+
 class Favorite(models.Model):
     """A user's favorited FACEIT nickname (synced across devices when signed in)."""
     user = models.ForeignKey(

@@ -31,9 +31,159 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Favorite, SteamProfile
+from .models import Favorite, SteamProfile, UserProfile
 
 STEAM_OPENID = "https://steamcommunity.com/openid/login"
+
+# Handles we never hand out: they'd collide with real routes, or they'd let
+# someone pose as us.
+RESERVED_HANDLES = {
+    "admin", "api", "auth", "u", "me", "settings", "profile", "login", "logout",
+    "signup", "register", "static", "assets", "public", "help", "support",
+    "about", "terms", "privacy", "contact", "docs", "status", "faceitlens",
+    "faceit", "steam", "official", "staff", "moderator", "mod", "root", "system",
+    "null", "undefined", "new", "edit", "delete", "search", "player", "players",
+}
+
+
+def slugify_handle(raw: str) -> str:
+    """Turn any name into a legal handle: lowercase a-z0-9_- , 3-30 chars."""
+    s = re.sub(r"[^a-zA-Z0-9_-]+", "-", (raw or "")).strip("-_").lower()
+    s = re.sub(r"-{2,}", "-", s)[:30]
+    return s
+
+
+def unique_handle(preferred: str, taken_by_user_id=None) -> str:
+    """A free handle close to `preferred` — appends 2, 3, ... only if needed."""
+    base = slugify_handle(preferred)
+    if len(base) < 3 or base in RESERVED_HANDLES:
+        base = f"player-{base}" if base else "player"
+    base = base[:26]
+
+    qs = UserProfile.objects.all()
+    if taken_by_user_id:
+        qs = qs.exclude(user_id=taken_by_user_id)
+
+    candidate = base
+    n = 1
+    while candidate in RESERVED_HANDLES or qs.filter(handle__iexact=candidate).exists():
+        n += 1
+        suffix = str(n)
+        candidate = f"{base[:30 - len(suffix)]}{suffix}"
+    return candidate
+
+
+def record_elo_snapshot(player_id: str, elo) -> None:
+    """Store today's ELO for a player, if we happen to have it.
+
+    The cron job is the reliable source, but calling this whenever we already
+    hold fresh data — at sign-in, or when someone opens a member's profile —
+    means the history starts building immediately, and it keeps working on days
+    the cron misses. update_or_create keyed on (player_id, date) makes repeat
+    calls within a day harmless.
+    """
+    if not player_id or elo in (None, ""):
+        return
+    try:
+        from datetime import date
+        from .models import EloSnapshot
+        EloSnapshot.objects.update_or_create(
+            player_id=player_id, date=date.today(), defaults={"elo": int(elo)}
+        )
+    except Exception:
+        # Never let bookkeeping break the request that triggered it.
+        pass
+
+
+def link_faceit_account(profile: UserProfile, steamid: str) -> bool:
+    """Find the FACEIT account that owns this SteamID and attach it.
+
+    This is the whole reason sign-in is worth doing. Steam has already proven
+    the user owns this SteamID64, and FACEIT will tell us which account has it
+    registered — so the link is verified end to end without asking the user to
+    paste a code anywhere. Returns True if a CS2 account was found.
+    """
+    # Imported lazily: this module is also loaded by management commands that
+    # have no business reaching out to the FACEIT API.
+    try:
+        from .faceit import get_player_by_steam
+    except Exception:
+        return False
+
+    try:
+        data = get_player_by_steam(steamid) or {}
+    except Exception:
+        # FACEIT being down must never break signing in.
+        return False
+
+    nickname = data.get("nickname")
+    player_id = data.get("player_id")
+    if not nickname or not player_id:
+        return False
+
+    profile.faceit_nickname = nickname
+    profile.faceit_player_id = player_id
+    profile.faceit_verified = True
+
+    # We already have their ELO in hand — start the history right now.
+    cs2 = (data.get("games") or {}).get("cs2") or {}
+    record_elo_snapshot(player_id, cs2.get("faceit_elo"))
+
+    # Registering them as a tracked player means the cron picks them up too.
+    try:
+        from django.utils import timezone
+        from .models import TrackedPlayer
+        TrackedPlayer.objects.update_or_create(
+            player_id=player_id,
+            defaults={"nickname": nickname, "last_searched": timezone.now()},
+        )
+    except Exception:
+        pass
+
+    return True
+
+
+def ensure_profile(user, steamid: str = "", persona: str = "") -> UserProfile:
+    """Fetch or build this user's public profile, linking FACEIT if we can."""
+    profile = UserProfile.objects.filter(user=user).first()
+    created = profile is None
+    if created:
+        profile = UserProfile(user=user)
+
+    # Only try to link while we don't have a verified link yet — once it's
+    # established there's no reason to hit the FACEIT API on every sign-in.
+    if steamid and not profile.faceit_verified:
+        link_faceit_account(profile, steamid)
+
+    if not profile.handle:
+        # Prefer the FACEIT nickname, fall back to the Steam persona.
+        profile.handle = unique_handle(
+            profile.faceit_nickname or persona or f"player{steamid[-6:]}",
+            taken_by_user_id=user.id,
+        )
+
+    profile.save()
+    return profile
+
+
+def profile_payload(profile: UserProfile) -> dict:
+    """The shape the frontend expects for 'my profile'."""
+    return {
+        "handle": profile.handle,
+        "name": profile.name,
+        "display_name": profile.display_name,
+        "bio": profile.bio,
+        "avatar": (
+            f"/api/avatar/{profile.handle}/?v={int(profile.avatar_updated.timestamp())}"
+            if profile.avatar_updated and profile.has_avatar
+            else None
+        ),
+        "faceit_nickname": profile.faceit_nickname,
+        "faceit_player_id": profile.faceit_player_id,
+        "faceit_verified": profile.faceit_verified,
+        "is_public": profile.is_public,
+        "url": f"/u/{profile.handle}",
+    }
 
 
 def _frontend(request=None) -> str:
@@ -154,8 +304,21 @@ def steam_return(request):
         prof.avatar = avatar
     prof.save()
 
+    # Build the public profile and auto-link the FACEIT account. Wrapped
+    # defensively: a hiccup here must never cost the user their sign-in.
+    linked = False
+    try:
+        profile = ensure_profile(user, steamid=steamid, persona=persona or "")
+        linked = profile.faceit_verified
+    except Exception:
+        pass
+
     dj_login(request, user)
-    return HttpResponseRedirect(_frontend(request) + "/?login=ok")
+    # `login=new` tells the frontend to nudge first-timers toward their settings
+    # page; `linked=0` means we couldn't find a FACEIT account for this Steam
+    # ID, so the UI should offer to set one by hand.
+    flag = "ok" if linked else "nolink"
+    return HttpResponseRedirect(_frontend(request) + f"/?login={flag}")
 
 
 def me(request):
@@ -163,12 +326,32 @@ def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"authenticated": False})
     prof = getattr(request.user, "steam_profile", None)
+
+    # Users who signed in before profiles existed won't have one yet — build it
+    # on the fly so nobody has to log out and back in.
+    profile = UserProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        try:
+            profile = ensure_profile(
+                request.user,
+                steamid=prof.steamid if prof else "",
+                persona=prof.name if prof else "",
+            )
+        except Exception:
+            profile = None
+
+    steam_avatar = (prof.avatar if prof else None) or None
+    payload = profile_payload(profile) if profile else {}
+
     return JsonResponse({
         "authenticated": True,
         "steamid": prof.steamid if prof else None,
-        "name": (prof.name if prof and prof.name else request.user.username),
-        "avatar": (prof.avatar if prof else None) or None,
+        "name": payload.get("name") or (prof.name if prof and prof.name else request.user.username),
+        # Uploaded picture wins; otherwise fall back to the Steam one.
+        "avatar": payload.get("avatar") or steam_avatar,
+        "steam_avatar": steam_avatar,
         "favorites": _fav_list(request.user),
+        "profile": payload or None,
     })
 
 

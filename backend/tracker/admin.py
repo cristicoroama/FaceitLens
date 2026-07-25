@@ -121,3 +121,80 @@ class IncidentUpdateAdmin(admin.ModelAdmin):
     list_display = ("incident", "status", "at")
     list_filter = ("status",)
     ordering = ("-at",)
+
+
+# --- User profiles + moderation -------------------------------------------
+
+from django.utils.html import format_html  # noqa: E402
+
+from .models import ProfileReport, UserProfile  # noqa: E402
+
+
+class ProfileReportInline(admin.TabularInline):
+    model = ProfileReport
+    extra = 0
+    fields = ("reason", "detail", "reporter_ip", "created_at", "handled")
+    readonly_fields = ("reason", "detail", "reporter_ip", "created_at")
+    ordering = ("-created_at",)
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        "handle", "preview", "display_name", "faceit_nickname",
+        "faceit_verified", "is_public", "open_reports", "created_at",
+    )
+    list_filter = ("faceit_verified", "is_public", "created_at")
+    search_fields = ("handle", "display_name", "faceit_nickname", "faceit_player_id", "bio")
+    ordering = ("-created_at",)
+    readonly_fields = ("preview", "created_at", "updated_at", "user")
+    exclude = ("avatar",)   # raw bytes aren't useful (or safe) to edit by hand
+    inlines = [ProfileReportInline]
+    actions = ["wipe_avatar", "reset_identity", "make_private"]
+
+    @admin.display(description="Picture")
+    def preview(self, obj):
+        if not obj.has_avatar:
+            return "—"
+        return format_html(
+            '<img src="/api/avatar/{}/" width="40" height="40" '
+            'style="border-radius:8px;object-fit:cover" />',
+            obj.handle,
+        )
+
+    @admin.display(description="Reports")
+    def open_reports(self, obj):
+        n = obj.reports.filter(handled=False).count()
+        if not n:
+            return "—"
+        return format_html('<b style="color:#c0392b">{}</b>', n)
+
+    @admin.action(description="Delete the profile picture")
+    def wipe_avatar(self, request, queryset):
+        n = queryset.update(avatar=None, avatar_updated=None)
+        self.message_user(request, f"Removed {n} picture(s).")
+
+    @admin.action(description="Clear the custom name and bio")
+    def reset_identity(self, request, queryset):
+        n = queryset.update(display_name="", bio="")
+        self.message_user(request, f"Reset {n} profile(s).")
+
+    @admin.action(description="Hide from the public directory")
+    def make_private(self, request, queryset):
+        n = queryset.update(is_public=False)
+        self.message_user(request, f"Made {n} profile(s) private.")
+
+
+@admin.register(ProfileReport)
+class ProfileReportAdmin(admin.ModelAdmin):
+    list_display = ("profile", "reason", "detail", "created_at", "handled")
+    list_filter = ("handled", "reason", "created_at")
+    list_editable = ("handled",)
+    search_fields = ("profile__handle", "detail")
+    ordering = ("handled", "-created_at")
+    actions = ["mark_handled"]
+
+    @admin.action(description="Mark as handled")
+    def mark_handled(self, request, queryset):
+        n = queryset.update(handled=True)
+        self.message_user(request, f"Closed {n} report(s).")

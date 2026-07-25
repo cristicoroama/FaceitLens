@@ -12,6 +12,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/" element={<App />} />
         <Route path="/player/:nickname" element={<App />} />
         <Route path="/steam/:steamid" element={<App />} />
+        <Route path="/u/:handle" element={<App />} />
         <Route path="/:page" element={<App />} />
       </Routes>
     </BrowserRouter>

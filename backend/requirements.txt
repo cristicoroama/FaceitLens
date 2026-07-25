@@ -5,6 +5,8 @@ gunicorn>=21.2
 whitenoise>=6.6
 dj-database-url>=2.1
 psycopg[binary]>=3.1
+# Resizes uploaded profile pictures to a 256px WebP before they go in the DB.
+Pillow>=10.2
 # mysqlclient>=2.2   # uncomment if you point DATABASE_URL at MySQL
 #                    # (mysql://user:pass@host:3306/dbname)
 # Demo parsing (real HLTV rating / KAST / opening / clutch / utility).
