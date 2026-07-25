@@ -17,6 +17,109 @@ class SteamProfile(models.Model):
         return self.name or self.steamid
 
 
+class FeedbackItem(models.Model):
+    """A bug report or idea posted by a signed-in user.
+
+    Deliberately public and votable: most people who hit a bug will never open
+    a GitHub issue, and a vote count tells you what to build next far better
+    than guessing does. Posting requires a Steam sign-in, which is enough
+    friction to keep drive-by spam out without asking anyone to register.
+    """
+
+    KIND_CHOICES = [
+        ("bug", "Bug"),
+        ("idea", "Idea"),
+        ("question", "Question"),
+    ]
+
+    # A public roadmap, effectively — people come back to see if their thing moved.
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("planned", "Planned"),
+        ("in_progress", "In progress"),
+        ("done", "Done"),
+        ("declined", "Declined"),
+        ("duplicate", "Duplicate"),
+    ]
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="feedback_items", null=True, blank=True,
+    )
+    title = models.CharField(max_length=120)
+    body = models.TextField(max_length=4000, blank=True)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="idea")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+
+    pinned = models.BooleanField(
+        default=False, help_text="Keep at the top of the list, above vote order."
+    )
+    hidden = models.BooleanField(
+        default=False, help_text="Hide from the public list without deleting it."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-pinned", "-created_at"]
+
+    def __str__(self):
+        return f"[{self.get_kind_display()}] {self.title}"
+
+    @property
+    def vote_count(self):
+        return self.votes.count()
+
+    @property
+    def is_closed(self):
+        return self.status in ("done", "declined", "duplicate")
+
+
+class FeedbackVote(models.Model):
+    """One upvote. The unique constraint is what makes it one-per-person."""
+
+    item = models.ForeignKey(
+        FeedbackItem, on_delete=models.CASCADE, related_name="votes"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="feedback_votes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("item", "user")
+
+    def __str__(self):
+        return f"{self.user_id} ▲ {self.item_id}"
+
+
+class FeedbackComment(models.Model):
+    """A reply on a feedback item.
+
+    `staff_reply` is set automatically for site staff so their answers can be
+    highlighted — when someone reports a bug, seeing an official response is
+    the whole reason they come back.
+    """
+
+    item = models.ForeignKey(
+        FeedbackItem, on_delete=models.CASCADE, related_name="comments"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="feedback_comments", null=True, blank=True,
+    )
+    body = models.TextField(max_length=2000)
+    staff_reply = models.BooleanField(default=False)
+    hidden = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.item_id}: {self.body[:40]}"
+
+
 class ChangelogEntry(models.Model):
     """A "What's New" post, written from the Django admin.
 

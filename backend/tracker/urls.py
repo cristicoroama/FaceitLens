@@ -1,5 +1,5 @@
 from django.urls import path
-from . import auth, faceit_oauth, profiles, views
+from . import auth, faceit_oauth, feedback, profiles, views
 
 urlpatterns = [
     # --- Sign in with Steam + account ---
@@ -39,6 +39,13 @@ urlpatterns = [
     path("status/", views.status, name="status"),
     path("incidents/", views.incidents, name="incidents"),
     path("changelog/", views.changelog, name="changelog"),
+
+    # --- Feedback board (read public, write requires a Steam sign-in) ---
+    path("feedback/", feedback.feedback_list, name="feedback-list"),
+    path("feedback/meta/", feedback.feedback_meta, name="feedback-meta"),
+    path("feedback/<int:item_id>/", feedback.feedback_detail, name="feedback-detail"),
+    path("feedback/<int:item_id>/vote/", feedback.feedback_vote, name="feedback-vote"),
+    path("feedback/<int:item_id>/comment/", feedback.feedback_comment, name="feedback-comment"),
     path("faceitstatus/", views.faceit_status, name="faceit-status"),
     path("steamstatus/", views.steam_status, name="steam-status"),
     path("bans/", views.recent_bans, name="recent-bans"),

@@ -123,6 +123,85 @@ class IncidentUpdateAdmin(admin.ModelAdmin):
     ordering = ("-at",)
 
 
+# --- Feedback board --------------------------------------------------------
+
+from django.utils.html import format_html as _fh  # noqa: E402
+
+from .models import FeedbackComment, FeedbackItem, FeedbackVote  # noqa: E402
+
+
+class FeedbackCommentInline(admin.TabularInline):
+    model = FeedbackComment
+    extra = 1
+    fields = ("author", "body", "staff_reply", "hidden", "created_at")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(FeedbackItem)
+class FeedbackItemAdmin(admin.ModelAdmin):
+    list_display = ("title", "kind", "status", "vote_total", "comment_total",
+                    "author", "pinned", "hidden", "created_at")
+    list_filter = ("status", "kind", "pinned", "hidden", "created_at")
+    list_editable = ("status", "pinned", "hidden")
+    search_fields = ("title", "body", "author__username")
+    ordering = ("-pinned", "-created_at")
+    date_hierarchy = "created_at"
+    readonly_fields = ("author", "created_at", "updated_at")
+    inlines = [FeedbackCommentInline]
+    actions = ["mark_planned", "mark_in_progress", "mark_done", "mark_declined"]
+
+    def get_queryset(self, request):
+        from django.db.models import Count
+        return super().get_queryset(request).annotate(
+            _votes=Count("votes", distinct=True),
+            _comments=Count("comments", distinct=True),
+        )
+
+    @admin.display(description="Votes", ordering="_votes")
+    def vote_total(self, obj):
+        return _fh("<b>{}</b>", obj._votes)
+
+    @admin.display(description="Comments", ordering="_comments")
+    def comment_total(self, obj):
+        return obj._comments
+
+    def _set(self, request, queryset, status, word):
+        n = queryset.update(status=status)
+        self.message_user(request, f"Marked {n} item(s) as {word}.")
+
+    @admin.action(description="Mark as Planned")
+    def mark_planned(self, request, qs): self._set(request, qs, "planned", "planned")
+
+    @admin.action(description="Mark as In progress")
+    def mark_in_progress(self, request, qs): self._set(request, qs, "in_progress", "in progress")
+
+    @admin.action(description="Mark as Done")
+    def mark_done(self, request, qs): self._set(request, qs, "done", "done")
+
+    @admin.action(description="Mark as Declined")
+    def mark_declined(self, request, qs): self._set(request, qs, "declined", "declined")
+
+
+@admin.register(FeedbackComment)
+class FeedbackCommentAdmin(admin.ModelAdmin):
+    list_display = ("item", "author", "short_body", "staff_reply", "hidden", "created_at")
+    list_filter = ("staff_reply", "hidden", "created_at")
+    list_editable = ("hidden",)
+    search_fields = ("body", "author__username", "item__title")
+    ordering = ("-created_at",)
+
+    @admin.display(description="Comment")
+    def short_body(self, obj):
+        return obj.body[:70] + ("…" if len(obj.body) > 70 else "")
+
+
+@admin.register(FeedbackVote)
+class FeedbackVoteAdmin(admin.ModelAdmin):
+    list_display = ("item", "user", "created_at")
+    ordering = ("-created_at",)
+    search_fields = ("item__title", "user__username")
+
+
 # --- Changelog ("What's New") ---------------------------------------------
 
 from .models import ChangelogEntry  # noqa: E402

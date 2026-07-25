@@ -44,6 +44,7 @@ import ShareCard from "./components/ShareCard.jsx";
 import Wrapped from "./components/Wrapped.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
 import PublicProfile from "./components/PublicProfile.jsx";
+import Feedback from "./components/Feedback.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
 } from "./components/WhatsNew.jsx";
@@ -152,6 +153,11 @@ const I = {
       <circle cx="12" cy="12" r="9" /><path d="m5.5 5.5 13 13" />
     </svg>
   ),
+  feedback: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.8-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z" />
+    </svg>
+  ),
 };
 
 const NAV = [
@@ -181,6 +187,7 @@ const NAV = [
   ]},
   { group: "About", items: [
     { id: "whatsnew", label: "What's New", icon: I.star },
+    { id: "feedback", label: "Feedback", icon: I.feedback },
   ]},
 ];
 
@@ -263,7 +270,7 @@ const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings", "whatsnew",
+  "settings", "whatsnew", "feedback",
 ]);
 
 const PROFILE_TABS = [
@@ -1003,6 +1010,7 @@ export default function App() {
           {mode === "docs" && <ApiDocs />}
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
+          {mode === "feedback" && <Feedback user={user} />}
           {mode === "settings" && (
             <ProfileSettings
               user={user}
