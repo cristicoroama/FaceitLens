@@ -338,11 +338,25 @@ def get_match_detail(match_id):
     detail["map"] = rstats.get("Map")
     detail["score"] = rstats.get("Score") or detail["score"]
 
+    # Rounds played in this map (for the estimated rating). Prefer the explicit
+    # field; otherwise derive it from the score, e.g. "13 - 7" -> 20.
+    from . import performance as _perf
+    map_rounds = _to_int(rstats.get("Rounds"))
+    if not map_rounds:
+        _parts = [
+            _to_int(x)
+            for x in str(rstats.get("Score") or detail["score"] or "")
+            .replace("-", " ").replace("/", " ").replace(":", " ").split()
+        ]
+        _parts = [x for x in _parts if x is not None]
+        map_rounds = sum(_parts[:2]) if len(_parts) >= 2 else None
+
     for team in rnd.get("teams", []):
         tstats = team.get("team_stats", {})
         players = []
         for p in team.get("players", []):
             ps = p.get("player_stats", {})
+            perf = _perf.match_performance(ps, rounds=map_rounds)
             players.append({
                 "nickname": p.get("nickname"),
                 "kills": ps.get("Kills"),
@@ -351,6 +365,8 @@ def get_match_detail(match_id):
                 "kd": ps.get("K/D Ratio"),
                 "hs": ps.get("Headshots %"),
                 "adr": ps.get("ADR") or ps.get("Average Damage per Round"),
+                "rating": perf["rating"] if perf else None,
+                "firepower": perf["firepower"] if perf else None,
             })
         players.sort(key=lambda x: float(x["kd"] or 0), reverse=True)
         detail["teams"].append({
@@ -966,6 +982,10 @@ def build_hltv_stats(items, n=30):
         + 0.2372 * impact + 0.0032 * adr + 0.1587
     )
 
+    # faceitperf-style aggregate adds Firepower (round-weighted over the same n).
+    from . import performance as _perf
+    agg = _perf.aggregate_performance(items)
+
     return {
         "matches": len(kpr_l),
         "rating": round(max(0, rating), 2),
@@ -977,6 +997,7 @@ def build_hltv_stats(items, n=30):
         "impact": round(max(0, impact), 2),
         "hs": round(hs, 0),
         "kd": round(kd, 2),
+        "firepower": agg["firepower"] if agg else None,
     }
 
 
@@ -1049,6 +1070,17 @@ def build_player_summary(nickname):
     elo_extremes = build_elo_extremes(elo_history)
     activity = build_activity(get_recent_match_stats(player_id, total=250))
     multikills = build_multikills(match_items)
+    # Per-match estimated rating, keyed by match id, so the collapsed match list
+    # can show a rating without expanding each row.
+    from . import performance as _perf
+    perf_by_match = {}
+    for _it in match_items:
+        _s = _it.get("stats", {})
+        _mid = _s.get("Match Id") or _it.get("match_id")
+        if _mid:
+            _p = _perf.match_performance(_s)
+            if _p:
+                perf_by_match[_mid] = _p["rating"]
     # distinct maps in recent matches (for the filter dropdown)
     maps_played = sorted({
         it.get("stats", {}).get("Map")
@@ -1129,6 +1161,7 @@ def build_player_summary(nickname):
                 "finished_at": m.get("finished_at"),
                 "competition": m.get("competition_name"),
                 "won": _player_won(m, player.get("nickname")),
+                "rating": perf_by_match.get(m.get("match_id")),
                 "teams": {
                     side: {
                         "nickname": t.get("nickname"),

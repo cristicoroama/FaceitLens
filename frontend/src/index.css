@@ -1060,7 +1060,7 @@ a { color: inherit; }
 .mt-name { color: var(--text-dim); font-size: 13px; flex: 1; }
 .mt-score { font-family: var(--font-mono); font-weight: 700; font-size: 16px; }
 .mt-cols, .mt-row {
-  display: grid; grid-template-columns: 1fr 34px 34px 34px 48px 48px 48px;
+  display: grid; grid-template-columns: 1fr 32px 32px 32px 46px 46px 46px 50px 42px;
   align-items: center; gap: 4px; font-size: 13px;
 }
 .mt-cols {
@@ -1073,6 +1073,17 @@ a { color: inherit; }
 .mt-row.me { background: rgba(var(--accent-rgb), 0.12); }
 .mt-row.me .mt-player { color: var(--accent); font-weight: 700; }
 .mt-player { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-rating { font-weight: 700; }
+.mt-rating.good { color: var(--win); }
+.mt-rating.bad { color: var(--loss); }
+.mt-fp { color: var(--text-dim); }
+.mt-cols .mt-rating-h { cursor: help; }
+.m2-rating {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; flex-shrink: 0;
+  padding: 1px 7px; border-radius: 6px; background: var(--bg-elev-2); color: var(--text-dim);
+}
+.m2-rating.good { color: var(--win); }
+.m2-rating.bad { color: var(--loss); }
 
 /* ============================================================
    Compare / Squad / Leaderboard

@@ -30,6 +30,8 @@ function Team({ team, me, onPick }) {
         <span>K/D</span>
         <span>HS%</span>
         <span>ADR</span>
+        <span className="mt-rating-h" title="Estimated HLTV-style rating (approximated from per-match stats)">Rating*</span>
+        <span className="mt-rating-h" title="Estimated firepower, 0-100 (raw fragging power)">FP*</span>
       </div>
       {team.players.map((p, i) => (
         <div className={`mt-row ${p.nickname === me ? "me" : ""}`} key={i}>
@@ -45,6 +47,10 @@ function Team({ team, me, onPick }) {
           <span>{p.kd}</span>
           <span>{p.hs ?? "—"}</span>
           <span>{p.adr ?? "—"}</span>
+          <span className={`mt-rating ${p.rating >= 1.1 ? "good" : p.rating != null && p.rating < 0.9 ? "bad" : ""}`}>
+            {p.rating != null ? p.rating.toFixed(2) : "—"}
+          </span>
+          <span className="mt-fp">{p.firepower != null ? p.firepower : "—"}</span>
         </div>
       ))}
     </div>
@@ -86,6 +92,14 @@ function MatchRow({ m, me, onPick }) {
           <div className="m2-teams">{teamNames || "—"}</div>
           <div className="m2-comp">{m.competition || "CS2"}</div>
         </div>
+        {m.rating != null && (
+          <span
+            className={`m2-rating ${m.rating >= 1.1 ? "good" : m.rating < 0.9 ? "bad" : ""}`}
+            title="Estimated rating (this match)"
+          >
+            {m.rating.toFixed(2)}
+          </span>
+        )}
         <span className="m2-date">{formatDate(m.finished_at)}</span>
         <span className="m2-chev">▾</span>
       </div>

@@ -14,6 +14,8 @@ const METRICS = {
             tiers: [[78, "great"], [72, "good"], [66, "okay"], [0, "poor"]] },
   impact: { label: "Impact", approx: true, min: 0.6, max: 1.5, higherBetter: true,
             tiers: [[1.2, "great"], [1.05, "good"], [0.9, "okay"], [0, "poor"]] },
+  firepower: { label: "Firepower", approx: true, min: 40, max: 100, higherBetter: true,
+            tiers: [[85, "great"], [70, "good"], [55, "okay"], [0, "poor"]] },
   hs:     { label: "HS %", min: 20, max: 70, higherBetter: true,
             tiers: [[55, "great"], [45, "good"], [35, "okay"], [0, "poor"]] },
 };
@@ -78,7 +80,8 @@ export default function HltvStats({ hltv }) {
   if (!hltv) {
     return <div className="state">Not enough match data for HLTV stats.</div>;
   }
-  const order = ["rating", "dpr", "kast", "kd", "adr", "kpr", "impact", "hs"];
+  const order = ["rating", "firepower", "dpr", "kast", "kd", "adr", "kpr", "impact", "hs"]
+    .filter((k) => hltv[k] != null);
   return (
     <>
       <div className="panel-head" style={{ marginBottom: 12 }}>
@@ -96,8 +99,9 @@ export default function HltvStats({ hltv }) {
         ))}
       </div>
       <div className="hltv-note">
-        Metrics marked <b>*</b> (Rating 2.0, KAST, ADR, Impact) are approximations —
-        true HLTV Rating needs per-round demo data the FACEIT API doesn't expose.
+        Metrics marked <b>*</b> (Rating 2.0, Firepower, KAST, ADR, Impact) are
+        approximations — true HLTV Rating needs per-round demo data the FACEIT API
+        doesn't expose.
       </div>
     </>
   );
