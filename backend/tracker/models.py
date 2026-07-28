@@ -465,3 +465,42 @@ class IncidentUpdate(models.Model):
 
     def __str__(self):
         return f"{self.incident_id} · {self.get_status_display()} @ {self.at:%Y-%m-%d %H:%M}"
+
+
+class AllstarClip(models.Model):
+    """An Allstar.gg highlight clip we requested and/or were notified about via
+    webhook. Rows are pre-created on request (status 'Requested', with the
+    faceit match + steamid we know) and then filled in as Allstar sends
+    Submitted / Processed / OnDemand / Error webhook events."""
+
+    clip_id = models.CharField(max_length=64, blank=True, default="", db_index=True)  # Allstar _id
+    request_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    steamid = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    match_id = models.CharField(max_length=64, blank=True, default="", db_index=True)  # our FACEIT match id
+
+    status = models.CharField(max_length=20, blank=True, default="")  # Requested/Submitted/Processed/OnDemand/Error
+    on_demand = models.BooleanField(default=False)
+
+    title = models.CharField(max_length=200, blank=True, default="")
+    clip_url = models.URLField(max_length=500, blank=True, default="")
+    thumb = models.URLField(max_length=500, blank=True, default="")
+    snapshot = models.URLField(max_length=500, blank=True, default="")
+    demo_url = models.URLField(max_length=1000, blank=True, default="")
+
+    round_number = models.IntegerField(null=True, blank=True)
+    length = models.FloatField(null=True, blank=True)
+    cs_map = models.CharField(max_length=40, blank=True, default="")
+    kills = models.CharField(max_length=8, blank=True, default="")
+    weapons = models.CharField(max_length=100, blank=True, default="")
+    headshots = models.CharField(max_length=8, blank=True, default="")
+
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["steamid", "status"])]
+
+    def __str__(self):
+        return f"{self.steamid} · {self.status} · {self.title or self.match_id}"

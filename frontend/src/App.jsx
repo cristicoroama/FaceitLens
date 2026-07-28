@@ -12,6 +12,7 @@ import SearchInput from "./components/SearchInput.jsx";
 import BestTeammates from "./components/BestTeammates.jsx";
 import HltvStats from "./components/HltvStats.jsx";
 import RealStats from "./components/RealStats.jsx";
+import Clips from "./components/Clips.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
 import Activity from "./components/Activity.jsx";
@@ -193,6 +194,11 @@ const NAV = [
 
 /* profile tab icons (inline, stroke) */
 const TI = {
+  clips: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M10 9l5 3-5 3z" />
+    </svg>
+  ),
   overview: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
@@ -278,6 +284,7 @@ const PROFILE_TABS = [
   ["account", "Trust", TI.trust],
   ["leetify", "Leetify", TI.leetify],
   ["real", "Demos", TI.real],
+  ["clips", "Clips", TI.clips],
   ["hltv", "HLTV Stats", TI.hltv],
   ["teammates", "Teammates", TI.teammates],
   ["steam", "Steam", TI.steam],
@@ -1103,7 +1110,7 @@ export default function App() {
               )}
 
               <div className="ptabs">
-                {PROFILE_TABS.map(([key, label, icon]) => (
+                {PROFILE_TABS.filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label, icon]) => (
                   <button
                     key={key}
                     className={`ptab ${profileTab === key ? "active" : ""}`}
@@ -1121,6 +1128,8 @@ export default function App() {
                 <LeetifyStats nickname={data.nickname} />
               ) : profileTab === "real" ? (
                 <RealStats nickname={data.nickname} />
+              ) : profileTab === "clips" ? (
+                <Clips nickname={data.nickname} />
               ) : profileTab === "hltv" ? (
                 <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (

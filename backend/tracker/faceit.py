@@ -303,6 +303,18 @@ def build_recent_averages(items, n=30, map_filter=None):
     }
 
 
+def get_match_demo_url(match_id):
+    """Return the first demo download URL for a FACEIT match, or None."""
+    try:
+        meta = _get(f"/matches/{match_id}")
+    except FaceitError:
+        return None
+    urls = meta.get("demo_url")
+    if isinstance(urls, list):
+        return urls[0] if urls else None
+    return urls or None
+
+
 def get_match_detail(match_id):
     """
     Simplified scoreboard for a single match (per-player in-match stats).
@@ -1114,9 +1126,11 @@ def build_player_summary(nickname):
         # DB not migrated yet or unavailable - degrade gracefully.
         pass
 
+    from . import allstar as _allstar
     result = {
         "player_id": player_id,
         "nickname": player.get("nickname"),
+        "allstar_enabled": _allstar.is_configured(),
         "avatar": player.get("avatar"),
         "country": player.get("country"),
         "region": region,

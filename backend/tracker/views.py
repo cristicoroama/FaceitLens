@@ -787,3 +787,120 @@ def incidents(request):
     system["updated"] = (latest_ts or timezone.now()).isoformat()
 
     return JsonResponse({"system": system, "incidents": incidents_data})
+
+
+@require_GET
+def player_clips(request, nickname):
+    """A player's Allstar.gg highlight clips. Returns configured=False (and no
+    clips) until the Allstar Partner API keys are set in the environment.
+    Prefers clips stored via webhook; falls back to Allstar's own store."""
+    from . import allstar
+    from .models import AllstarClip
+    if not allstar.is_configured():
+        return JsonResponse({"configured": False, "clips": []})
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    steam_id = (player.get("games", {}).get(faceit.GAME, {}) or {}).get("game_player_id")
+
+    clips = []
+    if steam_id:
+        rows = list(AllstarClip.objects.filter(steamid=steam_id).exclude(status="Error")[:24])
+        clips = [allstar.clip_to_dict(r) for r in rows]
+        if not clips:
+            clips = allstar.get_user_clips(steam_id)
+
+    return JsonResponse({
+        "configured": True,
+        "can_generate": allstar.can_generate(),
+        "steam_id": steam_id,
+        "partner_id": allstar.PARTNER_ID,
+        "use_case": allstar.USE_CASE,
+        "clips": clips,
+    })
+
+
+@csrf_exempt
+@require_POST
+def allstar_webhook(request):
+    """Receive Allstar clip lifecycle events (Submitted/Processed/OnDemand/Error).
+    Must reply 2xx, else Allstar retries every 15 min (up to 8 times)."""
+    from . import allstar
+    from .models import AllstarClip
+
+    if not allstar.webhook_auth_ok(request.headers.get("Authorization", "")):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    try:
+        data = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"ok": True})  # 2xx so a malformed body isn't retried forever
+
+    fields = allstar.parse_webhook_event(data)
+    clip_id = fields.get("clip_id")
+    req_id = fields.get("request_id")
+
+    # Match a (possibly pre-created) row; never overwrite known values with empty
+    # ones from a sparse event.
+    row = None
+    if clip_id:
+        row = AllstarClip.objects.filter(clip_id=clip_id).first()
+    if row is None and req_id:
+        row = AllstarClip.objects.filter(request_id=req_id).first()
+
+    updates = {k: v for k, v in fields.items() if v not in ("", None)}
+    try:
+        if row:
+            for k, v in updates.items():
+                setattr(row, k, v)
+            row.save()
+        elif clip_id or req_id:
+            AllstarClip.objects.create(**updates)
+    except Exception:  # noqa - never fail the webhook (would just trigger retries)
+        pass
+
+    return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def player_clips_generate(request, nickname):
+    """Request Allstar POTG clips from a player's recent FACEIT matches (capped)."""
+    from . import allstar
+    from .models import AllstarClip
+
+    if not allstar.can_generate():
+        return JsonResponse({"error": "Clip generation is not enabled."}, status=400)
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+
+    player_id = player["player_id"]
+    steam_id = (player.get("games", {}).get(faceit.GAME, {}) or {}).get("game_player_id")
+    items = faceit.get_match_stats(player_id, limit=5)
+
+    requested = 0
+    for it in items:
+        mid = (it.get("stats", {}) or {}).get("Match Id") or it.get("match_id")
+        if not mid:
+            continue
+        if AllstarClip.objects.filter(match_id=mid, steamid=steam_id or "").exists():
+            continue
+        demo = faceit.get_match_demo_url(mid)
+        if not demo:
+            continue
+        ok, info = allstar.request_potg(demo, steamid=steam_id, match_id=mid)
+        if ok:
+            data = info if isinstance(info, dict) else {}
+            req_id = data.get("requestId") or (data.get("data") or {}).get("requestId") or ""
+            AllstarClip.objects.create(
+                request_id=req_id, steamid=steam_id or "", match_id=mid,
+                demo_url=demo, status="Requested",
+            )
+            requested += 1
+        if requested >= 3:
+            break
+
+    return JsonResponse({"requested": requested})

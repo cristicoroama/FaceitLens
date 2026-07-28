@@ -293,3 +293,14 @@ class ProfileReportAdmin(admin.ModelAdmin):
     def mark_handled(self, request, queryset):
         n = queryset.update(handled=True)
         self.message_user(request, f"Closed {n} report(s).")
+
+
+from .models import AllstarClip  # noqa: E402
+
+
+@admin.register(AllstarClip)
+class AllstarClipAdmin(admin.ModelAdmin):
+    list_display = ("steamid", "status", "title", "cs_map", "match_id", "created_at")
+    list_filter = ("status", "on_demand")
+    search_fields = ("steamid", "clip_id", "request_id", "match_id", "title")
+    ordering = ("-created_at",)
