@@ -2,18 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-/** Build the Allstar iframe src from a clip + the partner/player context. */
+/** Allstar returns a complete iframe URL (clip, platform, useCase, known) in
+    clip_url — use it as-is and only add a location hint for their metrics.
+    We do NOT pass UID/known: the viewer is anonymous, so Allstar's known=false
+    is correct (passing the profile's steam here would wrongly claim ownership). */
 function iframeSrc(clip, data) {
-  const base = clip.clip_url || `https://allstar.gg/iframe?clip=${clip.id}`;
-  const params = new URLSearchParams();
-  if (data.partner_id) params.set("platform", data.partner_id);
-  if (data.use_case) params.set("useCase", data.use_case);
-  if (data.steam_id) {
-    params.set("UID", data.steam_id);
-    params.set("known", "true");
-  }
-  params.set("location", "userProfile");
-  return base + (base.includes("?") ? "&" : "?") + params.toString();
+  const uc = encodeURIComponent(data.use_case || "POTG");
+  const base =
+    clip.clip_url ||
+    `https://allstar.gg/iframe?clip=${clip.id}&platform=${encodeURIComponent(data.partner_id || "")}&useCase=${uc}`;
+  if (base.includes("location=")) return base;
+  return base + (base.includes("?") ? "&" : "?") + "location=userProfile";
 }
 
 export default function Clips({ nickname }) {
