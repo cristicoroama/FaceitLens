@@ -11,6 +11,7 @@ const ENDPOINTS = [
       { m: "GET", path: "/api/player/{nickname}/collectibles/", desc: "Account trust score, Steam level, medals and the full Steam inventory with market value.", ex: "/api/player/donk666/collectibles/" },
       { m: "GET", path: "/api/player/{nickname}/leetify/", desc: "Leetify demo-based ranks and skill ratings (aim, utility, positioning).", ex: "/api/player/donk666/leetify/" },
       { m: "GET", path: "/api/player/{nickname}/real/", desc: "Real demo-parsed HLTV 2.0 stats (requires the demo worker to have parsed matches).", ex: "/api/player/donk666/real/" },
+      { m: "GET", path: "/api/player/{nickname}/clips/", desc: "Allstar.gg auto-generated highlight clips: embeddable iframe URLs, thumbnails, map and kill count. Empty until Allstar has clips for the player.", ex: "/api/player/donk666/clips/" },
       { m: "GET", path: "/api/steam/?id={steamid}", desc: "Resolve a SteamID64 or profile URL to the linked FACEIT player.", ex: "/api/steam/?id=76561198000000000" },
     ],
   },
