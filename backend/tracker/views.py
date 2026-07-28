@@ -263,6 +263,13 @@ def status(request):
     else:
         services.append({"name": "AI (analysis / roast)", "ok": False, "detail": "not configured"})
 
+    # --- Allstar — auto-generated highlight clips (optional add-on) ---
+    from . import allstar
+    if allstar.is_configured():
+        services.append({"name": "Allstar Highlights", "ok": True, "detail": "highlight clips"})
+    else:
+        services.append({"name": "Allstar Highlights", "ok": False, "detail": "not configured"})
+
     core_down = any(not s["ok"] for s in services if s.get("core"))
     any_down = any(not s["ok"] for s in services)
     if core_down:
