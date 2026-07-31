@@ -13,3 +13,6 @@ dist/
 # Env / secrets
 .env
 *.env
+
+# Local tool settings — machine-specific paths, not useful to anyone else
+.claude/settings.local.json
