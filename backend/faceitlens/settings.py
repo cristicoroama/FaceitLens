@@ -68,6 +68,18 @@ else:
         }
     }
 
+# Cache: Redis in production so every gunicorn worker shares one cache and it
+# survives redeploys. Without REDIS_URL Django falls back to per-process local
+# memory, which is fine for dev but means near-zero hit rate under gunicorn.
+REDIS_URL = os.environ.get("REDIS_URL", "")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+
 # CORS: set CORS_ORIGINS env to your frontend URL in production.
 # If unset, allow all (fine for a public read-only API).
 _cors = os.environ.get("CORS_ORIGINS", "")

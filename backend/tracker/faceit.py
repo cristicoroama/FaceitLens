@@ -3,6 +3,8 @@ Service that talks to the FACEIT Data API v4.
 Docs: https://developers.faceit.com/docs/tools/data-api
 """
 import os
+from concurrent.futures import ThreadPoolExecutor
+
 import requests
 from django.core.cache import cache
 
@@ -1058,29 +1060,48 @@ def build_player_summary(nickname):
     player_id = player["player_id"]
 
     cs2 = player.get("games", {}).get(GAME, {})
-    stats = get_player_stats(player_id)
-    lifetime = stats.get("lifetime", {})
-    history = get_player_history(player_id, limit=30)
-    match_items = get_match_stats(player_id, limit=50)
     current_elo = cs2.get("faceit_elo")
     region = cs2.get("region")
-    elo_history = build_elo_history(player_id, current_elo, items=match_items)
-    ranking = get_player_ranking(player_id, region)
+    steam_id = cs2.get("game_player_id")
+
+    # Everything below needs only player_id / region / steam_id, so fetch it in
+    # parallel instead of paying ~10 round-trips back to back. None of these
+    # touch the ORM, so no per-thread DB connections are opened. A failing call
+    # still raises out of .result(), same as when these ran sequentially.
+    with ThreadPoolExecutor(max_workers=7) as pool:
+        f_stats = pool.submit(get_player_stats, player_id)
+        f_history = pool.submit(get_player_history, player_id, limit=30)
+        f_recent = pool.submit(get_recent_match_stats, player_id, total=250)
+        f_ranking = pool.submit(get_player_ranking, player_id, region)
+        f_bans = pool.submit(get_player_bans, player_id)
+        f_hubs = pool.submit(get_player_hubs, player_id)
+        f_steam = pool.submit(get_steam_info, steam_id)
+
+        stats = f_stats.result()
+        history = f_history.result()
+        recent_all = f_recent.result()
+        ranking = f_ranking.result()
+        bans = f_bans.result()
+        hubs = f_hubs.result()
+        steam = f_steam.result()
+
+    # The first page of recent_all is the same data a separate
+    # get_match_stats(limit=50) would return, so slice it instead of re-asking.
+    match_items = recent_all[:50]
+
+    lifetime = stats.get("lifetime", {})
     map_stats = extract_map_stats(stats)
-    bans = get_player_bans(player_id)
+    elo_history = build_elo_history(player_id, current_elo, items=match_items)
     session_info = build_sessions_and_streak(player_id, items=match_items)
     form_trend = build_form_and_trend(match_items)
     best_teammates = build_best_teammates(history, player.get("nickname"))
     teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
     nemeses = build_nemeses(history, player.get("nickname"))
-    hubs = get_player_hubs(player_id)
-    steam_id = cs2.get("game_player_id")
-    steam = get_steam_info(steam_id)
     nicknames = []
     recent_avg = build_recent_averages(match_items, n=30)
     hltv = build_hltv_stats(match_items, n=30)
     elo_extremes = build_elo_extremes(elo_history)
-    activity = build_activity(get_recent_match_stats(player_id, total=250))
+    activity = build_activity(recent_all)
     multikills = build_multikills(match_items)
     # Per-match estimated rating, keyed by match id, so the collapsed match list
     # can show a rating without expanding each row.

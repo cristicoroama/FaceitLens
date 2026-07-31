@@ -5,6 +5,8 @@ gunicorn>=21.2
 whitenoise>=6.6
 dj-database-url>=2.1
 psycopg[binary]>=3.1
+# Shared cache across gunicorn workers (Django 5 has the Redis backend built in).
+redis>=5.0
 # Resizes uploaded profile pictures to a 256px WebP before they go in the DB.
 Pillow>=10.2
 # mysqlclient>=2.2   # uncomment if you point DATABASE_URL at MySQL

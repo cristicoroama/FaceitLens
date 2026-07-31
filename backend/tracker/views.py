@@ -1,10 +1,41 @@
 from django.http import JsonResponse
 import json
+import os
+from django.core.cache import cache
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 
 from . import faceit
 from . import ai
+from .profiles import _client_ip
+
+# Anthropic calls are the only thing in this API that costs real money, so cap
+# how many one client can trigger. Serving an already-cached analysis is free
+# and never spends a slot.
+AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT", "20"))
+AI_RATE_WINDOW = 60 * 60
+
+
+def _over_ai_rate_limit(request):
+    """Count one billable AI call for this client.
+
+    Returns a 429 response once the client is over budget, else None. The
+    counter lives in the shared cache, so with Redis the limit holds across all
+    gunicorn workers instead of being per-process.
+    """
+    key = f"rl:ai:{_client_ip(request)}"
+    try:
+        used = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, AI_RATE_WINDOW)
+        used = 1
+    if used > AI_RATE_LIMIT:
+        return JsonResponse(
+            {"error": "Too many AI requests from this address. Try again later."},
+            status=429,
+            headers={"Retry-After": str(AI_RATE_WINDOW)},
+        )
+    return None
 
 
 def _record_bans(data):
@@ -387,6 +418,15 @@ def analyze(request, nickname):
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+
+    hit = ai.cached_result(summary, ai.ANALYSIS_KIND)
+    if hit is not None:
+        return JsonResponse({"analysis": hit})
+
+    limited = _over_ai_rate_limit(request)
+    if limited is not None:
+        return limited
+
     try:
         text = ai.analyze_player(summary)
     except ai.AIError as exc:
@@ -401,6 +441,15 @@ def roast(request, nickname):
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+
+    hit = ai.cached_result(summary, ai.ROAST_KIND)
+    if hit is not None:
+        return JsonResponse({"roast": hit})
+
+    limited = _over_ai_rate_limit(request)
+    if limited is not None:
+        return limited
+
     try:
         text = ai.roast_player(summary)
     except ai.AIError as exc:

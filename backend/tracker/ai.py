@@ -19,6 +19,17 @@ class AIError(Exception):
     pass
 
 
+# Cache key prefixes. Exposed so views can tell an already-cached (free) request
+# apart from one that will actually bill Anthropic.
+ANALYSIS_KIND = "ai"
+ROAST_KIND = "roast"
+
+
+def cached_result(summary, kind):
+    """Return an already-cached analysis/roast for this player, or None."""
+    return cache.get(f"{kind}:{summary.get('player_id')}")
+
+
 def _compact_stats(summary):
     """Pull just the numbers worth feeding the model."""
     s = summary.get("stats", {}) or {}
@@ -65,7 +76,7 @@ def analyze_player(summary):
         raise AIError("AI analysis is not configured (missing ANTHROPIC_API_KEY).")
 
     player_id = summary.get("player_id")
-    cache_key = f"ai:{player_id}"
+    cache_key = f"{ANALYSIS_KIND}:{player_id}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -157,7 +168,7 @@ def roast_player(summary):
         raise AIError("AI roast is not configured (missing ANTHROPIC_API_KEY).")
 
     player_id = summary.get("player_id")
-    cache_key = f"roast:{player_id}"
+    cache_key = f"{ROAST_KIND}:{player_id}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
