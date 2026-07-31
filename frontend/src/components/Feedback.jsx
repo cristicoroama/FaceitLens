@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+const DISCORD_INVITE = "https://discord.gg/p5GeaTEYdt";
 
 const KIND_META = {
   bug: { label: "Bug", cls: "bug", icon: "!" },
@@ -322,7 +323,15 @@ export default function Feedback({ user }) {
         <h1 className="page-title">Feedback</h1>
         <p className="page-sub">
           Found a bug or want something added? Post it here and vote on what
-          matters — no GitHub account needed.
+          matters — no GitHub account needed. Prefer talking it through?{" "}
+          <a
+            className="page-sub-link"
+            href={DISCORD_INVITE}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Join the Discord
+          </a>.
         </p>
       </div>
 
