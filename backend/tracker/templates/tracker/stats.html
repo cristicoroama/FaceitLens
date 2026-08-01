@@ -1,0 +1,194 @@
+{% load tz %}<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>FaceitLens — insights</title>
+<style>
+  :root {
+    --bg: #05060f; --elev: #0b0e20; --elev2: #121634;
+    --brd: #1e2340; --text: #eef0ff; --dim: #8e95c4; --accent: #4a9eff;
+    --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.2px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
+       color: var(--dim); margin: 36px 0 12px; font-weight: 600; }
+  .sub { color: var(--dim); font-size: 13px; margin: 0 0 8px; }
+  a { color: var(--accent); }
+
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .card { background: var(--elev); border: 1px solid var(--brd); border-radius: 8px; padding: 14px 16px; }
+  .card .k { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+  .card .v { font-family: var(--mono); font-size: 26px; font-weight: 700; margin-top: 6px; }
+
+  .chart { background: var(--elev); border: 1px solid var(--brd); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .chart-head .t { font-weight: 600; font-size: 14px; }
+  .chart-head .m { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .bar { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 1px; opacity: .85; }
+  .bar[data-zero="1"] { background: var(--brd); opacity: 1; }
+  .bar:hover { opacity: 1; }
+  .axis { display: flex; justify-content: space-between; font-family: var(--mono);
+          font-size: 11px; color: var(--dim); margin-top: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--dim); font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: .6px; padding: 8px 10px;
+       border-bottom: 1px solid var(--brd); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--brd); }
+  tr:last-child td { border-bottom: 0; }
+  td.mono, .mono { font-family: var(--mono); }
+  .muted { color: var(--dim); }
+  .two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .panel { background: var(--elev); border: 1px solid var(--brd); border-radius: 8px; overflow: hidden; }
+  .panel h3 { margin: 0; padding: 12px 10px; font-size: 13px; border-bottom: 1px solid var(--brd);
+              background: var(--elev2); }
+  .note { margin-top: 40px; padding: 14px 16px; border: 1px solid var(--brd);
+          border-left: 3px solid var(--accent); border-radius: 8px;
+          background: var(--elev); color: var(--dim); font-size: 13px; }
+  .note strong { color: var(--text); }
+</style>
+
+<div class="wrap">
+  <h1>Insights</h1>
+  <p class="sub">Last {{ days }} days · generated {{ generated|date:"Y-m-d H:i" }} UTC ·
+     <a href="/admin/">admin</a></p>
+
+  <h2>Traffic</h2>
+  <p class="sub">Cookieless. A visitor is a daily-rotating hash of IP + browser,
+     so nobody is followed across days and no address is stored. Bots and
+     server-to-server calls are excluded.</p>
+  <div class="grid">
+    {% for label, value in traffic %}
+      <div class="card"><div class="k">{{ label }}</div><div class="v">{{ value }}</div></div>
+    {% endfor %}
+  </div>
+
+  <h2>Totals</h2>
+  <div class="grid">
+    {% for label, value in totals %}
+      <div class="card"><div class="k">{{ label }}</div><div class="v">{{ value }}</div></div>
+    {% endfor %}
+  </div>
+
+  <h2>Active users</h2>
+  <p class="sub">Distinct accounts whose <em>most recent</em> sign-in falls in the window.
+     Not a count of sign-ins — see the note at the bottom.</p>
+  <div class="grid">
+    {% for label, value in seen %}
+      <div class="card"><div class="k">Seen in {{ label }}</div><div class="v">{{ value }}</div></div>
+    {% endfor %}
+  </div>
+
+  <h2>Per day</h2>
+  {% for title, c in charts %}
+    <div class="chart">
+      <div class="chart-head">
+        <span class="t">{{ title }}</span>
+        <span class="m">{{ c.total }} total · peak {{ c.peak }}/day</span>
+      </div>
+      <div class="bars">
+        {% for p in c.points %}
+          <div class="bar" style="height:{{ p.pct }}%" data-zero="{% if p.n == 0 %}1{% else %}0{% endif %}"
+               title="{{ p.date|date:'D j M' }}: {{ p.n }}"></div>
+        {% endfor %}
+      </div>
+      <div class="axis">
+        <span>{{ c.first_date|date:"j M" }}</span>
+        <span>{{ c.last_date|date:"j M" }}</span>
+      </div>
+    </div>
+  {% endfor %}
+
+  <h2>Busiest endpoints</h2>
+  <div class="panel">
+    <h3>Last {{ days }} days</h3>
+    <table>
+      <tr><th>Route</th><th style="text-align:right">Requests</th></tr>
+      {% for r in top_routes %}
+        <tr>
+          <td class="mono">/{{ r.route }}</td>
+          <td class="mono" style="text-align:right">{{ r.n }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="2" class="muted">No traffic recorded yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2>People</h2>
+  <div class="two">
+    <div class="panel">
+      <h3>Most recently seen</h3>
+      <table>
+        <tr><th>User</th><th>FACEIT</th><th>Last seen</th></tr>
+        {% for u in recent_users %}
+          <tr>
+            <td>{% if u.profile %}@{{ u.profile.handle }}{% else %}<span class="muted">{{ u.username }}</span>{% endif %}</td>
+            <td class="muted">{{ u.profile.faceit_nickname|default:"—" }}</td>
+            <td class="mono muted">{{ u.last_login|date:"j M H:i" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">Nobody has signed in yet.</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="panel">
+      <h3>Newest accounts</h3>
+      <table>
+        <tr><th>User</th><th>Steam</th><th>Joined</th></tr>
+        {% for u in newest_users %}
+          <tr>
+            <td>{% if u.profile %}@{{ u.profile.handle }}{% else %}<span class="muted">{{ u.username }}</span>{% endif %}</td>
+            <td class="muted">{{ u.steam_profile.name|default:"—" }}</td>
+            <td class="mono muted">{{ u.date_joined|date:"j M H:i" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">No accounts yet.</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+
+  <h2>Players</h2>
+  <div class="panel">
+    <h3>Most recently searched</h3>
+    <table>
+      <tr><th>Nickname</th><th>First searched</th><th>Last searched</th></tr>
+      {% for p in hot_players %}
+        <tr>
+          <td>{{ p.nickname }}</td>
+          <td class="mono muted">{{ p.added_at|date:"j M H:i" }}</td>
+          <td class="mono muted">{{ p.last_searched|date:"j M H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">No players tracked yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="note">
+    <strong>What these numbers can't tell you.</strong>
+    Every chart above counts a column that is written once and never changed, so
+    the daily figures are exact. The two things you asked about that are
+    <em>not</em> here — how many times people signed in, and how many searches
+    were run — can't be recovered: <code>last_login</code> and
+    <code>last_searched</code> are overwritten in place, so only the most recent
+    one survives. Counting those needs a small append-only table with one row per
+    event.
+    <br><br>
+    Traffic is counted server-side, from API calls. That gives honest visitor
+    and request numbers, but <em>not</em> which page someone was on: the browser
+    sends only the origin as the referrer on cross-origin API calls, so
+    <code>/p/&lt;nickname&gt;</code> and the leaderboard are indistinguishable
+    from here. Per-page numbers, referrers and countries would need a script on
+    the frontend instead.
+  </div>
+</div>

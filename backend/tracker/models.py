@@ -504,3 +504,57 @@ class AllstarClip(models.Model):
 
     def __str__(self):
         return f"{self.steamid} · {self.status} · {self.title or self.match_id}"
+
+
+# ---------------------------------------------------------------------------
+# Anonymous traffic
+#
+# Cookieless by design: a visitor is identified by a hash of IP + user agent
+# mixed with a salt that is regenerated every day and never reused. Yesterday's
+# hashes therefore can't be linked to today's, and no IP is ever written down,
+# which is what keeps this out of consent-banner territory.
+# ---------------------------------------------------------------------------
+
+class VisitorSalt(models.Model):
+    """The per-day secret that makes visitor hashes unlinkable across days.
+
+    Kept in the database rather than the cache so a redeploy doesn't rotate the
+    salt mid-day and count everyone twice.
+    """
+    day = models.DateField(unique=True)
+    salt = models.CharField(max_length=64)
+
+    def __str__(self):
+        return f"salt {self.day}"
+
+
+class VisitorDay(models.Model):
+    """One row per distinct visitor per day. Counting rows gives uniques."""
+    day = models.DateField(db_index=True)
+    visitor = models.CharField(max_length=32)
+
+    class Meta:
+        unique_together = ("day", "visitor")
+        indexes = [models.Index(fields=["day"])]
+
+    def __str__(self):
+        return f"{self.day} · {self.visitor[:8]}"
+
+
+class PathDay(models.Model):
+    """Request volume per URL route per day.
+
+    `route` is the URL pattern (e.g. "api/player/<str:nickname>/"), not the
+    literal path, so every player lookup aggregates into one row instead of one
+    row per nickname.
+    """
+    day = models.DateField(db_index=True)
+    route = models.CharField(max_length=200)
+    hits = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("day", "route")
+        ordering = ["-hits"]
+
+    def __str__(self):
+        return f"{self.day} · {self.route} · {self.hits}"

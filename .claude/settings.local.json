@@ -23,7 +23,20 @@
       "Bash(echo \"=== exit: $? ===\")",
       "Bash(.venv/bin/python -c \"import demoparser2; print\\('demoparser2 import OK'\\)\")",
       "Bash(.venv/bin/python /tmp/claude-1000/-home-coroama-development-Desktop-FaceitLens/e78402eb-387d-4afc-99e2-00e6f179aa96/scratchpad/test_ratelimit.py)",
-      "Bash(.venv/bin/python -c ' *)"
+      "Bash(.venv/bin/python -c ' *)",
+      "WebSearch",
+      "WebFetch(domain:pypi.org)",
+      "Bash(grep -v '^$')",
+      "Bash(awk -F',' 'NF>=4')",
+      "Read(//home/coroama-development/**)",
+      "Read(//home/coroama-development/.nvm/versions/**)",
+      "Bash(/home/coroama-development/Desktop/FaceitLens/backend/.venv/bin/python -m pip install --quiet tinycss2)",
+      "Bash(/home/coroama-development/Desktop/FaceitLens/backend/.venv/bin/python -)",
+      "Bash(.venv/bin/python /tmp/claude-1000/-home-coroama-development-Desktop-FaceitLens/e78402eb-387d-4afc-99e2-00e6f179aa96/scratchpad/test_stats.py)",
+      "Bash(FACEIT_API_KEY=dummy .venv/bin/python manage.py makemigrations tracker)",
+      "Bash(.venv/bin/python /tmp/claude-1000/-home-coroama-development-Desktop-FaceitLens/e78402eb-387d-4afc-99e2-00e6f179aa96/scratchpad/test_traffic.py)",
+      "Bash(cd *)",
+      "Bash(find backend *)"
     ]
   }
 }

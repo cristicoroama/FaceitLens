@@ -34,6 +34,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last, so it only counts requests that made it through everything else.
+    "tracker.analytics.TrafficMiddleware",
 ]
 
 ROOT_URLCONF = "faceitlens.urls"
