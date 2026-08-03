@@ -14,14 +14,14 @@ function buildSlides(p) {
   slides.push({
     kind: "intro",
     title: `${p.nickname}`,
-    sub: "Your CS2 season, wrapped.",
+    sub: "Your CS2 career, wrapped.",
   });
   if (s.matches) {
     slides.push({
       kind: "big",
       pre: "You played",
       big: `${s.matches}`,
-      post: "matches this season",
+      post: "matches played",
     });
   }
   if (s.win_rate != null) {

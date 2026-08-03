@@ -706,22 +706,30 @@ a { color: inherit; }
 .ph-cover { position: absolute; inset: 0 0 auto 0; height: 100%; overflow: hidden; }
 .ph-cover img {
   width: 100%; height: 100%; object-fit: cover; object-position: center 30%;
-  /* Covers are arbitrary user images — anything from a bright meme to a white
-     screenshot. Desaturating and dimming them makes every one of them a
-     background the header text stays readable on. */
-  filter: grayscale(0.55) brightness(0.42);
+  /* Covers are arbitrary user images, so they still need taming — but the
+     first pass crushed them to near-black and the picture was lost. Keep
+     most of the colour and let the scrim below do the contrast work. */
+  filter: grayscale(0.2) brightness(0.68);
 }
 /* Fade the bottom so the banner dissolves into the card instead of ending
    on a hard line, and keep a floor of contrast behind the text. */
 .ph-cover::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg-elev) 35%, transparent) 0%,
-    color-mix(in srgb, var(--bg-elev) 72%, transparent) 62%,
+    color-mix(in srgb, var(--bg-elev) 18%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elev) 58%, transparent) 60%,
     var(--bg-elev) 100%);
 }
-/* On light theme the same image needs lifting, not dimming. */
-html[data-theme="light"] .ph-cover img { filter: grayscale(0.55) brightness(0.9); }
+/* Light theme is the harder case: the text is dark, so the photo has to be
+   lifted, not dimmed. Dimming it (the first attempt) made text harder to
+   read, not easier. */
+html[data-theme="light"] .ph-cover img { filter: grayscale(0.2) brightness(1.16); }
+html[data-theme="light"] .ph-cover::after {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bg-elev) 42%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elev) 72%, transparent) 60%,
+    var(--bg-elev) 100%);
+}
 .ph-top { position: relative; display: flex; align-items: center; gap: 20px; padding: 26px 28px 20px; z-index: 2; }
 
 /* ---- links out to the source profiles ---- */
@@ -784,14 +792,20 @@ html[data-theme="light"] .ph-cover img { filter: grayscale(0.55) brightness(0.9)
   border-radius: 7px; font-family: var(--font-display); font-weight: 600;
   font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; vertical-align: middle;
 }
-.acct-badge.verified { color: #3b9eff; background: rgba(59, 158, 255, 0.12); border: 1px solid rgba(59, 158, 255, 0.4); }
+/* Icon-only now, so it needs no pill around it — the badge shape IS the
+   affordance. Orange to match the rest of the brand. */
+.acct-badge.verified {
+  color: var(--accent); background: none; border: none;
+  padding: 0; margin-left: 8px;
+}
+.acct-badge.verified svg { width: 18px; height: 18px; display: block; }
 .acct-badge.premium { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.4); }
 
 /* actions row inside hero */
 .ph-actions {
   position: relative; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   padding: 14px 28px; border-top: 1px solid var(--glass-brd);
-  background: color-mix(in srgb, var(--bg-elev-2) 40%, transparent);
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
   z-index: 2;
 }
 .act-btn {
@@ -850,9 +864,26 @@ html[data-theme="light"] .ph-cover img { filter: grayscale(0.55) brightness(0.9)
   background-size: 220% 100%;
   animation: gradFlow 2.6s linear infinite;
 }
-.lvlprog-scale { display: flex; justify-content: space-between; margin-top: 6px; }
-.lvlprog-tick { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
-.lvlprog-tick.cur { color: var(--accent); font-weight: 700; }
+/* The scale is the rank art itself. Levels the player is past read dimmer
+   than the one they're on, so the current rank is findable at a glance. */
+.lvlprog-scale {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; gap: 4px;
+}
+.lvlprog-tick {
+  display: inline-flex; align-items: center;
+  opacity: 0.9; transition: transform 0.15s ease;
+}
+.lvlprog-tick img { display: block; }
+/* Current rank stands out by size alone, so every icon reads equally solid. */
+.lvlprog-tick.cur { opacity: 1; transform: scale(1.2); }
+.lvlprog-tick.challenger { transform: none; margin-left: 2px; }
+@media (max-width: 560px) {
+  .lvlprog-tick img { width: 17px; height: 17px; }
+}
+
+/* Challenger pill above the ELO figure in the hero */
+.ph-challenger { display: flex; justify-content: flex-end; margin-bottom: 7px; }
 
 /* ============================================================
    Profile tabs
@@ -1921,6 +1952,8 @@ body, .topnav, .card, .squad-row, .rank-card,
   position: relative; z-index: 2;
   display: grid; grid-template-columns: repeat(5, 1fr);
   border-top: 1px solid var(--glass-brd);
+  /* Near-opaque: the cover belongs behind the name, not behind the numbers. */
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
 }
 .ps { padding: 15px 10px 13px; text-align: center; border-right: 1px solid var(--glass-brd); }
 .ps:last-child { border-right: none; }

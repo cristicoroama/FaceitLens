@@ -1,7 +1,11 @@
+import { FaceitLevel, ChallengerBadge } from "./RankIcons.jsx";
+
 // FACEIT CS2 ELO level lower-bounds (level 1..10)
 const THRESHOLDS = [100, 501, 751, 901, 1051, 1201, 1351, 1531, 1751, 2001];
 
-export default function LevelProgress({ elo, level, bare }) {
+/** `challenger` is a ranking position (top 1,000 of the region), not a level —
+    it's shown past the level-10 tick because it sits above that whole pool. */
+export default function LevelProgress({ elo, level, bare, challenger }) {
   const e = Number(elo);
   if (!Number.isFinite(e)) return null;
 
@@ -30,10 +34,24 @@ export default function LevelProgress({ elo, level, bare }) {
       <div className="lvlprog-track">
         <div className="lvlprog-fill" style={{ width: `${pct}%` }} />
       </div>
+      {/* Bare numbers meant nothing to anyone who reads FACEIT by its rank
+          art. The icons ARE the scale; the current one is highlighted. */}
       <div className="lvlprog-scale">
         {THRESHOLDS.map((t, i) => (
-          <span key={t} className={`lvlprog-tick ${i + 1 === lvl ? "cur" : ""}`}>{i + 1}</span>
+          <span
+            key={t}
+            className={`lvlprog-tick ${i + 1 === lvl ? "cur" : ""}`}
+            title={`Level ${i + 1} — ${t}+ ELO`}
+          >
+            <FaceitLevel level={i + 1} size={22} />
+          </span>
         ))}
+        {/* Challenger sits past level 10: it's the top 1,000 of that pool. */}
+        {challenger ? (
+          <span className="lvlprog-tick cur challenger" title={`Challenger — #${challenger}`}>
+            <ChallengerBadge position={challenger} size={18} />
+          </span>
+        ) : null}
       </div>
     </>
   );

@@ -1,7 +1,13 @@
 import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
-import { FaceitLevel, Flag } from "./RankIcons.jsx";
+import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, ExternalIcon } from "./BrandIcons.jsx";
+import { Icon } from "../icons.jsx";
+
+/* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
+   pool. It's positional, not an ELO band, so it's derived from the ranking
+   position the API gives us rather than from ELO. */
+const CHALLENGER_CUTOFF = 1000;
 
 /** Quick-stat cell for the hero strip. */
 function PS({ label, value, tone }) {
@@ -22,6 +28,9 @@ export default function PlayerHeader({ player, children }) {
     (player.nickname
       ? `https://www.faceit.com/en/players/${encodeURIComponent(player.nickname)}`
       : null);
+  const rank = Number(player.ranking) || null;
+  const isChallenger =
+    Number(player.skill_level) === 10 && rank !== null && rank <= CHALLENGER_CUTOFF;
   const wr = s.win_rate != null ? Number(s.win_rate) : null;
   const kd = s.avg_kd != null ? Number(s.avg_kd) : null;
   const streak = player.streak
@@ -67,7 +76,9 @@ export default function PlayerHeader({ player, children }) {
           <div className="ph-name">
             {player.nickname}
             {player.verified && (
-              <span className="acct-badge verified" title="Verified FACEIT account">✓ Verified</span>
+              <span className="acct-badge verified" title="Verified FACEIT account">
+                {Icon.patchCheckFill}
+              </span>
             )}
             {player.memberships && player.memberships.some((m) => /premium/i.test(m)) && (
               <span className="acct-badge premium" title="FACEIT Premium member">Premium</span>
@@ -78,9 +89,12 @@ export default function PlayerHeader({ player, children }) {
               <Flag country={player.country} />
               {player.country ? player.country.toUpperCase() : "—"}
             </span>
-            {player.ranking ? (
+            {/* Outside the top 1,000 the position is just a number, so it
+                stays plain text; inside it, the leaderboard pill is the
+                recognisable thing and it carries the exact rank itself. */}
+            {rank && !isChallenger ? (
               <span className="ph-rank">
-                #{player.ranking.toLocaleString()} {player.region || ""}
+                #{rank.toLocaleString()} {player.region || ""}
               </span>
             ) : null}
           </div>
@@ -111,6 +125,11 @@ export default function PlayerHeader({ player, children }) {
         </div>
 
         <div className="ph-elo">
+          {isChallenger && (
+            <div className="ph-challenger" title={`Challenger — #${rank} in ${player.region || "region"}`}>
+              <ChallengerBadge position={rank} size={22} />
+            </div>
+          )}
           <div className="ph-elo-label">Faceit ELO</div>
           <div className="ph-elo-value"><CountUp value={player.elo} /></div>
         </div>
@@ -135,7 +154,12 @@ export default function PlayerHeader({ player, children }) {
 
       {/* level progress lives inside the hero now */}
       <div className="ph-progress">
-        <LevelProgress elo={player.elo} level={player.skill_level} bare />
+        <LevelProgress
+          elo={player.elo}
+          level={player.skill_level}
+          challenger={isChallenger ? rank : null}
+          bare
+        />
       </div>
 
       {children && <div className="ph-actions">{children}</div>}

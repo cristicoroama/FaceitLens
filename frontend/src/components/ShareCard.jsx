@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons.jsx";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
 const S = 1080; // square canvas — works for stories, posts, Discord
 
 function initials(name) {
@@ -150,13 +151,15 @@ export default function ShareCard({ player, onClose }) {
       }
     }
 
-    // try to load the avatar cross-origin; fall back to initials
+    // Load through our own proxy. Straight from FACEIT's CDN the response
+    // carries no CORS header, so with crossOrigin set the load simply fails
+    // and the card silently fell back to initials every single time.
     if (player.avatar) {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => !cancelled && draw(img);
       img.onerror = () => !cancelled && draw(null);
-      img.src = player.avatar;
+      img.src = `${API_BASE}/api/avatar/?url=${encodeURIComponent(player.avatar)}`;
     } else {
       draw(null);
     }

@@ -11,13 +11,11 @@ import BanBanner from "./components/BanBanner.jsx";
 import SearchInput from "./components/SearchInput.jsx";
 import BestTeammates from "./components/BestTeammates.jsx";
 import HltvStats from "./components/HltvStats.jsx";
-import RealStats from "./components/RealStats.jsx";
 import Clips from "./components/Clips.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
-import Hubs from "./components/Hubs.jsx";
 import SteamInfo from "./components/SteamInfo.jsx";
 import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
@@ -284,12 +282,10 @@ const PROFILE_TABS = [
   // the fold for every player, most of whom aren't smurfs.
   ["smurf", "Smurf", Icon.incognito],
   ["leetify", "Leetify", Icon.graphUpArrow],
-  ["real", "Demos", Icon.film],
   ["clips", "Clips", Icon.playBtn],
   ["hltv", "HLTV Stats", Icon.barChartLine],
   ["teammates", "Teammates", Icon.people],
   ["steam", "Steam", Icon.steam],
-  ["hubs", "Hubs", Icon.diagram3],
   ["met", "Have We Met?", Icon.personCheck],
   ["nicknames", "Nicknames", Icon.tags],
 ];
@@ -1081,16 +1077,12 @@ export default function App() {
                 <AccountView nickname={data.nickname} />
               ) : profileTab === "leetify" ? (
                 <LeetifyStats nickname={data.nickname} />
-              ) : profileTab === "real" ? (
-                <RealStats nickname={data.nickname} />
               ) : profileTab === "clips" ? (
                 <Clips nickname={data.nickname} />
               ) : profileTab === "hltv" ? (
                 <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (
                 <TeammatesFull mates={data.teammates_full} onPick={go} />
-              ) : profileTab === "hubs" ? (
-                <Hubs hubs={data.hubs} />
               ) : profileTab === "met" ? (
                 <HaveWeMet player={data.nickname} />
               ) : profileTab === "steam" ? (

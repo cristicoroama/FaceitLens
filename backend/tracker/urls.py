@@ -64,4 +64,5 @@ urlpatterns = [
     path("met/", views.have_we_met, name="have-we-met"),
     path("games/leaderboard/", views.game_leaderboard, name="game-leaderboard"),
     path("games/score/", views.game_score, name="game-score"),
+    path("avatar/", views.avatar_proxy, name="avatar-proxy"),
 ]

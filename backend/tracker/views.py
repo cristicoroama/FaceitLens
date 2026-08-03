@@ -1,6 +1,7 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import json
 import os
+import requests as _rq
 from django.core.cache import cache
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -961,3 +962,74 @@ def player_clips_generate(request, nickname):
             break
 
     return JsonResponse({"requested": requested})
+
+
+# --- Avatar proxy ----------------------------------------------------------- #
+# Share cards are drawn on a <canvas> and exported with toDataURL(). Any image
+# from another origin without CORS headers taints that canvas and makes the
+# export throw, which is why the card always fell back to plain initials.
+# FACEIT's CDN sends no Access-Control-Allow-Origin, so the browser can't fix
+# this — the bytes have to come from us instead.
+#
+# An open image proxy is an SSRF hole, so the host allowlist below is the
+# security boundary: never widen it to a user-supplied host.
+AVATAR_HOSTS = {
+    "distribution.faceit-cdn.net",
+    "assets.faceit-cdn.net",
+    "cdn.faceit.com",
+    "avatars.steamstatic.com",
+    "avatars.akamai.steamstatic.com",
+    "avatars.cloudflare.steamstatic.com",
+    "community.cloudflare.steamstatic.com",
+    "steamcdn-a.akamaihd.net",
+}
+AVATAR_MAX_BYTES = 3 * 1024 * 1024
+
+
+@require_GET
+def avatar_proxy(request):
+    """GET /api/avatar/?url=<image url> - same-origin copy of a remote avatar."""
+    from urllib.parse import urlparse
+
+    raw = request.GET.get("url", "").strip()
+    if not raw:
+        return JsonResponse({"error": "Missing url."}, status=400)
+
+    parsed = urlparse(raw)
+    if parsed.scheme != "https" or parsed.hostname not in AVATAR_HOSTS:
+        return JsonResponse({"error": "Host not allowed."}, status=400)
+
+    cache_key = f"avatar:{raw}"
+    hit = cache.get(cache_key)
+    if hit is None:
+        try:
+            from .steam import _insecure
+            kw = {"timeout": 10, "headers": useragent.HEADERS, "stream": True}
+            try:
+                r = _rq.get(raw, **kw)
+            except _rq.exceptions.SSLError:
+                # Same corporate TLS-inspection escape hatch the Steam layer
+                # uses; off unless STEAM_INSECURE is explicitly set.
+                if not _insecure():
+                    raise
+                import urllib3
+                urllib3.disable_warnings()
+                r = _rq.get(raw, verify=False, **kw)
+            if r.status_code != 200:
+                return JsonResponse({"error": "Upstream error."}, status=502)
+            ctype = r.headers.get("Content-Type", "")
+            if not ctype.startswith("image/"):
+                return JsonResponse({"error": "Not an image."}, status=400)
+            body = r.raw.read(AVATAR_MAX_BYTES + 1, decode_content=True)
+            if len(body) > AVATAR_MAX_BYTES:
+                return JsonResponse({"error": "Image too large."}, status=413)
+        except Exception:
+            return JsonResponse({"error": "Fetch failed."}, status=502)
+        hit = {"body": body, "ctype": ctype}
+        cache.set(cache_key, hit, 24 * 60 * 60)
+
+    resp = HttpResponse(hit["body"], content_type=hit["ctype"])
+    resp["Cache-Control"] = "public, max-age=86400"
+    # Lets the canvas read the pixels back out instead of tainting.
+    resp["Access-Control-Allow-Origin"] = "*"
+    return resp
