@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 
+import { DISCORD_INVITE } from "../links.js";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
-const DISCORD_INVITE = "https://discord.gg/p5GeaTEYdt";
 
 const KIND_META = {
   bug: { label: "Bug", cls: "bug", icon: "!" },

@@ -49,13 +49,15 @@ import Feedback from "./components/Feedback.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
 } from "./components/WhatsNew.jsx";
+import SiteFooter from "./components/SiteFooter.jsx";
+import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
+import { DISCORD_INVITE } from "./links.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-// Permanent invite (never expires, unlimited uses). If this ever needs
-// replacing, it's referenced here and in Feedback.jsx only.
-export const DISCORD_INVITE = "https://discord.gg/p5GeaTEYdt";
+// Re-exported for existing importers; the canonical copy lives in links.js.
+export { DISCORD_INVITE };
 
 /** Parse a JSON response; a non-JSON (HTML error page) becomes a clean error
     instead of "Unexpected token '<' ... is not valid JSON". */
@@ -280,7 +282,7 @@ const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings", "whatsnew", "feedback",
+  "settings", "whatsnew", "feedback", "privacy", "terms",
 ]);
 
 /** The URL a nav id points at, so nav entries can be real <a href> links —
@@ -334,6 +336,10 @@ const PAGE_META = {
   whatsnew: ["What's New — FaceitLens Changelog", "Latest features, fixes and improvements shipped to FaceitLens."],
   feedback: ["Feedback — FaceitLens", "Report a bug, request a feature or tell us what to improve on FaceitLens."],
   settings: ["Settings — FaceitLens", DEFAULT_DESC],
+  privacy: ["Privacy Policy",
+    "What FaceitLens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
+  terms: ["Terms of Service",
+    "Terms for using FaceitLens: fair use, API limits, and why trust and smurf scores are estimates rather than accusations."],
 };
 
 /** Swap the document title + meta description for the current view. */
@@ -1146,6 +1152,8 @@ export default function App() {
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
           {mode === "feedback" && <Feedback user={user} />}
+          {mode === "privacy" && <PrivacyPolicy />}
+          {mode === "terms" && <Terms />}
           {mode === "settings" && (
             <ProfileSettings
               user={user}
@@ -1294,6 +1302,8 @@ export default function App() {
               )}
             </>
           )}
+
+          <SiteFooter onNav={pickNav} />
         </div>
       </div>
 

@@ -24,8 +24,9 @@ import urllib.parse
 import requests
 from django.core.cache import cache
 
+from .useragent import HEADERS as _UA
+
 BASE = "https://api-public.cs-prod.leetify.com"
-_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 # Leetify rule 6: do not store their data — rely on live data per request. We
 # keep only a very short in-memory coalescing window (never the DB) to avoid
 # hammering their API. Set LEETIFY_CACHE_TTL=0 for strictly-live behaviour.

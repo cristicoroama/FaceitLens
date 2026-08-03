@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from . import faceit
 from . import ai
+from . import useragent
 from .profiles import _client_ip
 
 # Anthropic calls are the only thing in this API that costs real money, so cap
@@ -213,7 +214,7 @@ def faceit_status(request):
 
     try:
         resp = _rq.get("https://www.faceitstatus.com/feed.rss", timeout=10,
-                       headers={"User-Agent": "FaceitLens/1.0"})
+                       headers=useragent.HEADERS)
         root = ET.fromstring(resp.content)
         for item in list(root.iter("item"))[:8]:
             title = (item.findtext("title") or "").strip()

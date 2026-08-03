@@ -29,15 +29,17 @@ import os
 import requests
 from django.core.cache import cache
 
+from . import useragent
+
 BASE = "https://api.liquipedia.net/api/v3"
 WIKI = "counterstrike"
 
 # 60 req/h ceiling → cache hard. Successes 30 min, failures 2 min.
 CACHE_TTL = int(os.environ.get("LIQUIPEDIA_CACHE_TTL", str(30 * 60)))
 
-# Terms require a descriptive UA identifying the app + a contact address.
-_CONTACT = os.environ.get("LIQUIPEDIA_CONTACT", "coroamamh@gmail.com")
-_UA = {"User-Agent": f"FaceitLens/1.0 (CS2 stats tracker; {_CONTACT})"}
+# Terms require a descriptive UA identifying the app + a contact address —
+# which is now the shared default for every outbound call.
+_UA = useragent.HEADERS
 
 ATTRIBUTION = {
     "text": "Data provided by Liquipedia (CC-BY-SA 3.0)",

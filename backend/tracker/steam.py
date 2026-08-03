@@ -18,8 +18,9 @@ import re
 import requests
 from django.core.cache import cache
 
+from .useragent import HEADERS as _UA
+
 STEAM_CDN = "https://community.cloudflare.steamstatic.com/economy/image/"
-_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 
 def _insecure() -> bool:
@@ -32,8 +33,9 @@ def _insecure() -> bool:
 
 
 def _get(url: str, **kwargs) -> requests.Response:
-    """GET Steam with browser-ish headers, retrying without TLS verification
-    only when STEAM_INSECURE is explicitly enabled. Raises on network errors."""
+    """GET Steam identifying ourselves honestly, retrying without TLS
+    verification only when STEAM_INSECURE is explicitly enabled. Raises on
+    network errors."""
     kwargs.setdefault("headers", _UA)
     kwargs.setdefault("timeout", 15)
     try:
