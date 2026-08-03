@@ -10,8 +10,19 @@
  * inherits currentColor. Source: https://icons.getbootstrap.com/
  */
 
+// width/height default to 1em so an icon is always the size of the text around
+// it. Without them an SVG that only has a viewBox stretches to fill its
+// container — which is how the Favorites star ended up 700px tall on the home
+// page. These are presentation attributes, so any CSS rule that sets an
+// explicit size (.side-link svg, .tb-btn svg, …) still wins.
 const bi = (paths) => (
-  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{paths}</svg>
+  <svg
+    viewBox="0 0 16 16"
+    width="1em"
+    height="1em"
+    fill="currentColor"
+    aria-hidden="true"
+  >{paths}</svg>
 );
 
 export const Icon = {
