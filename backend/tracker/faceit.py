@@ -62,23 +62,73 @@ def get_player_by_steam(steam_input):
     return _get("/players", params={"game": GAME, "game_player_id": steam_id})
 
 
-def get_leaderboard(region, country=None, limit=20):
-    """Top players globally or by country for CS2."""
-    params = {"offset": 0, "limit": limit}
+# The regions FACEIT actually ranks. Anything else 400s, so validate before
+# spending a request.
+REGIONS = {
+    "EU": "Europe",
+    "NA": "North America",
+    "SA": "South America",
+    "SEA": "Southeast Asia",
+    "OCE": "Oceania",
+}
+
+# FACEIT caps a single rankings page at 100.
+LEADERBOARD_PAGE = 100
+
+
+def get_leaderboard(region, country=None, offset=0, limit=100):
+    """A page of the CS2 ELO ranking for a region, optionally one country.
+
+    This is the only leaderboard FACEIT publishes — there is no endpoint for
+    "top players by K/D" and friends, so everything here is ELO order.
+    Cached briefly: the ranking barely moves minute to minute, and without a
+    cache a few people paging through would burn the API budget fast.
+    """
+    region = (region or "EU").upper()
+    if region not in REGIONS:
+        raise FaceitError(
+            f"Unknown region '{region}'. Use one of: {', '.join(REGIONS)}."
+        )
+
+    offset = max(0, int(offset or 0))
+    limit = max(1, min(int(limit or LEADERBOARD_PAGE), LEADERBOARD_PAGE))
+    country = (country or "").strip().lower() or None
+
+    cache_key = f"lb:{region}:{country or '-'}:{offset}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    params = {"offset": offset, "limit": limit}
     if country:
         params["country"] = country
+
     data = _get(f"/rankings/games/{GAME}/regions/{region}", params=params)
-    out = []
-    for item in data.get("items", []):
-        out.append({
-            "position": item.get("position"),
-            "nickname": item.get("nickname"),
-            "player_id": item.get("player_id"),
-            "elo": item.get("faceit_elo"),
-            "level": item.get("game_skill_level"),
-            "country": item.get("country"),
-        })
-    return out
+    items = [
+        {
+            "position": it.get("position"),
+            "nickname": it.get("nickname"),
+            "player_id": it.get("player_id"),
+            "elo": it.get("faceit_elo"),
+            "level": it.get("game_skill_level"),
+            "country": it.get("country"),
+        }
+        for it in (data.get("items") or [])
+    ]
+
+    result = {
+        "items": items,
+        "region": region,
+        "region_label": REGIONS[region],
+        "country": country,
+        "offset": offset,
+        "limit": limit,
+        # FACEIT doesn't return a total, so "is there more" is simply whether
+        # this page came back full.
+        "has_more": len(items) == limit,
+    }
+    cache.set(cache_key, result, 5 * 60)
+    return result
 
 
 # Per-match multi-kill fields, if FACEIT exposes them in player_stats.

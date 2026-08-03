@@ -3974,3 +3974,67 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   .fb-thread { padding-left: 0; }
   .fb-list { padding: 6px 14px; }
 }
+
+/* ==========================================================================
+   LEADERBOARD — region tabs, country picker, ranked rows
+   ========================================================================== */
+.lb-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+  padding: 4px; border-radius: 13px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+}
+.lb-tab {
+  flex: 1; min-width: 118px; padding: 9px 14px; border-radius: 9px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 650;
+  white-space: nowrap; transition: color 0.16s ease, background 0.16s ease;
+}
+.lb-tab:hover { color: var(--text); background: var(--bg-elev-2); }
+.lb-tab.on {
+  color: var(--on-accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.lb-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.lb-count {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim);
+  margin-left: auto;
+}
+
+.lb-list { padding: 6px 12px; }
+.lb-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 9px 8px; border: none; background: none; cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-brd) 55%, transparent);
+  color: var(--text); font-family: inherit; text-align: left;
+  transition: background 0.14s ease;
+}
+.lb-row:last-child { border-bottom: none; }
+.lb-row:hover { background: var(--glass-bg-2); }
+
+.lb-pos {
+  min-width: 42px; flex-shrink: 0; text-align: right;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  color: var(--text-dim);
+}
+.lb-pos.top { color: var(--accent); font-size: 15px; }
+
+.lb-name {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lb-row:hover .lb-name { color: var(--accent); }
+.lb-elo {
+  flex-shrink: 0; font-family: var(--font-mono); font-size: 13.5px;
+  font-weight: 800; color: var(--text);
+}
+
+.lb-more { display: flex; justify-content: center; padding: 4px 0 24px; }
+
+@media (max-width: 640px) {
+  .lb-tab { flex: 1 1 45%; min-width: 0; font-size: 12px; padding: 8px 6px; }
+  .lb-bar .fb-select { flex: 1; }
+  .lb-count { margin-left: 0; width: 100%; }
+  .lb-pos { min-width: 30px; }
+}

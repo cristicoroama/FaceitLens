@@ -117,7 +117,14 @@ function eloData(player) {
 const NAV = [
   // Flat link in the bar (no icon needed next to the dropdown triggers), but
   // the mobile drawer lists it beside iconed entries, so it carries one.
-  { id: "leaderboard", label: "Leaderboard", href: "/leaderboard", icon: Icon.trophy },
+  { label: "Leaderboards", items: [
+    { id: "leaderboard", label: "Europe", href: "/leaderboard/EU", icon: Icon.trophy,
+      hint: "The biggest ladder on FACEIT" },
+    { id: "leaderboard:NA", label: "North America", href: "/leaderboard/NA", icon: Icon.trophy },
+    { id: "leaderboard:SA", label: "South America", href: "/leaderboard/SA", icon: Icon.trophy },
+    { id: "leaderboard:SEA", label: "Southeast Asia", href: "/leaderboard/SEA", icon: Icon.trophy },
+    { id: "leaderboard:OCE", label: "Oceania", href: "/leaderboard/OCE", icon: Icon.trophy },
+  ]},
   { label: "Tools", items: [
     { id: "matchroom", label: "Match Room", href: "/matchroom", icon: Icon.binoculars,
       hint: "Scout all 10 players in a lobby" },
@@ -289,7 +296,10 @@ const PROFILE_TABS = [
 ];
 
 export default function App() {
-  const { nickname: routeNick, steamid: routeSteam, page: routePage, handle: routeHandle } = useParams();
+  const {
+    nickname: routeNick, steamid: routeSteam, page: routePage,
+    handle: routeHandle, region: routeRegion,
+  } = useParams();
   const navigate = useNavigate();
 
   const [nickname, setNickname] = useState(routeNick || "");
@@ -457,6 +467,12 @@ export default function App() {
     if (routePage && TOOL_PAGES.has(routePage)) setMode(routePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePage]);
+
+  // /leaderboard/<region> is a real, shareable URL per ladder.
+  useEffect(() => {
+    if (routeRegion) setMode("leaderboard");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeRegion]);
 
   // /u/<handle> -> someone's public profile page.
   useEffect(() => {
@@ -676,6 +692,14 @@ export default function App() {
     if (id === "single") {
       setMode("single");
       navigate("/");
+      return;
+    }
+    // "leaderboard:NA" — one nav entry per ladder, all rendering the same page
+    // at its own URL so each region can be linked and indexed separately.
+    const [page, arg] = id.split(":");
+    if (page === "leaderboard") {
+      setMode("leaderboard");
+      navigate(`/leaderboard/${arg || "EU"}`);
       return;
     }
     setMode(id);
@@ -934,7 +958,7 @@ export default function App() {
             </>
           )}
 
-          {mode === "leaderboard" && <Leaderboard onPick={go} />}
+          {mode === "leaderboard" && <Leaderboard onPick={go} initialRegion={routeRegion} />}
           {mode === "faceitstatus" && <FaceitStatus />}
           {mode === "steamstatus" && <SteamStatus />}
           {mode === "bans" && <FaceitBans onPick={go} />}

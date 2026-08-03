@@ -400,17 +400,27 @@ def recent(request):
 
 @require_GET
 def leaderboard(request):
-    """GET /api/leaderboard/?region=EU&country=ro - top players."""
-    region = request.GET.get("region", "EU")
-    country = request.GET.get("country") or None
+    """
+    GET /api/leaderboard/?region=EU&country=ro&offset=0&limit=100
+
+    The CS2 ELO ranking for a region. `regions` in the response lets the
+    frontend build its region picker without hardcoding the list.
+    """
     try:
-        items = faceit.get_leaderboard(region, country=country)
+        data = faceit.get_leaderboard(
+            request.GET.get("region", "EU"),
+            country=request.GET.get("country") or None,
+            offset=_int_arg(request, "offset", 0),
+            limit=_int_arg(request, "limit", 100),
+        )
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
-    return JsonResponse({"items": items})
+
+    data["regions"] = [{"key": k, "label": v} for k, v in faceit.REGIONS.items()]
+    return JsonResponse(data)
 
 
 @require_GET
