@@ -1153,6 +1153,13 @@ def build_player_summary(nickname):
         "nickname": player.get("nickname"),
         "allstar_enabled": _allstar.is_configured(),
         "avatar": player.get("avatar"),
+        # FACEIT lets players set a profile banner. The Data API exposes it as
+        # cover_image, with cover_featured_image as the (rarer) editorial one.
+        # Both are often "" rather than absent, so normalise to None.
+        "cover": player.get("cover_featured_image") or player.get("cover_image") or None,
+        # The API hands back faceit_url with a literal "{lang}" placeholder,
+        # so it 404s if passed through untouched.
+        "faceit_url": (player.get("faceit_url") or "").replace("{lang}", "en") or None,
         "country": player.get("country"),
         "region": region,
         "elo": current_elo,

@@ -1,6 +1,7 @@
 import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag } from "./RankIcons.jsx";
+import { SteamIcon, FaceitIcon, ExternalIcon } from "./BrandIcons.jsx";
 
 /** Quick-stat cell for the hero strip. */
 function PS({ label, value, tone }) {
@@ -14,6 +15,13 @@ function PS({ label, value, tone }) {
 
 export default function PlayerHeader({ player, children }) {
   const s = player.stats || {};
+  // The API's faceit_url is the reliable one (it survives odd nicknames);
+  // fall back to building it so older cached payloads still get a link.
+  const faceitUrl =
+    player.faceit_url ||
+    (player.nickname
+      ? `https://www.faceit.com/en/players/${encodeURIComponent(player.nickname)}`
+      : null);
   const wr = s.win_rate != null ? Number(s.win_rate) : null;
   const kd = s.avg_kd != null ? Number(s.avg_kd) : null;
   const streak = player.streak
@@ -28,7 +36,21 @@ export default function PlayerHeader({ player, children }) {
     : undefined;
 
   return (
-    <div className="player-hero">
+    <div className={`player-hero ${player.cover ? "has-cover" : ""}`}>
+      {/* The player's own FACEIT banner. Decorative, so it carries no alt text
+          and never blocks the header: if the image 404s it just removes
+          itself and the plain card underneath is what's left. */}
+      {player.cover && (
+        <div className="ph-cover" aria-hidden="true">
+          <img
+            src={player.cover}
+            alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.parentElement.style.display = "none"; }}
+          />
+        </div>
+      )}
+
       <div className="ph-top">
         <div className="ph-avatar">
           {player.avatar ? (
@@ -61,6 +83,30 @@ export default function PlayerHeader({ player, children }) {
                 #{player.ranking.toLocaleString()} {player.region || ""}
               </span>
             ) : null}
+          </div>
+
+          {/* Straight through to the source profiles. Each only renders when we
+              actually have the id — a dead link is worse than no link. */}
+          <div className="ph-links">
+            {faceitUrl && (
+              <a className="ph-link faceit" href={faceitUrl} target="_blank" rel="noopener noreferrer">
+                <FaceitIcon />
+                FACEIT Profile
+                <ExternalIcon />
+              </a>
+            )}
+            {player.steam_id && (
+              <a
+                className="ph-link steam"
+                href={`https://steamcommunity.com/profiles/${player.steam_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <SteamIcon />
+                Steam Profile
+                <ExternalIcon />
+              </a>
+            )}
           </div>
         </div>
 
