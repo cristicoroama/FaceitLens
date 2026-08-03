@@ -54,7 +54,7 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
       </button>
 
       {open && (
-        <div className="theme-pop acc-pop">
+        <div className="acc-pop">
           <div className="acc-pop-head">
             {user.avatar && <img className="acc-avatar lg" src={user.avatar} alt="" />}
             <div>

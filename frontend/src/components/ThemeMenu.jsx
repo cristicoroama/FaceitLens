@@ -1,60 +1,51 @@
-import { useState, useEffect, useRef } from "react";
+/**
+ * Theme switch — one button that cycles Light → Dark → Auto.
+ *
+ * This replaced a dropdown of eight named palettes. Eight themes meant no
+ * surface could assume a background, so everything defended itself with a
+ * border and a glow; two plus "follow the system" is what people actually
+ * reach for, and it needs no menu at all.
+ *
+ * Icons are Bootstrap Icons (MIT), inlined so there's no extra request —
+ * the same three Bootstrap itself uses for its colour-mode switcher.
+ */
 
-/** The two themes. `dot` drives the swatch preview in the menu; the actual
-    colors live in index.css under :root (dark) and :root[data-theme="light"].
+export const THEME_MODES = ["light", "dark", "auto"];
 
-    This used to be eight palettes. That sounds generous but it meant no
-    surface could assume a background, so everything defended itself with a
-    border and a glow — which is most of why the old UI read as noisy. */
-export const THEMES = [
-  { id: "dark", label: "Dark", dot: "#0a0a0c", dot2: "#ff6a21" },
-  { id: "light", label: "Light", dot: "#ffffff", dot2: "#d94f00" },
-];
+const LABEL = { light: "Light", dark: "Dark", auto: "Auto" };
+
+const ICON = {
+  light: (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+      <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708" />
+    </svg>
+  ),
+  dark: (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+      <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278" />
+      <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.73 1.73 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.73 1.73 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.73 1.73 0 0 0 1.097-1.097zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.16 1.16 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.16 1.16 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732z" />
+    </svg>
+  ),
+  auto: (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+      <path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16" />
+    </svg>
+  ),
+};
 
 export default function ThemeMenu({ theme, setTheme }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    function onDoc(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  const current = THEMES.find((t) => t.id === theme) || THEMES[0];
+  const mode = THEME_MODES.includes(theme) ? theme : "dark";
+  const next = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
 
   return (
-    <div className="theme-menu" ref={ref}>
-      <button
-        className="tb-btn theme-trigger"
-        onClick={() => setOpen((o) => !o)}
-        title="Change theme"
-      >
-        <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${current.dot}, ${current.dot2})` }} />
-        <span className="theme-trigger-label">{current.label}</span>
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="theme-pop">
-          <div className="theme-pop-title">Theme</div>
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              className={`theme-opt ${theme === t.id ? "active" : ""}`}
-              onClick={() => { setTheme(t.id); setOpen(false); }}
-            >
-              <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${t.dot}, ${t.dot2})` }} />
-              {t.label}
-              {theme === t.id && <span className="theme-check">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <button
+      className="tb-btn theme-toggle"
+      onClick={() => setTheme(next)}
+      title={`Theme: ${LABEL[mode]}. Click for ${LABEL[next]}.`}
+      aria-label={`Theme: ${LABEL[mode]}. Click to switch to ${LABEL[next]}.`}
+    >
+      <span className="theme-toggle-ic">{ICON[mode]}</span>
+      <span className="theme-toggle-label">{LABEL[mode]}</span>
+    </button>
   );
 }

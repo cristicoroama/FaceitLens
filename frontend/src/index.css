@@ -314,7 +314,7 @@ a { color: inherit; }
   .tn-word { display: none; }
   .tn-search { min-width: 0; }
   /* Theme picker collapses to its swatch; the account button keeps its avatar */
-  .tn-actions .theme-trigger-label { display: none; }
+  .tn-actions .theme-toggle-label { display: none; }
   .tn-actions .steam-login-label { display: none; }
 }
 
@@ -1657,25 +1657,24 @@ body, .topnav, .card, .squad-row, .rank-card,
   body::before { animation: none !important; }
 }
 
-/* ---- Theme menu (topbar) ---- */
-.theme-menu { position: relative; }
-.theme-trigger { display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; }
-.theme-trigger-label { font-size: 13px; font-weight: 600; }
-.theme-swatch {
-  width: 16px; height: 16px; border-radius: 5px; flex: 0 0 auto;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+/* ---- Theme toggle (topbar) ----
+   One button that cycles Light → Dark → Auto. The old eight-palette dropdown
+   and its swatch/popover are gone; .theme-opt stays because AccountMenu's
+   items use it too. */
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
 }
-.theme-pop {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
-  background: color-mix(in srgb, var(--bg-elev-2) 80%, transparent);
-  border: 1px solid var(--border-hi);
-  border-radius: 14px; padding: 8px; min-width: 190px;
-  box-shadow: var(--shadow); animation: popIn 0.16s ease;
+.theme-toggle-ic {
+  display: grid; place-items: center; color: var(--accent);
+  /* The icon swaps outright on click; a short fade keeps it from snapping. */
+  animation: themeIcoIn 0.18s ease;
 }
-.theme-pop-title {
-  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-  color: var(--text-dim); padding: 4px 8px 8px;
+@keyframes themeIcoIn {
+  from { opacity: 0; transform: rotate(-25deg) scale(0.85); }
+  to   { opacity: 1; transform: none; }
 }
+.theme-toggle-label { font-size: 13px; font-weight: 600; }
+
 .theme-opt {
   display: flex; align-items: center; gap: 10px; width: 100%;
   background: none; border: 0; color: var(--text); cursor: pointer;
@@ -1684,8 +1683,7 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 .theme-opt:hover { background: rgba(var(--accent-rgb), 0.1); }
 .theme-opt.active { color: var(--accent); }
-.theme-check { margin-left: auto; color: var(--accent); font-weight: 700; }
-@media (max-width: 560px) { .theme-trigger-label { display: none; } }
+@media (max-width: 560px) { .theme-toggle-label { display: none; } }
 
 /* ---- HLTV ranking cards ---- */
 .rank-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -2235,7 +2233,15 @@ html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
   font-size: 12.5px; font-weight: 600; max-width: 120px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.acc-pop { min-width: 220px; }
+/* Was piggybacking on .theme-pop for everything but its width — which broke
+   the moment the theme dropdown became a plain toggle. It owns its box now. */
+.acc-pop {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 80;
+  min-width: 220px; padding: 8px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  animation: tnMenuIn 0.13s ease-out;
+}
 .acc-pop-head {
   display: flex; align-items: center; gap: 11px;
   padding: 8px 10px 12px; border-bottom: 1px solid var(--glass-brd); margin-bottom: 6px;

@@ -32,7 +32,7 @@ import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
 import SteamStatus from "./components/SteamStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
-import ThemeMenu from "./components/ThemeMenu.jsx";
+import ThemeMenu, { THEME_MODES } from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import NewsButton from "./components/NewsButton.jsx";
@@ -478,17 +478,30 @@ export default function App() {
   // the smurf detector can use cross-platform bans as a signal.
   const [leetifyBans, setLeetifyBans] = useState(null);
   const changelog = useChangelog();
+  // "light" | "dark" | "auto". Anyone still carrying a retired palette
+  // (volt, purple, crimson, ocean, gold, midnight) lands on dark rather than
+  // on a data-theme attribute nothing styles any more.
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
-    // Only dark and light survive. Anyone still carrying a retired palette
-    // (volt, purple, crimson, ocean, gold, midnight) lands on dark rather
-    // than on a data-theme attribute nothing styles any more.
-    return saved === "light" ? "light" : "dark";
+    return THEME_MODES.includes(saved) ? saved : "dark";
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("faceitlens_theme", theme);
+
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    // "auto" is a preference, not a value — resolve it to a real theme.
+    const apply = () => {
+      const resolved = theme === "auto" ? (mq.matches ? "light" : "dark") : theme;
+      document.documentElement.setAttribute("data-theme", resolved);
+    };
+    apply();
+
+    if (theme !== "auto") return;
+    // On auto, follow the OS while the tab stays open — someone whose system
+    // flips at sunset shouldn't have to reload.
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [theme]);
 
   // Who's signed in? (Sign in with Steam — session cookie)
