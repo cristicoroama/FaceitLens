@@ -1,16 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 
-/** All selectable themes. `dot`/`dot2` drive the swatch preview in the menu;
-    the actual colors live in index.css under :root[data-theme="id"]. */
+/** The two themes. `dot` drives the swatch preview in the menu; the actual
+    colors live in index.css under :root (dark) and :root[data-theme="light"].
+
+    This used to be eight palettes. That sounds generous but it meant no
+    surface could assume a background, so everything defended itself with a
+    border and a glow — which is most of why the old UI read as noisy. */
 export const THEMES = [
-  { id: "dark", label: "Aurora", dot: "#8b5cf6", dot2: "#22d3ee" },
-  { id: "volt", label: "Volt Green", dot: "#00e888", dot2: "#38bdf8" },
-  { id: "purple", label: "Nebula", dot: "#d946ef", dot2: "#818cf8" },
-  { id: "crimson", label: "Inferno", dot: "#ff4d6d", dot2: "#ffb020" },
-  { id: "ocean", label: "Deep Ocean", dot: "#38bdf8", dot2: "#818cf8" },
-  { id: "gold", label: "Solar Gold", dot: "#fbbf24", dot2: "#fb7185" },
-  { id: "midnight", label: "Midnight OLED", dot: "#000000", dot2: "#7c6bff" },
-  { id: "light", label: "Daylight", dot: "#7c3aed", dot2: "#0891b2" },
+  { id: "dark", label: "Dark", dot: "#0a0a0c", dot2: "#ff6a21" },
+  { id: "light", label: "Light", dot: "#ffffff", dot2: "#d94f00" },
 ];
 
 export default function ThemeMenu({ theme, setTheme }) {
