@@ -1,5 +1,5 @@
 /* ============================================================
-   FaceitLens — UI v4 "SIGNAL"
+   Faceit-Lens — UI v4 "SIGNAL"
    Flat, opaque surfaces. One orange accent, used sparingly.
    Black shadows for depth, never coloured glow. Motion is a
    response to input, never decoration that plays on its own.
@@ -7,9 +7,15 @@
    The old v3 was glassmorphism + drifting aurora + animated
    gradient type + a cursor spotlight, all at once. Each effect
    was fine; together they left nothing for the eye to rank.
+
+   Dark only. There is no light palette and no [data-theme]
+   switch — :root below IS the theme. Anything added here can
+   assume this background rather than defending itself against
+   an unknown one.
    ============================================================ */
 
 :root {
+  color-scheme: dark;
   /* surfaces — a disciplined 4-step ramp, warm-neutral not blue */
   --bg: #0a0a0c;
   --bg-elev: #121216;
@@ -58,37 +64,6 @@
   --topbar-h: 64px;
 }
 
-/* ============================================================
-   THEMES — two, and only two. :root above is "dark".
-   Selected via <html data-theme="id"> from ThemeMenu.
-
-   Eight themes meant no theme: nothing could be designed against
-   a known background, so every surface had to defend itself with
-   a border and a glow. Two themes let the palette be deliberate.
-   ============================================================ */
-:root[data-theme="light"] {
-  --bg: #f5f5f7;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #fafafc;
-  --bg-elev-3: #f0f0f4;
-  --border: #e3e3e9;
-  --border-hi: #cfcfd8;
-  --text: #16161a;
-  --text-dim: #63636f;
-  /* Darker orange: #ff6a21 on white fails contrast for text. */
-  --accent: #d94f00;
-  --accent-soft: #ff8a3d;
-  --accent-rgb: 217, 79, 0;
-  --accent-2: #0d7fc4;
-  --accent-2-rgb: 13, 127, 196;
-  --on-accent: #ffffff;
-  --gold: #b8791a;
-  --win: #1a9e5c;
-  --loss: #d63b3b;
-  --shadow: 0 6px 20px rgba(20, 20, 35, 0.1);
-  --shadow-sm: 0 1px 4px rgba(20, 20, 35, 0.08);
-  --glow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
-}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -318,7 +293,6 @@ a { color: inherit; }
   .tn-word { display: none; }
   .tn-search { min-width: 0; }
   /* Theme picker collapses to its swatch; the account button keeps its avatar */
-  .tn-actions .theme-toggle-label { display: none; }
   .tn-actions .steam-login-label { display: none; }
 }
 
@@ -709,27 +683,20 @@ a { color: inherit; }
   /* Covers are arbitrary user images, so they still need taming — but the
      first pass crushed them to near-black and the picture was lost. Keep
      most of the colour and let the scrim below do the contrast work. */
-  filter: grayscale(0.2) brightness(0.68);
+  filter: grayscale(0.45) brightness(0.4);
 }
 /* Fade the bottom so the banner dissolves into the card instead of ending
    on a hard line, and keep a floor of contrast behind the text. */
 .ph-cover::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg-elev) 18%, transparent) 0%,
-    color-mix(in srgb, var(--bg-elev) 58%, transparent) 60%,
+    color-mix(in srgb, var(--bg-elev) 40%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elev) 78%, transparent) 58%,
     var(--bg-elev) 100%);
 }
 /* Light theme is the harder case: the text is dark, so the photo has to be
    lifted, not dimmed. Dimming it (the first attempt) made text harder to
    read, not easier. */
-html[data-theme="light"] .ph-cover img { filter: grayscale(0.2) brightness(1.16); }
-html[data-theme="light"] .ph-cover::after {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg-elev) 42%, transparent) 0%,
-    color-mix(in srgb, var(--bg-elev) 72%, transparent) 60%,
-    var(--bg-elev) 100%);
-}
 .ph-top { position: relative; display: flex; align-items: center; gap: 20px; padding: 26px 28px 20px; z-index: 2; }
 
 /* ---- links out to the source profiles ---- */
@@ -805,7 +772,7 @@ html[data-theme="light"] .ph-cover::after {
 .ph-actions {
   position: relative; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   padding: 14px 28px; border-top: 1px solid var(--glass-brd);
-  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  background: var(--bg-elev);
   z-index: 2;
 }
 .act-btn {
@@ -1652,13 +1619,7 @@ html[data-theme="light"] .ph-cover::after {
    ============================================================ */
 /* The blueprint grid went with the dark one — the page is the backdrop, not
    a texture the content has to compete with. */
-html[data-theme="light"] ::-webkit-scrollbar-thumb { border-color: var(--bg); }
 /* #ffdd00 is Buy Me a Coffee's brand yellow; on white it's unreadable. */
-html[data-theme="light"] .side-coffee { color: #a67c00 !important; }
-html[data-theme="light"] .side-coffee:hover { color: #8a6700 !important; }
-html[data-theme="light"] .side-discord { color: #4752c4 !important; }
-html[data-theme="light"] .ph-lvl { background: rgba(255, 255, 255, 0.85); }
-html[data-theme="light"] .gauge-marker { background: #333; box-shadow: 0 0 6px rgba(0, 0, 0, 0.4); }
 
 /* ============================================================
    Responsive
@@ -1722,23 +1683,6 @@ body, .topnav, .card, .squad-row, .rank-card,
   body::before { animation: none !important; }
 }
 
-/* ---- Theme toggle (topbar) ----
-   One button that cycles Light → Dark → Auto. The old eight-palette dropdown
-   and its swatch/popover are gone; .theme-opt stays because AccountMenu's
-   items use it too. */
-.theme-toggle {
-  display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
-}
-.theme-toggle-ic {
-  display: grid; place-items: center; color: var(--accent);
-  /* The icon swaps outright on click; a short fade keeps it from snapping. */
-  animation: themeIcoIn 0.18s ease;
-}
-@keyframes themeIcoIn {
-  from { opacity: 0; transform: rotate(-25deg) scale(0.85); }
-  to   { opacity: 1; transform: none; }
-}
-.theme-toggle-label { font-size: 13px; font-weight: 600; }
 
 .theme-opt {
   display: flex; align-items: center; gap: 10px; width: 100%;
@@ -1748,7 +1692,6 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 .theme-opt:hover { background: rgba(var(--accent-rgb), 0.1); }
 .theme-opt.active { color: var(--accent); }
-@media (max-width: 560px) { .theme-toggle-label { display: none; } }
 
 /* ---- HLTV ranking cards ---- */
 .rank-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -1952,8 +1895,8 @@ body, .topnav, .card, .squad-row, .rank-card,
   position: relative; z-index: 2;
   display: grid; grid-template-columns: repeat(5, 1fr);
   border-top: 1px solid var(--glass-brd);
-  /* Near-opaque: the cover belongs behind the name, not behind the numbers. */
-  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  /* Solid: the cover belongs behind the name, not behind the numbers. */
+  background: var(--bg-elev);
 }
 .ps { padding: 15px 10px 13px; text-align: center; border-right: 1px solid var(--glass-brd); }
 .ps:last-child { border-right: none; }
@@ -1967,6 +1910,7 @@ body, .topnav, .card, .squad-row, .rank-card,
 .ph-progress {
   position: relative; z-index: 2;
   padding: 13px 28px 15px; border-top: 1px solid var(--glass-brd);
+  background: var(--bg-elev);
 }
 .ph-progress .lvlprog-text { margin-bottom: 8px; font-size: 12.5px; }
 @media (max-width: 640px) {
@@ -2128,7 +2072,6 @@ body, .topnav, .card, .squad-row, .rank-card,
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
   transition: left 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-html[data-theme="light"] .g2-marker { background: #222; box-shadow: 0 0 6px rgba(0, 0, 0, 0.5); }
 
 /* ---- page hero (HLTV hub, tools) ---- */
 .page-hero {
@@ -2281,7 +2224,6 @@ html[data-theme="light"] .g2-marker { background: #222; box-shadow: 0 0 6px rgba
   border-color: #66c0f4; color: #fff;
   box-shadow: 0 0 0 1px rgba(102, 192, 244, 0.4), 0 0 24px rgba(102, 192, 244, 0.25);
 }
-html[data-theme="light"] .tb-btn.steam-login { color: #e8f4ff; }
 @media (max-width: 700px) { .steam-login-label { display: none; } }
 
 .acc-menu { position: relative; }

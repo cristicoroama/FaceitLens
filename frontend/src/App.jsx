@@ -30,7 +30,6 @@ import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
 import SteamStatus from "./components/SteamStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
-import ThemeMenu, { THEME_MODES } from "./components/ThemeMenu.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import NewsButton from "./components/NewsButton.jsx";
@@ -328,31 +327,15 @@ export default function App() {
   // the smurf detector can use cross-platform bans as a signal.
   const [leetifyBans, setLeetifyBans] = useState(null);
   const changelog = useChangelog();
-  // "light" | "dark" | "auto". Anyone still carrying a retired palette
-  // (volt, purple, crimson, ocean, gold, midnight) lands on dark rather than
-  // on a data-theme attribute nothing styles any more.
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem("faceitlens_theme");
-    return THEME_MODES.includes(saved) ? saved : "dark";
-  });
 
+  // The site is dark-only, so there is no theme state and no [data-theme]
+  // attribute — index.css :root is the theme. This clears the key left behind
+  // by the old switcher so a stale "light" can't linger in anyone's browser.
   useEffect(() => {
-    localStorage.setItem("faceitlens_theme", theme);
-
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
-    // "auto" is a preference, not a value — resolve it to a real theme.
-    const apply = () => {
-      const resolved = theme === "auto" ? (mq.matches ? "light" : "dark") : theme;
-      document.documentElement.setAttribute("data-theme", resolved);
-    };
-    apply();
-
-    if (theme !== "auto") return;
-    // On auto, follow the OS while the tab stays open — someone whose system
-    // flips at sunset shouldn't have to reload.
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, [theme]);
+    try {
+      localStorage.removeItem("faceitlens_theme");
+    } catch { /* private mode — nothing to clean up */ }
+  }, []);
 
   // Who's signed in? (Sign in with Steam — session cookie)
   useEffect(() => {
@@ -785,7 +768,6 @@ export default function App() {
           <>
             <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")} />
             <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
-            <ThemeMenu theme={theme} setTheme={setTheme} />
             <AccountMenu
               user={user}
               onLogout={logout}
