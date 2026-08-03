@@ -283,6 +283,71 @@ const TOOL_PAGES = new Set([
   "settings", "whatsnew", "feedback",
 ]);
 
+/** The URL a nav id points at, so nav entries can be real <a href> links —
+    crawlable by Google and ctrl/middle-clickable into a new tab. */
+function navHref(id) {
+  if (id === "single") return "/";
+  return TOOL_PAGES.has(id) ? `/${id}` : "/";
+}
+
+/** Let the browser handle new-tab/new-window clicks natively; only intercept
+    a plain left click so the SPA router takes over. */
+function isPlainClick(e) {
+  return !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0;
+}
+
+/* Per-page <title> and meta description. Without these every one of the 17
+   tool pages inherits the homepage title, which is bad for search and for
+   anyone holding a dozen tabs open. */
+const DEFAULT_TITLE = "FaceitLens — FACEIT CS2 Stats, ELO Tracker & Account Checker";
+const DEFAULT_DESC =
+  "Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings.";
+
+const PAGE_META = {
+  leaderboard: ["FACEIT CS2 Leaderboard — Top Players by ELO",
+    "Live FACEIT CS2 leaderboard: the highest ELO players ranked, with level, win rate and recent form."],
+  watchlist: ["Watchlist — Track FACEIT Players",
+    "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
+  matchroom: ["FACEIT Match Room Analyzer — Scout Your Lobby",
+    "Paste a FACEIT match room link and scout all 10 players instantly: ELO, trust score, smurf signals and recent form."],
+  compare: ["Compare FACEIT Players — Head to Head CS2 Stats",
+    "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
+  squad: ["Squad Stats — Look Up Your CS2 Team",
+    "Check your whole CS2 squad at once. Enter nicknames and get every player's FACEIT ELO and stats on one page."],
+  clubs: ["FACEIT Clubs & Hubs Finder",
+    "Browse FACEIT clubs and hubs, see members and find active CS2 communities to play in."],
+  proguesser: ["ProGuesser — Guess the CS2 Pro Game",
+    "Can you name the CS2 pro from their stats? A daily guessing game for Counter-Strike fans."],
+  prosettings: ["CS2 Pro Settings — Crosshair, Sensitivity & Config",
+    "Crosshair codes, sensitivity, DPI, resolution and video settings from professional CS2 players."],
+  games: ["CS2 Minigames — Quizzes & Trivia",
+    "Test your Counter-Strike knowledge: economy quizzes, callout trivia and more CS2 minigames."],
+  bans: ["Recent FACEIT Bans — CS2 Cheaters & Smurfs",
+    "A live feed of recent FACEIT CS2 bans. See who got banned, when, and why."],
+  faceitstatus: ["FACEIT Status — Is FACEIT Down Right Now?",
+    "Live FACEIT server status. Check outages, incidents and whether FACEIT is down before you queue."],
+  steamstatus: ["Steam & CS2 Status — Is CS2 Down Right Now?",
+    "Live Steam and Counter-Strike 2 server status, player counts and current outages."],
+  docs: ["FaceitLens API Documentation",
+    "Free REST API for FACEIT CS2 player stats, ELO history and account trust scores. Endpoints, examples and rate limits."],
+  news: ["CS2 & FACEIT Status News", "Latest FACEIT and Counter-Strike 2 incidents, outages and service updates."],
+  whatsnew: ["What's New — FaceitLens Changelog", "Latest features, fixes and improvements shipped to FaceitLens."],
+  feedback: ["Feedback — FaceitLens", "Report a bug, request a feature or tell us what to improve on FaceitLens."],
+  settings: ["Settings — FaceitLens", DEFAULT_DESC],
+};
+
+/** Swap the document title + meta description for the current view. */
+function applyMeta(title, desc) {
+  document.title = title;
+  let tag = document.querySelector('meta[name="description"]');
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute("name", "description");
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", desc);
+}
+
 const PROFILE_TABS = [
   ["overview", "Overview", TI.overview],
   ["account", "Trust", TI.trust],
@@ -477,6 +542,31 @@ export default function App() {
     if (routeHandle) setMode("publicprofile");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeHandle]);
+
+  // Keep <title> and the meta description in step with what's on screen.
+  // A player's own page wins over the tool-page title, since that's the view
+  // people actually share links to.
+  useEffect(() => {
+    if (data && mode === "single") {
+      const lvl = data.skill_level ? ` Level ${data.skill_level},` : "";
+      const elo = data.elo ? ` ${data.elo} ELO` : "";
+      applyMeta(
+        `${data.nickname} — FACEIT CS2 Stats, ELO & Trust Score | FaceitLens`,
+        `FACEIT CS2 stats for ${data.nickname}:${lvl}${elo}, win rate, K/D, map performance, match history and an account trust score to spot smurfing.`,
+      );
+      return;
+    }
+    if (steamProfile) {
+      const name = steamProfile.persona || steamProfile.faceit_nickname || "Steam player";
+      applyMeta(
+        `${name} — Steam & CS2 Account Check | FaceitLens`,
+        `Steam account overview for ${name}: CS2 hours, inventory value, bans, profile age and account trust signals.`,
+      );
+      return;
+    }
+    const meta = PAGE_META[mode];
+    applyMeta(meta ? `${meta[0]} | FaceitLens` : DEFAULT_TITLE, meta ? meta[1] : DEFAULT_DESC);
+  }, [mode, data, steamProfile]);
 
   // Coming back from Steam: "nolink" means we signed them in but couldn't find
   // a FACEIT account for their Steam ID, so send them to settings to set it.
@@ -738,9 +828,13 @@ export default function App() {
           {user?.profile?.handle && (
             <div>
               <div className="side-group">You</div>
-              <button
+              <a
+                href={`/u/${user.profile.handle}`}
                 className={`side-link side-me ${mode === "publicprofile" ? "active" : ""}`}
-                onClick={() => {
+                aria-current={mode === "publicprofile" ? "page" : undefined}
+                onClick={(e) => {
+                  if (!isPlainClick(e)) return;
+                  e.preventDefault();
                   setSideOpen(false);
                   setMode("publicprofile");
                   navigate(`/u/${user.profile.handle}`);
@@ -750,37 +844,56 @@ export default function App() {
                   ? <img className="side-me-av" src={user.avatar} alt="" />
                   : <span className="side-me-av ph">{(user.name || "?").slice(0, 1).toUpperCase()}</span>}
                 My profile
-              </button>
+              </a>
               {user.profile.faceit_nickname && (
-                <button
+                <a
+                  href={`/player/${encodeURIComponent(user.profile.faceit_nickname)}`}
                   className="side-link"
-                  onClick={() => { setSideOpen(false); go(user.profile.faceit_nickname); }}
+                  onClick={(e) => {
+                    if (!isPlainClick(e)) return;
+                    e.preventDefault();
+                    setSideOpen(false);
+                    go(user.profile.faceit_nickname);
+                  }}
                 >
                   <span className="side-ico">◈</span>
                   My stats
-                </button>
+                </a>
               )}
-              <button
+              <a
+                href="/settings"
                 className={`side-link ${mode === "settings" ? "active" : ""}`}
-                onClick={() => { setSideOpen(false); pickNav("settings"); }}
+                aria-current={mode === "settings" ? "page" : undefined}
+                onClick={(e) => {
+                  if (!isPlainClick(e)) return;
+                  e.preventDefault();
+                  setSideOpen(false);
+                  pickNav("settings");
+                }}
               >
                 <span className="side-ico">⚙</span>
                 Settings
-              </button>
+              </a>
             </div>
           )}
           {NAV.map((g) => (
             <div key={g.group}>
               <div className="side-group">{g.group}</div>
               {g.items.map((it) => (
-                <button
+                <a
                   key={it.id}
+                  href={navHref(it.id)}
                   className={`side-link ${mode === it.id ? "active" : ""}`}
-                  onClick={() => pickNav(it.id)}
+                  aria-current={mode === it.id ? "page" : undefined}
+                  onClick={(e) => {
+                    if (!isPlainClick(e)) return;   // ctrl/cmd-click opens a real tab
+                    e.preventDefault();
+                    pickNav(it.id);
+                  }}
                 >
                   {it.icon}
                   {it.label}
-                </button>
+                </a>
               ))}
             </div>
           ))}

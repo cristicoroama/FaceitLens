@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
 
+# Account-only pages: nothing here is useful in search results.
+Disallow: /settings
+
 Sitemap: https://faceit-lens.com/sitemap.xml

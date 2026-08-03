@@ -289,13 +289,16 @@ a { color: inherit; }
   letter-spacing: 2.2px; text-transform: uppercase;
   padding: 16px 10px 7px; opacity: 0.8;
 }
+/* Nav entries are <a href> so Google can crawl them and ctrl-click opens a
+   real tab — the anchor reset keeps them looking like the old buttons. */
 .side-link {
   display: flex; align-items: center; gap: 11px; width: 100%;
   background: none; border: 1px solid transparent; border-radius: 11px;
   padding: 10px 11px; margin-bottom: 2px;
   color: var(--text-dim); font-size: 13.5px; font-weight: 600;
+  font-family: inherit; text-decoration: none;
   cursor: pointer; transition: all 0.18s ease; text-align: left;
-  position: relative;
+  position: relative; box-sizing: border-box;
 }
 .side-link svg { width: 17px; height: 17px; flex-shrink: 0; transition: transform 0.18s ease; }
 .side-link:hover { color: var(--text); background: var(--glass-bg-2); transform: translateX(2px); }
