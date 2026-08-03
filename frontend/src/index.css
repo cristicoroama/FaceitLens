@@ -248,8 +248,12 @@ a { color: inherit; }
 }
 .tn-search-ic {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center;
   color: var(--text-dim); z-index: 2; pointer-events: none;
 }
+/* Icons ship without width/height so callers decide the size — an unsized
+   SVG here would fall back to the 300x150 default and vanish behind the input. */
+.tn-search-ic svg { width: 15px; height: 15px; }
 
 /* Without an explicit row these stack: the buttons are block-level children
    of a flex container that was never told how to lay them out. */

@@ -54,6 +54,7 @@ import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 import { DISCORD_INVITE } from "./links.js";
+import { Icon } from "./icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -109,80 +110,6 @@ function eloData(player) {
   return player.elo_history || [];
 }
 
-/* ---- sidebar nav icons (inline, stroke) ---- */
-const I = {
-  search: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-    </svg>
-  ),
-  board: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" />
-    </svg>
-  ),
-  /* Compare: two opposed arrows. This used to be a copy of I.room, which only
-     became obvious once the dropdown showed both entries side by side. */
-  vs: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 8h13l-3-3M20 16H7l3 3" />
-    </svg>
-  ),
-  /* API docs: angle brackets, the universal "this is code" mark. */
-  code: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m8 6-5 6 5 6M16 6l5 6-5 6" />
-    </svg>
-  ),
-  squad: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17.5" cy="9.5" r="2.5" /><path d="M15.5 15.5a5 5 0 0 1 6 4.5" />
-    </svg>
-  ),
-  game: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <rect x="2" y="7" width="20" height="11" rx="5" /><path d="M7 11v3M5.5 12.5h3" /><circle cx="16" cy="11.5" r="0.6" fill="currentColor" /><circle cx="18.5" cy="13.5" r="0.6" fill="currentColor" />
-    </svg>
-  ),
-  xhair: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-    </svg>
-  ),
-  room: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M16 3h5v5M8 21H3v-5M21 3l-7.5 7.5M3 21l7.5-7.5" />
-    </svg>
-  ),
-  star: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 2 2.9 6.3 6.8.7-5 4.6 1.4 6.7L12 17.8 5.9 20.3l1.4-6.7-5-4.6 6.8-.7L12 2Z" />
-    </svg>
-  ),
-  pulse: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  ),
-  ban: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="9" /><path d="m5.5 5.5 13 13" />
-    </svg>
-  ),
-  feedback: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.8-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z" />
-    </svg>
-  ),
-  /* Clubs referenced I.hubs, which was never defined — that entry has been
-     rendering with no icon at all. */
-  hubs: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="5" r="2.5" /><circle cx="5" cy="18" r="2.5" /><circle cx="19" cy="18" r="2.5" />
-      <path d="M12 7.5v2.8M10.2 12.4 7.2 15.4M13.8 12.4l3 3" />
-    </svg>
-  ),
-};
 
 /* Top-bar navigation. An entry with `items` is a dropdown; one without is a
    flat link. "Player Search" isn't here on purpose — it IS the home page, and
@@ -191,41 +118,43 @@ const I = {
    Six sidebar groups collapse to four menus: Developers and About held one
    and two entries, which never justified their own heading. */
 const NAV = [
-  { id: "leaderboard", label: "Leaderboard", href: "/leaderboard" },
+  // Flat link in the bar (no icon needed next to the dropdown triggers), but
+  // the mobile drawer lists it beside iconed entries, so it carries one.
+  { id: "leaderboard", label: "Leaderboard", href: "/leaderboard", icon: Icon.trophy },
   { label: "Tools", items: [
-    { id: "matchroom", label: "Match Room", href: "/matchroom", icon: I.room,
+    { id: "matchroom", label: "Match Room", href: "/matchroom", icon: Icon.binoculars,
       hint: "Scout all 10 players in a lobby" },
-    { id: "compare", label: "Compare", href: "/compare", icon: I.vs,
+    { id: "compare", label: "Compare", href: "/compare", icon: Icon.arrowLeftRight,
       hint: "Up to 5 players, head to head" },
-    { id: "squad", label: "Squad", href: "/squad", icon: I.squad,
+    { id: "squad", label: "Squad", href: "/squad", icon: Icon.people,
       hint: "Look up your whole team at once" },
-    { id: "clubs", label: "Clubs", href: "/clubs", icon: I.hubs,
+    { id: "clubs", label: "Clubs", href: "/clubs", icon: Icon.diagram3,
       hint: "Browse FACEIT clubs and hubs" },
-    { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: I.star,
+    { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: Icon.star,
       hint: "Track players you care about" },
   ]},
   { label: "Live", items: [
-    { id: "faceitstatus", label: "FACEIT Status", href: "/faceitstatus", icon: I.pulse,
+    { id: "faceitstatus", label: "FACEIT Status", href: "/faceitstatus", icon: Icon.activity,
       hint: "Is FACEIT down right now?" },
-    { id: "steamstatus", label: "Steam / CS2 Status", href: "/steamstatus", icon: I.pulse,
+    { id: "steamstatus", label: "Steam / CS2 Status", href: "/steamstatus", icon: Icon.activity,
       hint: "Steam and CS2 servers, live" },
-    { id: "bans", label: "Recent Bans", href: "/bans", icon: I.ban,
+    { id: "bans", label: "Recent Bans", href: "/bans", icon: Icon.slashCircle,
       hint: "Who just got banned" },
   ]},
   { label: "Pros", items: [
-    { id: "prosettings", label: "Pro Settings", href: "/prosettings", icon: I.xhair,
+    { id: "prosettings", label: "Pro Settings", href: "/prosettings", icon: Icon.crosshair,
       hint: "Crosshairs, sens and gear for 180+ pros" },
-    { id: "proguesser", label: "ProGuesser", href: "/proguesser", icon: I.star,
+    { id: "proguesser", label: "ProGuesser", href: "/proguesser", icon: Icon.star,
       hint: "Daily guess-the-pro game" },
-    { id: "games", label: "Minigames", href: "/games", icon: I.game,
+    { id: "games", label: "Minigames", href: "/games", icon: Icon.controller,
       hint: "CS2 quizzes and trivia" },
   ]},
   { label: "More", items: [
-    { id: "docs", label: "API Docs", href: "/docs", icon: I.code,
+    { id: "docs", label: "API Docs", href: "/docs", icon: Icon.codeSlash,
       hint: "Free REST API" },
-    { id: "whatsnew", label: "What's New", href: "/whatsnew", icon: I.star,
+    { id: "whatsnew", label: "What's New", href: "/whatsnew", icon: Icon.star,
       hint: "Changelog" },
-    { id: "feedback", label: "Feedback", href: "/feedback", icon: I.feedback,
+    { id: "feedback", label: "Feedback", href: "/feedback", icon: Icon.chatDots,
       hint: "Report a bug, request a feature" },
   ],
     /* Actions, not reference links — in the footer nobody would press them. */
@@ -247,111 +176,26 @@ const NAV = [
   },
 ];
 
-/* profile tab icons (inline, stroke) */
-const TI = {
-  clips: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M10 9l5 3-5 3z" />
-    </svg>
-  ),
-  overview: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
-    </svg>
-  ),
-  trust: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2 4 5.5v5.1c0 4.9 3.4 9.5 8 10.9 4.6-1.4 8-6 8-10.9V5.5L12 2Z" /><path d="m9 11.5 2.2 2.2L15.5 9" />
-    </svg>
-  ),
-  /* Magnifier with a plus — matches the mark on the Smurf Detector card. */
-  smurf: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10.5" cy="10.5" r="6.5" /><path d="m20 20-4.6-4.6M8 10.5h5M10.5 8v5" />
-    </svg>
-  ),
-  leetify: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" />
-    </svg>
-  ),
-  real: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2" />
-    </svg>
-  ),
-  hltv: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M4 19V5M4 12h8M12 19V5M20 19V5M12 12h8" />
-    </svg>
-  ),
-  teammates: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17.5" cy="9.5" r="2.5" /><path d="M15.5 15.5a5 5 0 0 1 6 4.5" />
-    </svg>
-  ),
-  hubs: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <circle cx="12" cy="12" r="3" /><circle cx="5" cy="5" r="2" /><circle cx="19" cy="5" r="2" /><circle cx="5" cy="19" r="2" /><circle cx="19" cy="19" r="2" /><path d="M6.5 6.5 10 10M17.5 6.5 14 10M6.5 17.5 10 14M17.5 17.5 14 14" />
-    </svg>
-  ),
-  met: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M8 12h8M12 8v8" /><circle cx="12" cy="12" r="9" />
-    </svg>
-  ),
-  steam: (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M11.98 2C6.72 2 2.4 6.03 2.03 11.19l5.36 2.22a2.79 2.79 0 0 1 1.57-.48l.14.01 2.39-3.46v-.05a3.72 3.72 0 1 1 3.72 3.72h-.09l-3.4 2.43v.13a2.8 2.8 0 0 1-5.58.2l-3.84-1.6A10 10 0 1 0 11.98 2ZM8.28 17.6l-1.23-.51c.22.45.6.83 1.1 1.04a2.09 2.09 0 0 0 1.63-3.85 2.08 2.08 0 0 0-1.57-.02l1.27.53a1.54 1.54 0 0 1-1.2 2.83Zm7.44-6.16a2.48 2.48 0 1 0 0-4.96 2.48 2.48 0 0 0 0 4.96Zm0-.77a1.7 1.7 0 1 1 0-3.41 1.7 1.7 0 0 1 0 3.41Z" />
-    </svg>
-  ),
-  nicknames: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M4 7V5h16v2M12 5v14M9 19h6" />
-    </svg>
-  ),
-};
 
 /* popular pros shown on the home page when there's no search history */
 const POPULAR_PROS = ["donk666", "ZywOo", "s1mple", "NiKo", "m0NESY", "ropz", "sh1ro", "b1t"];
 
-/* Home-page feature icons — Bootstrap Icons (MIT), inlined rather than pulled
-   in as a dependency so there's no extra request and they inherit currentColor
-   like the rest of the icon sets above. These were emoji, which was the single
-   loudest "unfinished" signal on the whole page. */
-const bi = (paths) => (
-  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{paths}</svg>
-);
 
-const BI = {
-  incognito: bi(<path fillRule="evenodd" d="m4.736 1.968-.892 3.269-.014.058C2.113 5.568 1 6.006 1 6.5 1 7.328 4.134 8 8 8s7-.672 7-1.5c0-.494-1.113-.932-2.83-1.205l-.014-.058-.892-3.27c-.146-.533-.698-.849-1.239-.734C9.411 1.363 8.62 1.5 8 1.5s-1.411-.136-2.025-.267c-.541-.115-1.093.2-1.239.735m.015 3.867a.25.25 0 0 1 .274-.224c.9.092 1.91.143 2.975.143a30 30 0 0 0 2.975-.143.25.25 0 0 1 .05.498c-.918.093-1.944.145-3.025.145s-2.107-.052-3.025-.145a.25.25 0 0 1-.224-.274M3.5 10h2a.5.5 0 0 1 .5.5v1a1.5 1.5 0 0 1-3 0v-1a.5.5 0 0 1 .5-.5m-1.5.5q.001-.264.085-.5H2a.5.5 0 0 1 0-1h3.5a1.5 1.5 0 0 1 1.488 1.312 3.5 3.5 0 0 1 2.024 0A1.5 1.5 0 0 1 10.5 9H14a.5.5 0 0 1 0 1h-.085q.084.236.085.5v1a2.5 2.5 0 0 1-5 0v-.14l-.21-.07a2.5 2.5 0 0 0-1.58 0l-.21.07v.14a2.5 2.5 0 0 1-5 0zm8.5-.5h2a.5.5 0 0 1 .5.5v1a1.5 1.5 0 0 1-3 0v-1a.5.5 0 0 1 .5-.5" />),
-  shieldCheck: bi(<>
-    <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56" />
-    <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0" />
-  </>),
-  people: bi(<path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />),
-  sliders: bi(<path fillRule="evenodd" d="M11.5 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M9.05 3a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0V3zM4.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2.05 8a2.5 2.5 0 0 1 4.9 0H16v1H6.95a2.5 2.5 0 0 1-4.9 0H0V8zm9.45 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m-2.45 1a2.5 2.5 0 0 1 4.9 0H16v1h-2.05a2.5 2.5 0 0 1-4.9 0H0v-1z" />),
-  controller: bi(<>
-    <path d="M11.5 6.027a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m2.5-.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m-6.5-3h1v1h1v1h-1v1h-1v-1h-1v-1h1z" />
-    <path d="M3.051 3.26a.5.5 0 0 1 .354-.613l1.932-.518a.5.5 0 0 1 .62.39c.655-.079 1.35-.117 2.043-.117.72 0 1.443.041 2.12.126a.5.5 0 0 1 .622-.399l1.932.518a.5.5 0 0 1 .306.729q.211.136.373.297c.408.408.78 1.05 1.095 1.772.32.733.599 1.591.805 2.466s.34 1.78.364 2.606c.024.816-.059 1.602-.328 2.21a1.42 1.42 0 0 1-1.445.83c-.636-.067-1.115-.394-1.513-.773-.245-.232-.496-.526-.739-.808-.126-.148-.25-.292-.368-.423-.728-.804-1.597-1.527-3.224-1.527s-2.496.723-3.224 1.527c-.119.131-.242.275-.368.423-.243.282-.494.575-.739.808-.398.38-.877.706-1.513.773a1.42 1.42 0 0 1-1.445-.83c-.27-.608-.352-1.395-.329-2.21.024-.826.16-1.73.365-2.606.206-.875.486-1.733.805-2.466.315-.722.687-1.364 1.094-1.772a2.3 2.3 0 0 1 .433-.335l-.028-.079zm2.036.412c-.877.185-1.469.443-1.733.708-.276.276-.587.783-.885 1.465a14 14 0 0 0-.748 2.295 12.4 12.4 0 0 0-.339 2.406c-.022.755.062 1.368.243 1.776a.42.42 0 0 0 .426.24c.327-.034.61-.199.929-.502.212-.202.4-.423.615-.674.133-.156.276-.323.44-.504C4.861 9.969 5.978 9.027 8 9.027s3.139.942 3.965 1.855c.164.181.307.348.44.504.214.251.403.472.615.674.318.303.601.468.929.503a.42.42 0 0 0 .426-.241c.18-.408.265-1.02.243-1.776a12.4 12.4 0 0 0-.339-2.406 14 14 0 0 0-.748-2.295c-.298-.682-.61-1.19-.885-1.465-.264-.265-.856-.523-1.733-.708-.85-.179-1.877-.27-2.913-.27s-2.063.091-2.913.27" />
-  </>),
-  broadcast: bi(<path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8" />),
-};
 
 /* flagship features showcased on the home page. nav = tool page id (clickable),
    no nav = feature lives inside a player profile → focus the search box. */
 const HOME_FEATURES = [
-  { icon: BI.incognito, title: "Smurf Detector", nav: null,
+  { icon: Icon.incognito, title: "Smurf Detector", nav: null,
     desc: "Combines HS%, K/D, hours and account age into a smurf likelihood — and flags FACEIT bans." },
-  { icon: BI.shieldCheck, title: "Account Trust Score", nav: null,
+  { icon: Icon.shieldCheck, title: "Account Trust Score", nav: null,
     desc: "Steam age, hours, level, bans and inventory in one legit-o-meter. Spot throwaways instantly." },
-  { icon: BI.people, title: "Match Room Analyzer", nav: "matchroom",
+  { icon: Icon.people, title: "Match Room Analyzer", nav: "matchroom",
     desc: "Paste a FACEIT room link and scout all 10 players + an ELO win prediction." },
-  { icon: BI.sliders, title: "Pro Settings", nav: "prosettings",
+  { icon: Icon.sliders, title: "Pro Settings", nav: "prosettings",
     desc: "Sensitivity, DPI, eDPI, resolution and full gear for 180+ CS2 pros." },
-  { icon: BI.controller, title: "ProGuesser", nav: "proguesser",
+  { icon: Icon.controller, title: "ProGuesser", nav: "proguesser",
     desc: "Guess the mystery CS pro of the day — a daily Wordle for Counter-Strike." },
-  { icon: BI.broadcast, title: "Live Status", nav: "faceitstatus",
+  { icon: Icon.broadcastPin, title: "Live Status", nav: "faceitstatus",
     desc: "Is FACEIT or CS2 matchmaking down? Live platform status and recent bans." },
 ];
 
@@ -433,21 +277,21 @@ function applyMeta(title, desc) {
 }
 
 const PROFILE_TABS = [
-  ["overview", "Overview", TI.overview],
-  ["account", "Trust", TI.trust],
+  ["overview", "Overview", Icon.grid1x2],
+  ["account", "Trust", Icon.shieldCheck],
   // Sits next to Trust: both answer "is this account what it looks like?".
   // It used to open the Overview tab, where it pushed the actual stats below
   // the fold for every player, most of whom aren't smurfs.
-  ["smurf", "Smurf", TI.smurf],
-  ["leetify", "Leetify", TI.leetify],
-  ["real", "Demos", TI.real],
-  ["clips", "Clips", TI.clips],
-  ["hltv", "HLTV Stats", TI.hltv],
-  ["teammates", "Teammates", TI.teammates],
-  ["steam", "Steam", TI.steam],
-  ["hubs", "Hubs", TI.hubs],
-  ["met", "Have We Met?", TI.met],
-  ["nicknames", "Nicknames", TI.nicknames],
+  ["smurf", "Smurf", Icon.incognito],
+  ["leetify", "Leetify", Icon.graphUpArrow],
+  ["real", "Demos", Icon.film],
+  ["clips", "Clips", Icon.playBtn],
+  ["hltv", "HLTV Stats", Icon.barChartLine],
+  ["teammates", "Teammates", Icon.people],
+  ["steam", "Steam", Icon.steam],
+  ["hubs", "Hubs", Icon.diagram3],
+  ["met", "Have We Met?", Icon.personCheck],
+  ["nicknames", "Nicknames", Icon.tags],
 ];
 
 export default function App() {
@@ -918,11 +762,7 @@ export default function App() {
         onBrand={() => { setMode("single"); navigate("/"); }}
         search={
           <>
-            <span className="tn-search-ic">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-              </svg>
-            </span>
+            <span className="tn-search-ic">{Icon.search}</span>
             <SearchInput
               value={nickname}
               onChange={setNickname}

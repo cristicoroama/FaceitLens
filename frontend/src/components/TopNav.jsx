@@ -196,6 +196,7 @@ export default function TopNav({
                     className={`tn-drawer-item solo ${mode === g.id ? "active" : ""}`}
                     {...linkProps(g.id, g.href)}
                   >
+                    {g.icon && <span className="tn-menu-ic">{g.icon}</span>}
                     {g.label}
                   </a>
                 )}
