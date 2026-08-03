@@ -175,7 +175,6 @@ const NAV = [
 
 
 /* popular pros shown on the home page when there's no search history */
-const POPULAR_PROS = ["donk666", "ZywOo", "s1mple", "NiKo", "m0NESY", "ropz", "sh1ro", "b1t"];
 
 
 
@@ -836,14 +835,20 @@ export default function App() {
                 </div>
               )}
 
-              <div className="recent">
-                <div className="recent-label">{recent.length > 0 ? "Recently searched" : "Try a pro"}</div>
-                <div className="recent-chips">
-                  {(recent.length > 0 ? recent.map((r) => r.nickname) : POPULAR_PROS).map((n) => (
-                    <button key={n} className="recent-chip" onClick={() => go(n)}>{n}</button>
-                  ))}
+              {/* Only the visitor's own recent searches. The "Try a pro"
+                  fallback that filled this space on a first visit is gone. */}
+              {recent.length > 0 && (
+                <div className="recent">
+                  <div className="recent-label">Recently searched</div>
+                  <div className="recent-chips">
+                    {recent.map((r) => (
+                      <button key={r.nickname} className="recent-chip" onClick={() => go(r.nickname)}>
+                        {r.nickname}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="home-section-label">Everything you can do</div>
               <div className="home-features">
