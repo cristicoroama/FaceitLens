@@ -23,7 +23,7 @@ const SOURCES = [
 function Disclaimer() {
   return (
     <div className="legal-callout">
-      <b>FaceitLens is an independent project.</b> It is not affiliated with,
+      <b>Faceit-Lens is an independent project.</b> It is not affiliated with,
       endorsed by, sponsored by, or in any way officially connected to FACEIT
       Ltd., Valve Corporation, Leetify, Allstar or any other service it links
       to. Counter-Strike and Steam are trademarks of Valve Corporation. FACEIT
@@ -44,7 +44,7 @@ export function PrivacyPolicy() {
 
       <h3>The short version</h3>
       <p>
-        You can use almost all of FaceitLens without an account and without
+        You can use almost all of Faceit-Lens without an account and without
         being tracked. There are no advertising cookies, no third-party
         analytics scripts, and nothing is sold or shared with advertisers.
       </p>
@@ -87,7 +87,7 @@ export function PrivacyPolicy() {
 
       <h3>Public data about players</h3>
       <p>
-        FaceitLens displays information that is already public on FACEIT, Steam
+        Faceit-Lens displays information that is already public on FACEIT, Steam
         and the other sources listed below. We do not obtain private data, and
         we cannot show anything those services keep private — a private Steam
         inventory stays private here too.
@@ -112,7 +112,7 @@ export function PrivacyPolicy() {
 
       <h3>Your rights</h3>
       <p>
-        FaceitLens is operated from Romania and follows the GDPR. You may
+        Faceit-Lens is operated from Romania and follows the GDPR. You may
         request access to your data, correct it, export it, or have it erased.
       </p>
       <p>
@@ -149,7 +149,7 @@ export function Terms() {
 
       <h3>What this is</h3>
       <p>
-        FaceitLens is a free, open-source statistics tracker for Counter-Strike
+        Faceit-Lens is a free, open-source statistics tracker for Counter-Strike
         2, provided as-is by an individual. The source is available on{" "}
         <a href={GITHUB_REPO} target="_blank" rel="noopener noreferrer">GitHub</a>{" "}
         under the MIT licence.
@@ -168,7 +168,7 @@ export function Terms() {
       <p>
         The trust score, smurf meter and similar indicators are automated
         heuristics computed from public statistics. A high score is not evidence
-        that anyone cheated, smurfed, or broke any rule. Do not use FaceitLens
+        that anyone cheated, smurfed, or broke any rule. Do not use Faceit-Lens
         to harass, defame, brigade or publicly accuse anyone. Reports of
         cheating belong with FACEIT or Valve, who have the demos and the
         authority to judge them.

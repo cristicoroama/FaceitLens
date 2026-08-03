@@ -49,6 +49,7 @@ import Feedback from "./components/Feedback.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
 } from "./components/WhatsNew.jsx";
+import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
@@ -120,9 +121,17 @@ const I = {
       <path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" />
     </svg>
   ),
+  /* Compare: two opposed arrows. This used to be a copy of I.room, which only
+     became obvious once the dropdown showed both entries side by side. */
   vs: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M16 3h5v5M8 21H3v-5M21 3l-7.5 7.5M3 21l7.5-7.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8h13l-3-3M20 16H7l3 3" />
+    </svg>
+  ),
+  /* API docs: angle brackets, the universal "this is code" mark. */
+  code: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m8 6-5 6 5 6M16 6l5 6-5 6" />
     </svg>
   ),
   squad: (
@@ -165,37 +174,77 @@ const I = {
       <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.8-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z" />
     </svg>
   ),
+  /* Clubs referenced I.hubs, which was never defined — that entry has been
+     rendering with no icon at all. */
+  hubs: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="5" r="2.5" /><circle cx="5" cy="18" r="2.5" /><circle cx="19" cy="18" r="2.5" />
+      <path d="M12 7.5v2.8M10.2 12.4 7.2 15.4M13.8 12.4l3 3" />
+    </svg>
+  ),
 };
 
+/* Top-bar navigation. An entry with `items` is a dropdown; one without is a
+   flat link. "Player Search" isn't here on purpose — it IS the home page, and
+   the brand already goes there.
+
+   Six sidebar groups collapse to four menus: Developers and About held one
+   and two entries, which never justified their own heading. */
 const NAV = [
-  { group: "FACEIT", items: [
-    { id: "single", label: "Player Search", icon: I.search },
-    { id: "watchlist", label: "Watchlist", icon: I.star },
-    { id: "leaderboard", label: "Leaderboard", icon: I.board },
+  { id: "leaderboard", label: "Leaderboard", href: "/leaderboard" },
+  { label: "Tools", items: [
+    { id: "matchroom", label: "Match Room", href: "/matchroom", icon: I.room,
+      hint: "Scout all 10 players in a lobby" },
+    { id: "compare", label: "Compare", href: "/compare", icon: I.vs,
+      hint: "Up to 5 players, head to head" },
+    { id: "squad", label: "Squad", href: "/squad", icon: I.squad,
+      hint: "Look up your whole team at once" },
+    { id: "clubs", label: "Clubs", href: "/clubs", icon: I.hubs,
+      hint: "Browse FACEIT clubs and hubs" },
+    { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: I.star,
+      hint: "Track players you care about" },
   ]},
-  { group: "Live", items: [
-    { id: "faceitstatus", label: "FACEIT Status", icon: I.pulse },
-    { id: "steamstatus", label: "Steam / CS2 Status", icon: I.pulse },
-    { id: "bans", label: "Recent Bans", icon: I.ban },
+  { label: "Live", items: [
+    { id: "faceitstatus", label: "FACEIT Status", href: "/faceitstatus", icon: I.pulse,
+      hint: "Is FACEIT down right now?" },
+    { id: "steamstatus", label: "Steam / CS2 Status", href: "/steamstatus", icon: I.pulse,
+      hint: "Steam and CS2 servers, live" },
+    { id: "bans", label: "Recent Bans", href: "/bans", icon: I.ban,
+      hint: "Who just got banned" },
   ]},
-  { group: "Tools", items: [
-    { id: "matchroom", label: "Match Room", icon: I.room },
-    { id: "compare", label: "Compare", icon: I.vs },
-    { id: "squad", label: "Squad", icon: I.squad },
-    { id: "clubs", label: "Clubs", icon: I.hubs },
+  { label: "Pros", items: [
+    { id: "prosettings", label: "Pro Settings", href: "/prosettings", icon: I.xhair,
+      hint: "Crosshairs, sens and gear for 180+ pros" },
+    { id: "proguesser", label: "ProGuesser", href: "/proguesser", icon: I.star,
+      hint: "Daily guess-the-pro game" },
+    { id: "games", label: "Minigames", href: "/games", icon: I.game,
+      hint: "CS2 quizzes and trivia" },
   ]},
-  { group: "Extras", items: [
-    { id: "proguesser", label: "ProGuesser", icon: I.star },
-    { id: "prosettings", label: "Pro Settings", icon: I.xhair },
-    { id: "games", label: "Minigames", icon: I.game },
-  ]},
-  { group: "Developers", items: [
-    { id: "docs", label: "API Docs", icon: I.vs },
-  ]},
-  { group: "About", items: [
-    { id: "whatsnew", label: "What's New", icon: I.star },
-    { id: "feedback", label: "Feedback", icon: I.feedback },
-  ]},
+  { label: "More", items: [
+    { id: "docs", label: "API Docs", href: "/docs", icon: I.code,
+      hint: "Free REST API" },
+    { id: "whatsnew", label: "What's New", href: "/whatsnew", icon: I.star,
+      hint: "Changelog" },
+    { id: "feedback", label: "Feedback", href: "/feedback", icon: I.feedback,
+      hint: "Report a bug, request a feature" },
+  ],
+    /* Actions, not reference links — in the footer nobody would press them. */
+    tail: [
+      { label: "Join our Discord", href: DISCORD_INVITE, cls: "tn-discord",
+        icon: (
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.6 1.25a18.3 18.3 0 0 0-5.5 0 12.6 12.6 0 0 0-.61-1.25.08.08 0 0 0-.08-.04c-1.7.3-3.33.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.78 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6.01-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.09 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.22 0 2.18 1.09 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z" />
+          </svg>
+        ) },
+      { label: "Buy me a coffee", href: "https://buymeacoffee.com/lordukiki", cls: "tn-coffee",
+        icon: (
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M17 8h1a3 3 0 0 1 0 6h-1M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8ZM6 2v2M10 2v2M14 2v2" />
+          </svg>
+        ) },
+    ],
+  },
 ];
 
 /* profile tab icons (inline, stroke) */
@@ -324,7 +373,7 @@ function isPlainClick(e) {
 /* Per-page <title> and meta description. Without these every one of the 17
    tool pages inherits the homepage title, which is bad for search and for
    anyone holding a dozen tabs open. */
-const DEFAULT_TITLE = "FaceitLens — FACEIT CS2 Stats, ELO Tracker & Account Checker";
+const DEFAULT_TITLE = "Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker";
 const DEFAULT_DESC =
   "Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings.";
 
@@ -353,16 +402,16 @@ const PAGE_META = {
     "Live FACEIT server status. Check outages, incidents and whether FACEIT is down before you queue."],
   steamstatus: ["Steam & CS2 Status — Is CS2 Down Right Now?",
     "Live Steam and Counter-Strike 2 server status, player counts and current outages."],
-  docs: ["FaceitLens API Documentation",
+  docs: ["Faceit-Lens API Documentation",
     "Free REST API for FACEIT CS2 player stats, ELO history and account trust scores. Endpoints, examples and rate limits."],
   news: ["CS2 & FACEIT Status News", "Latest FACEIT and Counter-Strike 2 incidents, outages and service updates."],
-  whatsnew: ["What's New — FaceitLens Changelog", "Latest features, fixes and improvements shipped to FaceitLens."],
-  feedback: ["Feedback — FaceitLens", "Report a bug, request a feature or tell us what to improve on FaceitLens."],
-  settings: ["Settings — FaceitLens", DEFAULT_DESC],
+  whatsnew: ["What's New — Faceit-Lens Changelog", "Latest features, fixes and improvements shipped to Faceit-Lens."],
+  feedback: ["Feedback — Faceit-Lens", "Report a bug, request a feature or tell us what to improve on Faceit-Lens."],
+  settings: ["Settings — Faceit-Lens", DEFAULT_DESC],
   privacy: ["Privacy Policy",
-    "What FaceitLens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
+    "What Faceit-Lens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
   terms: ["Terms of Service",
-    "Terms for using FaceitLens: fair use, API limits, and why trust and smurf scores are estimates rather than accusations."],
+    "Terms for using Faceit-Lens: fair use, API limits, and why trust and smurf scores are estimates rather than accusations."],
 };
 
 /** Swap the document title + meta description for the current view. */
@@ -429,7 +478,6 @@ export default function App() {
   // the smurf detector can use cross-platform bans as a signal.
   const [leetifyBans, setLeetifyBans] = useState(null);
   const changelog = useChangelog();
-  const [sideOpen, setSideOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("faceitlens_theme");
     // Only dark and light survive. Anyone still carrying a retired palette
@@ -579,7 +627,7 @@ export default function App() {
       const lvl = data.skill_level ? ` Level ${data.skill_level},` : "";
       const elo = data.elo ? ` ${data.elo} ELO` : "";
       applyMeta(
-        `${data.nickname} — FACEIT CS2 Stats, ELO & Trust Score | FaceitLens`,
+        `${data.nickname} — FACEIT CS2 Stats, ELO & Trust Score | Faceit-Lens`,
         `FACEIT CS2 stats for ${data.nickname}:${lvl}${elo}, win rate, K/D, map performance, match history and an account trust score to spot smurfing.`,
       );
       return;
@@ -587,13 +635,13 @@ export default function App() {
     if (steamProfile) {
       const name = steamProfile.persona || steamProfile.faceit_nickname || "Steam player";
       applyMeta(
-        `${name} — Steam & CS2 Account Check | FaceitLens`,
+        `${name} — Steam & CS2 Account Check | Faceit-Lens`,
         `Steam account overview for ${name}: CS2 hours, inventory value, bans, profile age and account trust signals.`,
       );
       return;
     }
     const meta = PAGE_META[mode];
-    applyMeta(meta ? `${meta[0]} | FaceitLens` : DEFAULT_TITLE, meta ? meta[1] : DEFAULT_DESC);
+    applyMeta(meta ? `${meta[0]} | Faceit-Lens` : DEFAULT_TITLE, meta ? meta[1] : DEFAULT_DESC);
   }, [mode, data, steamProfile]);
 
   // Coming back from Steam: "nolink" means we signed them in but couldn't find
@@ -779,7 +827,6 @@ export default function App() {
   }
 
   function pickNav(id) {
-    setSideOpen(false);
     setError("");
     if (id === "single") {
       setMode("single");
@@ -840,137 +887,15 @@ export default function App() {
 
   return (
     <div className="shell">
-      {/* ============ SIDEBAR ============ */}
-      <div className={`side-backdrop ${sideOpen ? "show" : ""}`} onClick={() => setSideOpen(false)} />
-      <aside className={`sidebar ${sideOpen ? "open" : ""}`}>
-        <div className="side-brand" onClick={() => { setSideOpen(false); setMode("single"); navigate("/"); }}>
-          <img className="logo-img" src="/logo.png" alt="FaceitLens" width="36" height="36" />
-          Faceit<span>Lens</span>
-        </div>
-
-        <div className="side-nav">
-          {user?.profile?.handle && (
-            <div>
-              <div className="side-group">You</div>
-              <a
-                href={`/u/${user.profile.handle}`}
-                className={`side-link side-me ${mode === "publicprofile" ? "active" : ""}`}
-                aria-current={mode === "publicprofile" ? "page" : undefined}
-                onClick={(e) => {
-                  if (!isPlainClick(e)) return;
-                  e.preventDefault();
-                  setSideOpen(false);
-                  setMode("publicprofile");
-                  navigate(`/u/${user.profile.handle}`);
-                }}
-              >
-                {user.avatar
-                  ? <img className="side-me-av" src={user.avatar} alt="" />
-                  : <span className="side-me-av ph">{(user.name || "?").slice(0, 1).toUpperCase()}</span>}
-                My profile
-              </a>
-              {user.profile.faceit_nickname && (
-                <a
-                  href={`/player/${encodeURIComponent(user.profile.faceit_nickname)}`}
-                  className="side-link"
-                  onClick={(e) => {
-                    if (!isPlainClick(e)) return;
-                    e.preventDefault();
-                    setSideOpen(false);
-                    go(user.profile.faceit_nickname);
-                  }}
-                >
-                  <span className="side-ico">◈</span>
-                  My stats
-                </a>
-              )}
-              <a
-                href="/settings"
-                className={`side-link ${mode === "settings" ? "active" : ""}`}
-                aria-current={mode === "settings" ? "page" : undefined}
-                onClick={(e) => {
-                  if (!isPlainClick(e)) return;
-                  e.preventDefault();
-                  setSideOpen(false);
-                  pickNav("settings");
-                }}
-              >
-                <span className="side-ico">⚙</span>
-                Settings
-              </a>
-            </div>
-          )}
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="side-group">{g.group}</div>
-              {g.items.map((it) => (
-                <a
-                  key={it.id}
-                  href={navHref(it.id)}
-                  className={`side-link ${mode === it.id ? "active" : ""}`}
-                  aria-current={mode === it.id ? "page" : undefined}
-                  onClick={(e) => {
-                    if (!isPlainClick(e)) return;   // ctrl/cmd-click opens a real tab
-                    e.preventDefault();
-                    pickNav(it.id);
-                  }}
-                >
-                  {it.icon}
-                  {it.label}
-                </a>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div className="side-foot">
-          <div className="side-contact-title">Contact</div>
-          <a
-            className="side-discord"
-            href={DISCORD_INVITE}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Join the FaceitLens Discord"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-              <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.6 1.25a18.3 18.3 0 0 0-5.5 0 12.6 12.6 0 0 0-.61-1.25.08.08 0 0 0-.08-.04c-1.7.3-3.33.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.78 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6.01-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.09 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.22 0 2.18 1.09 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"></path>
-            </svg>
-            Join our Discord
-          </a>
-          <a href="https://t.me/cristicor1" target="_blank" rel="noopener noreferrer" title="Telegram: @cristicor1">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-              <path d="M11.99 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Zm5.57 8.16-1.86 8.77c-.14.62-.5.77-1.02.48l-2.82-2.08-1.36 1.31c-.15.15-.28.28-.57.28l.2-2.87 5.23-4.72c.23-.2-.05-.32-.35-.12L8.36 13.5l-2.78-.87c-.6-.19-.62-.6.13-.9l10.86-4.18c.5-.18.94.12.78.9Z"></path>
-            </svg>
-            Telegram — @cristicor1
-          </a>
-          <a href="https://github.com/cristicoroama/FaceitLens" target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-            </svg>
-            GitHub — source
-          </a>
-          <a href="mailto:coroamamh@gmail.com" title="Email me">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 6 10 7L22 6" />
-            </svg>
-            Email
-          </a>
-          <a className="side-coffee" href="https://buymeacoffee.com/lordukiki" target="_blank" rel="noopener noreferrer" title="Support the project">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-              <path d="m20.216 6.415-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 0 0-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 0 0-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 0 1-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 0 1 3.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 0 1-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 0 1-4.743.295 37.059 37.059 0 0 1-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.154.316-.199.66-.267 1-.069.34-.176.707-.135 1.056.087.753.613 1.365 1.37 1.502a39.69 39.69 0 0 0 11.343.376.483.483 0 0 1 .535.53l-.071.697-1.018 9.907c-.041.41-.047.832-.125 1.237-.122.637-.553 1.028-1.182 1.171-.577.131-1.165.2-1.756.205-.656.004-1.31-.025-1.966-.022-.699.004-1.556-.06-2.095-.58-.475-.458-.54-1.174-.605-1.793l-.731-7.013-.322-3.094c-.037-.351-.286-.695-.678-.678-.336.015-.718.3-.678.679l.228 2.185.949 9.112c.147 1.344 1.174 2.068 2.446 2.272.742.12 1.503.144 2.257.156.966.016 1.942.053 2.892-.122 1.408-.258 2.465-1.198 2.616-2.657.34-3.332.683-6.663 1.024-9.995l.215-2.087a.484.484 0 0 1 .39-.426c.402-.078.787-.212 1.074-.518.455-.488.546-1.124.385-1.766zm-1.478.772c-.145.137-.363.201-.578.233-2.416.359-4.866.54-7.308.46-1.748-.06-3.477-.254-5.207-.498-.17-.024-.353-.055-.47-.18-.22-.236-.111-.71-.054-.995.052-.26.152-.609.463-.646.484-.057 1.046.148 1.526.22.577.088 1.156.159 1.737.212 2.48.226 5.002.19 7.472-.14.45-.06.899-.13 1.345-.21.399-.072.84-.206 1.08.206.166.281.188.657.162.974a.544.544 0 0 1-.169.364z" />
-            </svg>
-            Buy me a coffee
-          </a>
-          <div className="side-note">Open-source CS2 stats tracker</div>
-        </div>
-      </aside>
-
-      {/* ============ MAIN ============ */}
-      <div className="main">
-        <header className="topbar">
-          <button className="tb-burger" onClick={() => setSideOpen(true)} title="Menu">☰</button>
-          <div className="tb-search">
-            <span className="tb-ic">
+      <TopNav
+        groups={NAV}
+        mode={mode}
+        onNav={pickNav}
+        brandHref="/"
+        onBrand={() => { setMode("single"); navigate("/"); }}
+        search={
+          <>
+            <span className="tn-search-ic">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
               </svg>
@@ -980,10 +905,25 @@ export default function App() {
               onChange={setNickname}
               onPick={go}
               onEnter={() => smartSearch(nickname)}
-              placeholder="Find players: FACEIT nickname or Steam link…"
+              placeholder="Search player…"
             />
-          </div>
-          <div className="tb-actions">
+          </>
+        }
+        /* Hidden from the bar under 860px — the drawer carries them there. */
+        extras={
+          <>
+            <a className="tn-drawer-item" href="/news"
+               onClick={(e) => { e.preventDefault(); pickNav("news"); }}>
+              Status &amp; News
+            </a>
+            <a className="tn-drawer-item" href="/whatsnew"
+               onClick={(e) => { e.preventDefault(); pickNav("whatsnew"); }}>
+              What&apos;s New{changelog.unread ? " •" : ""}
+            </a>
+          </>
+        }
+        actions={
+          <>
             <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")} />
             <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
             <ThemeMenu theme={theme} setTheme={setTheme} />
@@ -1000,8 +940,12 @@ export default function App() {
                 }
               }}
             />
-          </div>
-        </header>
+          </>
+        }
+      />
+
+      {/* ============ MAIN ============ */}
+      <div className="main">
 
         <div className="content">
           {/* ---------- HOME HERO ---------- */}

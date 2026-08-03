@@ -21,7 +21,7 @@ SITE = "https://faceit-lens.com"
 # Overridable so a fork doesn't send traffic under this project's contact.
 CONTACT = os.environ.get("CONTACT_EMAIL", "coroamamh@gmail.com")
 
-USER_AGENT = f"FaceitLens/{VERSION} (CS2 stats tracker; +{SITE}; {CONTACT})"
+USER_AGENT = f"Faceit-Lens/{VERSION} (CS2 stats tracker; +{SITE}; {CONTACT})"
 HEADERS = {"User-Agent": USER_AGENT}
 
 
