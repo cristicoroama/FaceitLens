@@ -264,6 +264,12 @@ const TI = {
       <path d="M12 2 4 5.5v5.1c0 4.9 3.4 9.5 8 10.9 4.6-1.4 8-6 8-10.9V5.5L12 2Z" /><path d="m9 11.5 2.2 2.2L15.5 9" />
     </svg>
   ),
+  /* Magnifier with a plus — matches the mark on the Smurf Detector card. */
+  smurf: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10.5" cy="10.5" r="6.5" /><path d="m20 20-4.6-4.6M8 10.5h5M10.5 8v5" />
+    </svg>
+  ),
   leetify: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" />
@@ -429,6 +435,10 @@ function applyMeta(title, desc) {
 const PROFILE_TABS = [
   ["overview", "Overview", TI.overview],
   ["account", "Trust", TI.trust],
+  // Sits next to Trust: both answer "is this account what it looks like?".
+  // It used to open the Overview tab, where it pushed the actual stats below
+  // the fold for every player, most of whom aren't smurfs.
+  ["smurf", "Smurf", TI.smurf],
   ["leetify", "Leetify", TI.leetify],
   ["real", "Demos", TI.real],
   ["clips", "Clips", TI.clips],
@@ -1241,9 +1251,10 @@ export default function App() {
                 <SteamInfo steam={data.steam} />
               ) : profileTab === "nicknames" ? (
                 <Nicknames nicknames={data.nicknames} />
+              ) : profileTab === "smurf" ? (
+                <SmurfMeter data={data} leetifyBans={leetifyBans} />
               ) : (
                 <>
-                  <SmurfMeter data={data} leetifyBans={leetifyBans} />
                   <OverviewGrid
                     data={data}
                     maps={data.maps_played}
