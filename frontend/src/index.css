@@ -526,12 +526,15 @@ a { color: inherit; }
   .home-hero::before { opacity: 0.3; background-position: 72% center; }
 }
 
+/* Fade only — no transform. Scaling a 100vw layer on load makes the whole page
+   look like it's zooming out on every refresh, which is worse than having no
+   entrance at all. */
 @media (prefers-reduced-motion: no-preference) {
-  .home-hero::before { animation: heroIn 1.1s ease-out both; }
+  .home-hero::before { animation: heroIn 0.7s ease-out both; }
 }
 @keyframes heroIn {
-  from { opacity: 0; transform: scale(1.04); }
-  to { opacity: 0.55; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 0.55; }
 }
 .home-title {
   font-family: var(--font-display); font-weight: 700;
