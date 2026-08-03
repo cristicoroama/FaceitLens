@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -96,7 +97,7 @@ export default function Clubs({ onPick }) {
             <div className="club-hero-info">
               <div className="club-hero-name">{club.name}</div>
               <div className="club-hero-meta">
-                {club.owner && <span>👑 {club.owner}</span>}
+                {club.owner && <span>{Icon.award} {club.owner}</span>}
                 <span>{club.member_count} members</span>
               </div>
               {club.description && <div className="club-hero-desc">{club.description}</div>}

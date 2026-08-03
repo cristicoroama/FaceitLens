@@ -849,7 +849,7 @@ export default function App() {
 
               {favs.length > 0 && (
                 <div className="recent">
-                  <div className="recent-label">⭐ Favorites</div>
+                  <div className="recent-label">{Icon.star} Favorites</div>
                   <div className="recent-chips">
                     {favs.map((n) => (
                       <button key={n} className="recent-chip" onClick={() => go(n)}>{n}</button>
@@ -1014,22 +1014,28 @@ export default function App() {
               <BanBanner bans={data.bans} />
               <PlayerHeader player={data}>
                 <button className={`act-btn ${isFav ? "on" : ""}`} onClick={onToggleFav}>
-                  {isFav ? "★ Favorited" : "☆ Favorite"}
+                  {isFav ? Icon.starFill : Icon.star}
+                  {isFav ? "Favorited" : "Favorite"}
                 </button>
                 <button className="act-btn" onClick={share}>
-                  {copied ? "✓ Copied" : "🔗 Share"}
+                  {copied ? Icon.checkLg : Icon.link45deg}
+                  {copied ? "Copied" : "Share"}
                 </button>
                 <button className="act-btn ai" onClick={runAnalysis} disabled={aiLoading}>
-                  {aiLoading ? "Analyzing…" : "✨ AI Analysis"}
+                  {Icon.stars}
+                  {aiLoading ? "Analyzing…" : "AI Analysis"}
                 </button>
                 <button className="act-btn roast" onClick={runRoast} disabled={roastLoading}>
-                  {roastLoading ? "Cooking…" : "🔥 Roast me"}
+                  {Icon.fire}
+                  {roastLoading ? "Cooking…" : "Roast me"}
                 </button>
                 <button className="act-btn" onClick={() => setShowCard(true)}>
-                  🖼️ Share card
+                  {Icon.cardImage}
+                  Share card
                 </button>
                 <button className="act-btn wrapped-btn" onClick={() => setShowWrapped(true)}>
-                  🎬 Wrapped
+                  {Icon.cameraReels}
+                  Wrapped
                 </button>
                 {data.form && <span className="form-badge">Last 10: {data.form}</span>}
               </PlayerHeader>
@@ -1040,7 +1046,7 @@ export default function App() {
               {aiError && <div className="state error">{aiError}</div>}
               {aiText && (
                 <div className="ai-panel">
-                  <div className="ai-panel-head">✨ AI Scouting Report</div>
+                  <div className="ai-panel-head">{Icon.stars} AI Scouting Report</div>
                   <div className="ai-panel-body">{aiText}</div>
                 </div>
               )}
@@ -1049,7 +1055,7 @@ export default function App() {
               {roastText && (
                 <div className="roast-panel">
                   <div className="roast-panel-head">
-                    <span>🔥 Roasted</span>
+                    <span>{Icon.fire} Roasted</span>
                     <button className="roast-copy" onClick={copyRoast}>
                       {roastCopied ? "✓ Copied" : "Copy & share"}
                     </button>

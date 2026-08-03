@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { WEAPONS, TRIVIA } from "../games-data.js";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const ROUND = 10;
@@ -119,12 +120,12 @@ export default function Games() {
     return (
       <div className="games-pick">
         <div className="game-card" onClick={() => start("price")}>
-          <div className="game-card-icon">💰</div>
+          <div className="game-card-icon">{Icon.cashCoin}</div>
           <div className="game-card-title">Guess the Price</div>
           <div className="game-card-desc">How well do you know the CS2 buy menu?</div>
         </div>
         <div className="game-card" onClick={() => start("trivia")}>
-          <div className="game-card-icon">🧠</div>
+          <div className="game-card-icon">{Icon.lightbulb}</div>
           <div className="game-card-title">CS Trivia</div>
           <div className="game-card-desc">Test your Counter-Strike knowledge.</div>
         </div>
@@ -163,7 +164,7 @@ export default function Games() {
             <button onClick={submit}>Submit</button>
           </div>
         ) : (
-          <div className="state" style={{ padding: "10px 0" }}>Score submitted! 🎉</div>
+          <div className="state" style={{ padding: "10px 0" }}>Score submitted!</div>
         )}
         <Leaderboard game={game} refresh={refresh} />
         <div className="game-again">

@@ -79,7 +79,7 @@ export default function Watchlist({ favs, user, onPick }) {
 
       {!loading && rows.length === 0 && (
         <div className="state">
-          No favorites yet. Open a player and hit ☆ Favorite to add them here.
+          No favorites yet. Open a player and hit Favorite to add them here.
         </div>
       )}
 

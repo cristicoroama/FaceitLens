@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import { DISCORD_INVITE } from "../links.js";
+import { Icon } from "../icons.jsx";
 
 /**
  * Top navigation bar. Replaces the old left sidebar, which had outgrown
@@ -172,7 +173,7 @@ export default function TopNav({
           <div className="tn-drawer" role="dialog" aria-label="Menu">
             <div className="tn-drawer-head">
               <span>Menu</span>
-              <button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button>
+              <button onClick={() => setDrawer(false)} aria-label="Close menu">{Icon.xLg}</button>
             </div>
 
             {groups.map((g) => (

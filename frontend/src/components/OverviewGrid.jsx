@@ -1,4 +1,5 @@
 import CountUp from "./CountUp.jsx";
+import { Icon } from "../icons.jsx";
 
 /* mini stroke icons for the stat cards */
 const IC = {
@@ -59,7 +60,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
   return (
     <>
       {sess && sess.tilt && (
-        <div className="tilt-warn">🚨 Tilt warning — {sess.losses} losses this session, take a break</div>
+        <div className="tilt-warn">{Icon.exclamationTriangle} Tilt warning — {sess.losses} losses this session, take a break</div>
       )}
 
       <div className="ov-head">

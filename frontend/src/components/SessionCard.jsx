@@ -1,9 +1,11 @@
+import { Icon } from "../icons.jsx";
+
 export default function SessionCard({ streak, session }) {
   if (!streak && !session) return null;
   return (
     <div className="session-card">
       {session && session.tilt && (
-        <div className="tilt-warn">🚨 Tilt warning — {session.losses} losses, take a break</div>
+        <div className="tilt-warn">{Icon.exclamationTriangle} Tilt warning — {session.losses} losses, take a break</div>
       )}
       <div className="session-row">
         {streak && (

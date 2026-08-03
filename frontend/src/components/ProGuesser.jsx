@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { PROS } from "../pros-data.js";
 import { Flag } from "./RankIcons.jsx";
+import { Icon } from "../icons.jsx";
 
 const KEY = "faceitlens_proguesser";
 const MAX_TRIES = 8;
@@ -121,7 +122,7 @@ export default function ProGuesser() {
         </div>
       </div>
 
-      {streak > 0 && <div className="pg-streak">🔥 Win streak: <b>{streak}</b></div>}
+      {streak > 0 && <div className="pg-streak">{Icon.fire} Win streak: <b>{streak}</b></div>}
 
       {!done && (
         <div className="pg-search">

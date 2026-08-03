@@ -50,7 +50,7 @@ export default function EloProjector({ elo, winRate }) {
 
       {curLevel >= 10 ? (
         <div className="state" style={{ padding: "16px 0" }}>
-          Already level 10 — nothing left to climb. Just don't fall off. 🧗
+          Already level 10 — nothing left to climb. Just don't fall off.
         </div>
       ) : (
         <>

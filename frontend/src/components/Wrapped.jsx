@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FaceitLevel } from "./RankIcons.jsx";
+import { Icon } from "../icons.jsx";
 
 /** Build the slide list from a player summary. Skips slides with no data. */
 function buildSlides(p) {
@@ -129,7 +130,7 @@ export default function Wrapped({ player, onClose }) {
         ))}
       </div>
 
-      <button className="wrap-close" onClick={onClose} title="Close (Esc)">✕</button>
+      <button className="wrap-close" onClick={onClose} title="Close (Esc)">{Icon.xLg}</button>
 
       {/* tap zones */}
       <div className="wrap-tap left" onClick={prev} />

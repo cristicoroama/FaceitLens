@@ -4,6 +4,8 @@ import {
   CartesianGrid, ReferenceLine,
 } from "recharts";
 
+import { Icon } from "../icons.jsx";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const RANGES = [
@@ -80,7 +82,7 @@ export default function EloProgress({ handle, isOwner }) {
       <div className="panel">
         <div className="panel-head"><h2 className="panel-title">ELO progress</h2></div>
         <div className="empty-state">
-          <div className="empty-ico">📈</div>
+          <div className="empty-ico">{Icon.graphUpArrow}</div>
           <h3>Building your history</h3>
           <p>
             {isOwner

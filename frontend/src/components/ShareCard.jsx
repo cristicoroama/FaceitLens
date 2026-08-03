@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "../icons.jsx";
 
 const S = 1080; // square canvas — works for stories, posts, Discord
 
@@ -173,13 +174,13 @@ export default function ShareCard({ player, onClose }) {
   return (
     <div className="hltv-modal-backdrop" onClick={onClose}>
       <div className="sharecard-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="hltv-modal-close" onClick={onClose} title="Close">✕</button>
+        <button className="hltv-modal-close" onClick={onClose} title="Close">{Icon.xLg}</button>
         <div className="sharecard-preview">
           <canvas ref={canvasRef} width={S} height={S} className="sharecard-canvas" />
           {!ready && <div className="sharecard-loading">Rendering card…</div>}
         </div>
         <button className="btn-primary sharecard-dl" onClick={download} disabled={!ready}>
-          ⬇ Download PNG
+          {Icon.download} Download PNG
         </button>
         <div className="sharecard-hint">Post it on your story, Twitter or Discord.</div>
       </div>
