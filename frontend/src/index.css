@@ -678,20 +678,29 @@ a { color: inherit; }
 
 /* ---- cover banner (the player's own FACEIT profile image) ---- */
 .ph-cover { position: absolute; inset: 0 0 auto 0; height: 100%; overflow: hidden; }
-.ph-cover img {
-  width: 100%; height: 100%; object-fit: cover; object-position: center 28%;
-  /* Covers are arbitrary user images, so they still need taming — but the
-     first pass crushed them to near-black and the picture was lost. Keep
-     most of the colour and let the scrim below do the contrast work. */
-  filter: grayscale(0.45) brightness(0.45);
+.ph-cover img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Backdrop: same picture, cropped to fill and blurred past recognition. The
+   scale hides the soft edges blur leaves at the boundary. */
+.ph-cover-blur {
+  object-fit: cover; object-position: center;
+  filter: blur(26px) grayscale(0.4) brightness(0.5); transform: scale(1.2);
+}
+/* The picture itself, whole — `contain` fits it inside the band instead of
+   cropping it, which is why a tall cover only showed a slice before. */
+.ph-cover-main {
+  object-fit: contain; object-position: center;
+  /* Covers are arbitrary user images, so they still need taming — but not so
+     much that the picture is lost. The scrim below does the contrast work. */
+  filter: grayscale(0.2) brightness(0.82);
 }
 /* Fade the bottom so the banner dissolves into the card instead of ending
    on a hard line, and keep a floor of contrast behind the text. */
 .ph-cover::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg-elev) 40%, transparent) 0%,
-    color-mix(in srgb, var(--bg-elev) 78%, transparent) 58%,
+    color-mix(in srgb, var(--bg-elev) 24%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elev) 66%, transparent) 58%,
     var(--bg-elev) 100%);
 }
 /* Light theme is the harder case: the text is dark, so the photo has to be
@@ -761,9 +770,21 @@ a { color: inherit; }
   color: var(--text-dim); font-size: 10.5px; letter-spacing: 2.5px;
   text-transform: uppercase; font-weight: 700;
 }
+/* The rank art sits with the number it belongs to — the level was only on the
+   avatar before, where it read as part of the picture rather than the stat. */
+.ph-elo-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  margin-top: 3px;
+}
+.ph-elo-row .fl-icon { flex-shrink: 0; }
 .ph-elo-value {
   font-family: var(--font-display); font-weight: 700; font-size: 46px; line-height: 1.05;
   color: var(--accent);
+}
+@media (max-width: 640px) {
+  .ph-elo-row { gap: 9px; }
+  .ph-elo-row .fl-icon { width: 34px; height: 34px; }
+  .ph-elo-value { font-size: 34px; }
 }
 .acct-badge {
   display: inline-flex; align-items: center; margin-left: 9px; padding: 3px 9px;

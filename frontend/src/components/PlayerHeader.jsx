@@ -51,7 +51,14 @@ export default function PlayerHeader({ player, children }) {
           itself and the plain card underneath is what's left. */}
       {player.cover && (
         <div className="ph-cover" aria-hidden="true">
+          {/* Covers come in every aspect ratio there is. Cropping to fill hid
+              most of a tall one; letterboxing shows all of it but leaves dead
+              space. So: the whole image sits centred on top of a blurred,
+              zoomed copy of itself, which fills the gaps with something that
+              belongs to the picture. */}
+          <img className="ph-cover-blur" src={player.cover} alt="" loading="lazy" />
           <img
+            className="ph-cover-main"
             src={player.cover}
             alt=""
             loading="lazy"
@@ -131,7 +138,10 @@ export default function PlayerHeader({ player, children }) {
             </div>
           )}
           <div className="ph-elo-label">Faceit ELO</div>
-          <div className="ph-elo-value"><CountUp value={player.elo} /></div>
+          <div className="ph-elo-row">
+            <FaceitLevel level={player.skill_level} size={46} />
+            <div className="ph-elo-value"><CountUp value={player.elo} /></div>
+          </div>
         </div>
       </div>
 

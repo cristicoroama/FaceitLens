@@ -1,5 +1,7 @@
 // Official rank/flag artwork served from /public/ranks and /public/flags.
 
+import { useId } from "react";
+
 const SKILL_GROUPS = [
   "Unranked",
   "Silver I", "Silver II", "Silver III", "Silver IV", "Silver Elite", "Silver Elite Master",
@@ -12,19 +14,83 @@ export function groupName(rank) {
   return SKILL_GROUPS[Number(rank)] || `Rank ${rank}`;
 }
 
-/** Official FACEIT level icon (1-10). */
+/* FACEIT's level bands as the two-stop vertical gradient the real badge uses:
+   grey at 1, green 2-3, yellow 4-7, orange 8-9, red at 10. Levels 7 and 10 are
+   the exact values off FACEIT's own markup; the rest follow the same pattern
+   of a bright stop over a roughly 70%-luminance one. */
+const LEVEL_GRADIENT = {
+  1: ["#d4d4d4", "#8f8f8f"],
+  2: ["#32e15f", "#1a8f38"], 3: ["#32e15f", "#1a8f38"],
+  4: ["#ffc400", "#b57e00"], 5: ["#ffc400", "#b57e00"],
+  6: ["#ffc400", "#b57e00"], 7: ["#ffc400", "#b57e00"],
+  8: ["#ff7a26", "#b54400"], 9: ["#ff7a26", "#b54400"],
+  10: ["#ff5a4d", "#b3160b"],
+};
+
+/* An open arc, not a closed ring: it starts bottom-left, sweeps over the top
+   and ends bottom-right, leaving the gap that makes it read as a gauge. */
+const ARC = "M 6.5, 18.4 A 8.4, 8.4 0 1 1 17.5, 18.4";
+
+/**
+ * FACEIT level badge, drawn rather than served as a PNG so it stays sharp at
+ * any size.
+ *
+ * The arc shows the level out of ten — level 7 fills seven tenths — which is
+ * what FACEIT's own badge does. It deliberately does NOT track ELO progress
+ * within the level: that would make two level-7 players show different badges
+ * for the same rank.
+ */
 export function FaceitLevel({ level, size = 34 }) {
   const lvl = Math.max(1, Math.min(10, Number(level) || 1));
+  const [from, to] = LEVEL_GRADIENT[lvl];
+  // Gradient ids are document-global, so two badges on one page would share
+  // whichever was defined last. useId keeps each instance's own.
+  const uid = useId().replace(/:/g, "");
+  // A touch over 10 at max, so the arc closes cleanly instead of leaving a
+  // hairline gap at the end.
+  const fill = lvl === 10 ? 10.1 : lvl;
+
   return (
-    <img
+    <svg
       className="fl-icon"
-      src={`/ranks/faceit/${lvl}.png`}
-      alt={`FACEIT level ${lvl}`}
-      title={`FACEIT level ${lvl}`}
+      viewBox="0 0 24 24"
       width={size}
       height={size}
-      loading="lazy"
-    />
+      fill="none"
+      role="img"
+      aria-label={`FACEIT level ${lvl}`}
+    >
+      <title>{`FACEIT level ${lvl}`}</title>
+      <defs>
+        <radialGradient id={`flt${uid}`} cx="0.5" cy="0.5" r="0.55">
+          <stop offset="0.4" stopColor="#5d5d5d" />
+          <stop offset="1" stopColor="#242424" />
+        </radialGradient>
+        <linearGradient id={`flf${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0.5" stopColor={from} />
+          <stop offset="1" stopColor={to} />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="12" fill="#060606" />
+      <path d={ARC} stroke={`url(#flt${uid})`} strokeWidth="2.4" />
+      {/* pathLength=10 lets the dash array be read straight as "level of ten" */}
+      <path
+        d={ARC}
+        stroke={`url(#flf${uid})`}
+        strokeWidth="2.4"
+        pathLength="10"
+        strokeDasharray={`${fill} 10000`}
+      />
+      <text
+        x="50%" y="49%" fill={`url(#flf${uid})`}
+        style={{
+          fontSize: "8px", fontFamily: "sans-serif", fontWeight: "bold",
+          textAnchor: "middle", dominantBaseline: "central",
+        }}
+      >
+        {lvl}
+      </text>
+    </svg>
   );
 }
 
