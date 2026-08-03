@@ -1661,10 +1661,22 @@ a { color: inherit; }
 
 @media (max-width: 640px) {
   .ph-top { flex-wrap: wrap; gap: 14px; padding: 20px 18px 16px; }
+  /* The block goes full width and left-aligns here, so everything inside it
+     has to follow — the ELO row still justified right, which is why the
+     label sat far left with the number far right. */
   .ph-elo { width: 100%; text-align: left; }
+  .ph-elo-row { justify-content: flex-start; }
+  .ph-challenger { justify-content: flex-start; }
   .ph-elo-value.premier { justify-content: flex-start; }
   .ph-name { font-size: 23px; }
   .ph-actions { padding: 12px 18px; }
+
+  /* A portrait card crops a wide banner far harder than a desktop one does,
+     so whatever lands in frame is much busier. Dim the picture and lean on
+     the rows instead of letting it fight five columns of numbers. */
+  .ph-cover img { filter: grayscale(0.35) brightness(0.42); }
+  .ph-strip, .ph-progress { background: color-mix(in srgb, var(--bg-elev) 88%, transparent); }
+  .ph-actions { background: color-mix(in srgb, var(--bg-elev) 90%, transparent); }
   .stats-grid, .sk-grid { grid-template-columns: repeat(2, 1fr); }
   .ravg { grid-template-columns: repeat(3, 1fr); }
   .session-row, .squad-summary { grid-template-columns: 1fr; }
