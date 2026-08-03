@@ -677,31 +677,23 @@ a { color: inherit; }
    with a real cover image behind it, two moving backgrounds fought. */
 
 /* ---- cover banner (the player's own FACEIT profile image) ---- */
-.ph-cover { position: absolute; inset: 0 0 auto 0; height: 100%; overflow: hidden; }
-.ph-cover img { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-/* Backdrop: same picture, cropped to fill and blurred past recognition. The
-   scale hides the soft edges blur leaves at the boundary. */
-.ph-cover-blur {
-  object-fit: cover; object-position: center;
-  filter: blur(26px) grayscale(0.4) brightness(0.5); transform: scale(1.2);
+/* The cover spans the whole card now, not just the name row, so the picture
+   reads as one image behind everything. */
+.ph-cover { position: absolute; inset: 0; overflow: hidden; }
+.ph-cover img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center 28%;
+  /* Covers are arbitrary user images, so they still need taming — enough that
+     text stays legible over them, not so much that the picture is lost. */
+  filter: grayscale(0.2) brightness(0.72);
 }
-/* The picture itself, whole — `contain` fits it inside the band instead of
-   cropping it, which is why a tall cover only showed a slice before. */
-.ph-cover-main {
-  object-fit: contain; object-position: center;
-  /* Covers are arbitrary user images, so they still need taming — but not so
-     much that the picture is lost. The scrim below does the contrast work. */
-  filter: grayscale(0.2) brightness(0.82);
-}
-/* Fade the bottom so the banner dissolves into the card instead of ending
-   on a hard line, and keep a floor of contrast behind the text. */
+/* A gentle vertical wash rather than a fade to solid: the rows below are
+   translucent now, so this is the only thing holding contrast for them. */
 .ph-cover::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg-elev) 24%, transparent) 0%,
-    color-mix(in srgb, var(--bg-elev) 66%, transparent) 58%,
-    var(--bg-elev) 100%);
+    color-mix(in srgb, var(--bg-elev) 22%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elev) 34%, transparent) 55%,
+    color-mix(in srgb, var(--bg-elev) 45%, transparent) 100%);
 }
 /* Light theme is the harder case: the text is dark, so the photo has to be
    lifted, not dimmed. Dimming it (the first attempt) made text harder to
@@ -713,7 +705,7 @@ a { color: inherit; }
 .ph-top {
   position: relative; z-index: 2;
   display: flex; align-items: center; gap: 20px;
-  min-height: 210px; padding: 26px 28px 22px;
+  min-height: 150px; padding: 24px 28px 20px;
 }
 @media (max-width: 640px) {
   .ph-top { min-height: 0; padding: 20px 18px 16px; }
@@ -804,7 +796,7 @@ a { color: inherit; }
 .ph-actions {
   position: relative; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   padding: 14px 28px; border-top: 1px solid var(--glass-brd);
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
   z-index: 2;
 }
 .act-btn {
@@ -1927,8 +1919,10 @@ body, .topnav, .card, .squad-row, .rank-card,
   position: relative; z-index: 2;
   display: grid; grid-template-columns: repeat(5, 1fr);
   border-top: 1px solid var(--glass-brd);
-  /* Solid: the cover belongs behind the name, not behind the numbers. */
-  background: var(--bg-elev);
+  /* Translucent so the cover reads through the whole card. The numbers stay
+     legible because the picture underneath is dimmed, not because this hides
+     it. */
+  background: color-mix(in srgb, var(--bg-elev) 62%, transparent);
 }
 .ps { padding: 15px 10px 13px; text-align: center; border-right: 1px solid var(--glass-brd); }
 .ps:last-child { border-right: none; }
@@ -1942,7 +1936,7 @@ body, .topnav, .card, .squad-row, .rank-card,
 .ph-progress {
   position: relative; z-index: 2;
   padding: 13px 28px 15px; border-top: 1px solid var(--glass-brd);
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg-elev) 62%, transparent);
 }
 .ph-progress .lvlprog-text { margin-bottom: 8px; font-size: 12.5px; }
 @media (max-width: 640px) {
