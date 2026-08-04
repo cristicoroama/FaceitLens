@@ -23,6 +23,10 @@ const ENDPOINTS = [
       { m: "GET", path: "/api/squad/?players={a,b,c}", desc: "Combined stats for a group of players and matches played together.", ex: "/api/squad/?players=s1mple,ZywOo,NiKo" },
       { m: "GET", path: "/api/met/?p1={a}&p2={b}", desc: "Whether two players have crossed paths recently (together / against).", ex: "/api/met/?p1=s1mple&p2=b1t" },
       { m: "GET", path: "/api/hubs/?q={name}", desc: "Search FACEIT hubs by name.", ex: "/api/hubs/?q=ESEA" },
+      { m: "GET", path: "/api/teams/?q={name}", desc: "Search FACEIT teams by name.", ex: "/api/teams/?q=NAVI" },
+      { m: "GET", path: "/api/hub/{id}/ranking/", desc: "A hub's ladder, all-time or by season.", ex: "/api/hub/{id}/ranking/" },
+      { m: "GET", path: "/api/competitions/", desc: "Browse CS2 championships, or search with ?q=.", ex: "/api/competitions/" },
+      { m: "GET", path: "/api/organizer/{id}/", desc: "An organiser and everything they run.", ex: "/api/organizer/{id}/" },
     ],
   },
   {

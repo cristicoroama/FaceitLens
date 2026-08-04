@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "../icons.jsx";
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
+import { getJson } from "../api.js";
 
 function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
@@ -13,15 +12,46 @@ export default function Hubs({ onPick }) {
   const [hub, setHub] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // True while the list is FACEIT's busiest hubs rather than search results.
+  const [popular, setPopular] = useState(false);
+  // A hub can run several ladders: one all-time, plus one per season.
+  const [boards, setBoards] = useState([]);
+  const [season, setSeason] = useState(null);   // null = all-time
+  const [rank, setRank] = useState(null);
+  const [rankLoading, setRankLoading] = useState(false);
+
+  async function loadRanking(hubId, seasonKey) {
+    setRankLoading(true);
+    try {
+      const qs = seasonKey ? `?season=${encodeURIComponent(seasonKey)}` : "";
+      const json = await getJson(`/api/hub/${encodeURIComponent(hubId)}/ranking/${qs}`);
+      setRank(json);
+    } catch { setRank(null); }
+    finally { setRankLoading(false); }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const json = await getJson(`/api/hubs/`);
+        if (!cancelled) {
+          setResults(json.items || []);
+          setPopular(true);
+        }
+      } catch { /* the search box still works */ }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function search() {
     const query = q.trim();
     if (!query) return;
-    setLoading(true); setError(""); setHub(null); setResults([]);
+    setLoading(true); setError(""); setHub(null); setResults([]); setPopular(false);
     try {
-      const resp = await fetch(`${API_BASE}/api/hubs/?q=${encodeURIComponent(query)}`);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      const json = await getJson(`/api/hubs/?q=${encodeURIComponent(query)}`);
       setResults(json.items || []);
       if ((json.items || []).length === 0) setError("No hubs found.");
     } catch (e) { setError(e.message); }
@@ -31,10 +61,19 @@ export default function Hubs({ onPick }) {
   async function openHub(h) {
     setLoading(true); setError(""); setResults([]);
     try {
-      const resp = await fetch(`${API_BASE}/api/hub/${encodeURIComponent(h.hub_id)}/`);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      const json = await getJson(`/api/hub/${encodeURIComponent(h.hub_id)}/`);
       setHub(json);
+
+      // Ladders are a separate call and plenty of hubs don't run one, so a
+      // failure here must leave the hub profile standing.
+      setBoards([]); setRank(null); setSeason(null);
+      try {
+        const lj = await getJson(`/api/hub/${encodeURIComponent(h.hub_id)}/leaderboards/`);
+        if ((lj.items || []).length) {
+          setBoards(lj.items);
+          loadRanking(h.hub_id, null);
+        }
+      } catch { /* no ladder for this hub */ }
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
@@ -69,14 +108,26 @@ export default function Hubs({ onPick }) {
       {error && <div className="state error">{error}</div>}
       {loading && <div className="state">Loading…</div>}
 
+      {results.length > 0 && popular && (
+        <div className="section-title">
+          Busiest hubs <span className="section-count">or search above</span>
+        </div>
+      )}
       {results.length > 0 && (
         <div className="lrows stagger">
           {results.map((c) => (
             <div className="lrow lrow-click" key={c.hub_id} onClick={() => openHub(c)}>
-              {/* Hub search returns no image at all — only the detail endpoint
-                  has one — so the row leans on initials plus the facts that
-                  actually help you pick: who runs it and how busy it is. */}
-              <div className="lrow-ava">{initials(c.name)}</div>
+              {/* Hub *search* carries no image; the backend backfills it from
+                  the detail endpoint, so this is populated most of the time.
+                  Initials remain the fallback. */}
+              {c.avatar ? (
+                <img className="lrow-ava img" src={c.avatar} alt="" loading="lazy"
+                  onError={(e) => { e.currentTarget.replaceWith(
+                    Object.assign(document.createElement("div"),
+                      { className: "lrow-ava", textContent: initials(c.name) })); }} />
+              ) : (
+                <div className="lrow-ava">{initials(c.name)}</div>
+              )}
               <div className="lrow-main">
                 <div className="lrow-name">{c.name}</div>
                 <div className="lrow-sub">
@@ -116,6 +167,70 @@ export default function Hubs({ onPick }) {
               {hub.description && <div className="hub-hero-desc">{hub.description}</div>}
             </div>
           </div>
+
+          {boards.length > 0 && (
+            <>
+              <div className="section-title">
+                Ranking
+                {rank?.items?.length ? (
+                  <span className="section-count">top {rank.items.length}</span>
+                ) : null}
+              </div>
+
+              {/* Only worth a switcher when the hub actually runs seasons. */}
+              {boards.some((b) => b.season) && (
+                <div className="hub-seasons">
+                  <button
+                    className={`hub-season ${season === null ? "on" : ""}`}
+                    onClick={() => { setSeason(null); loadRanking(hub.hub_id, null); }}
+                  >
+                    All-time
+                  </button>
+                  {boards.filter((b) => b.season).map((b) => (
+                    <button
+                      key={b.leaderboard_id}
+                      className={`hub-season ${season === b.season ? "on" : ""}`}
+                      onClick={() => { setSeason(b.season); loadRanking(hub.hub_id, b.season); }}
+                    >
+                      {b.name || `Season ${b.season}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {rankLoading && <div className="state">Loading ranking…</div>}
+              {!rankLoading && rank?.items?.length === 0 && (
+                <div className="state">Nobody has placed on this ladder yet.</div>
+              )}
+              {!rankLoading && rank?.items?.length > 0 && (
+                <div className="lrows">
+                  {rank.items.map((r) => (
+                    <div
+                      className="lrow lrow-click"
+                      key={`${r.position}-${r.nickname}`}
+                      onClick={() => r.nickname && onPick(r.nickname)}
+                    >
+                      <span className="hub-pos">#{r.position}</span>
+                      {r.avatar ? (
+                        <img className="lrow-ava img" src={r.avatar} alt="" loading="lazy" />
+                      ) : (
+                        <div className="lrow-ava">{initials(r.nickname)}</div>
+                      )}
+                      <div className="lrow-main">
+                        <div className="lrow-name">{r.nickname}</div>
+                        <div className="lrow-sub">
+                          <span>{r.played} played</span>
+                          <span>{r.won}W {r.lost}L</span>
+                          {r.win_rate != null && <span>{r.win_rate}% win rate</span>}
+                        </div>
+                      </div>
+                      <span className="hub-points">{r.points}<small>pts</small></span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
 
           <div className="section-title">Members <span className="section-count">{hub.members.length}</span></div>
           {hub.members.length === 0 ? (

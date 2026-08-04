@@ -25,6 +25,8 @@ import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
 import NewsPage from "./components/NewsPage.jsx";
 import Hubs from "./components/Hubs.jsx";
+import Teams from "./components/Teams.jsx";
+import Competitions from "./components/Competitions.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
 import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
@@ -136,6 +138,10 @@ const NAV = [
       hint: "Look up your whole team at once" },
     { id: "hubs", label: "Hubs", href: "/hubs", icon: Icon.diagram3,
       hint: "Find a community and see who plays there" },
+    { id: "teams", label: "Teams", href: "/teams", icon: Icon.people,
+      hint: "Rosters and records — NAVI, FaZe, anyone" },
+    { id: "competitions", label: "Competitions", href: "/competitions", icon: Icon.trophy,
+      hint: "Championships, tournaments and brackets" },
     { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: Icon.star,
       hint: "Track players you care about" },
   ]},
@@ -209,7 +215,7 @@ const HOME_FEATURES = [
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
-  "squad", "hubs", "proguesser", "games", "docs",
+  "squad", "hubs", "teams", "competitions", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew", "feedback", "privacy", "terms", "faq",
 ]);
@@ -245,6 +251,10 @@ const PAGE_META = {
     "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
   squad: ["Squad Stats — Look Up Your CS2 Team",
     "Check your whole CS2 squad at once. Enter nicknames and get every player's FACEIT ELO and stats on one page."],
+  competitions: ["CS2 Championships & Tournaments on FACEIT",
+    "Browse open CS2 championships and tournaments, see brackets, final standings and who organises them."],
+  teams: ["FACEIT Teams — Rosters, Records & Map Stats",
+    "Search any FACEIT CS2 team: roster, win rate, best maps and every player's stats."],
   hubs: ["FACEIT Hubs — Find CS2 Communities",
     "Search FACEIT hubs by name, see who plays there and open any member's stats. Find an active CS2 community to queue in."],
   proguesser: ["ProGuesser — Guess the CS2 Pro Game",
@@ -988,6 +998,8 @@ export default function App() {
           {mode === "prosettings" && <ProSettings />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
           {mode === "hubs" && <Hubs onPick={go} />}
+          {mode === "teams" && <Teams onPick={go} />}
+          {mode === "competitions" && <Competitions onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}

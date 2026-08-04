@@ -831,6 +831,11 @@ def search_hubs(query, limit=8):
     error was swallowed, so the feature looked like it simply found nothing.
     Errors now propagate so a broken query says so instead of going quiet.
     """
+    cache_key = f"hubsearch:{query.lower()}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
     data = _get(
         "/search/hubs",
         params={"name": query, "game": GAME, "offset": 0, "limit": limit},
@@ -842,14 +847,87 @@ def search_hubs(query, limit=8):
             # — the detail endpoint is the one that calls it hub_id.
             "hub_id": it.get("competition_id"),
             "name": it.get("name"),
-            # Search returns no image of any kind; only the detail endpoint
-            # carries avatar/cover. The UI shows initials here instead.
+            # Not in the documented schema, but take it if the API sends it
+            # anyway; _fill_hub_avatars covers the case where it doesn't.
+            "avatar": it.get("avatar") or it.get("logo") or None,
             "game": it.get("game"),
             "region": it.get("region"),
             "members": it.get("number_of_members") or it.get("players_joined"),
             "organizer": it.get("organizer_name") or None,
         })
-    return [h for h in out if h["hub_id"] and h["name"]][:limit]
+    hubs = [h for h in out if h["hub_id"] and h["name"]][:limit]
+    _fill_hub_avatars(hubs)
+    cache.set(cache_key, hubs, 10 * 60)
+    return hubs
+
+
+def _fill_hub_avatars(hubs):
+    """Backfill avatars that hub *search* doesn't return but hub *detail* does.
+
+    Hubs do have artwork — it just isn't in the search payload, so results
+    would otherwise be a wall of initials. One small detail call per result,
+    in parallel, and each is cached on its own so repeat searches are free.
+    """
+    missing = [h for h in hubs if not h.get("avatar")]
+    if not missing:
+        return
+
+    def one(h):
+        ck = f"hubava:{h['hub_id']}"
+        hit = cache.get(ck)
+        if hit is None:
+            try:
+                data = _get(f"/hubs/{h['hub_id']}")
+                hit = data.get("avatar") or ""
+            except FaceitError:
+                hit = ""          # cache the miss too; don't retry every search
+            cache.set(ck, hit, 24 * 60 * 60)
+        h["avatar"] = hit or None
+
+    with ThreadPoolExecutor(max_workers=min(8, len(missing))) as pool:
+        list(pool.map(one, missing))
+
+
+# FACEIT has no "list all hubs" endpoint — /search/hubs requires a name. So a
+# "popular" list has to be assembled from real searches. These seeds are broad
+# terms that big public hubs tend to have in their names; results are merged,
+# deduped and ranked by actual member count, so the ordering is real data even
+# though the candidate pool is seeded by hand.
+POPULAR_HUB_SEEDS = [
+    "FACEIT", "ESEA", "CS2", "Premier", "Community",
+    "League", "Europe", "Hub", "Elite", "Pro",
+]
+
+
+def popular_hubs(limit=10):
+    """A browsable list of busy CS2 hubs, for when nobody has searched yet."""
+    cache_key = f"hubspopular:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    found = {}
+
+    def seed(term):
+        try:
+            return search_hubs(term, limit=8)
+        except FaceitError:
+            return []
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        for batch in pool.map(seed, POPULAR_HUB_SEEDS):
+            for h in batch:
+                # Keep whichever copy reports the most members; different
+                # searches can return the same hub with stale counts.
+                cur = found.get(h["hub_id"])
+                if cur is None or (h.get("members") or 0) > (cur.get("members") or 0):
+                    found[h["hub_id"]] = h
+
+    ranked = sorted(found.values(), key=lambda h: h.get("members") or 0, reverse=True)[:limit]
+    _fill_hub_avatars(ranked)
+    # Membership barely moves hour to hour, and this costs ~10 API calls.
+    cache.set(cache_key, ranked, 6 * 60 * 60)
+    return ranked
 
 
 def get_hub(hub_id):
@@ -884,6 +962,391 @@ def get_hub(hub_id):
         "max_level": hub.get("max_skill_level"),
         "member_count": len(members),
         "members": members,
+    }
+
+
+def search_teams(query, limit=10):
+    """Search FACEIT teams by name.
+
+    This is what people actually mean when they type "NAVI" or "FaZe" — those
+    are teams, not hubs, and until now the site had nowhere to put them.
+    Unlike hub search, this one does return an avatar.
+    """
+    cache_key = f"teamsearch:{query.lower()}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    data = _get(
+        "/search/teams",
+        params={"nickname": query, "game": GAME, "offset": 0, "limit": limit},
+    )
+    out = []
+    for it in data.get("items", []):
+        out.append({
+            "team_id": it.get("team_id"),
+            "name": it.get("name"),
+            "avatar": it.get("avatar") or None,
+            "verified": bool(it.get("verified")),
+            "game": it.get("game"),
+        })
+    out = [t for t in out if t["team_id"] and t["name"]][:limit]
+    cache.set(cache_key, out, 10 * 60)
+    return out
+
+
+def get_team(team_id):
+    """A team's profile, roster and CS2 stats."""
+    cache_key = f"team:{team_id}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    team = _get(f"/teams/{team_id}")
+
+    members = []
+    for m in team.get("members") or []:
+        members.append({
+            "player_id": m.get("user_id") or m.get("player_id"),
+            "nickname": m.get("nickname"),
+            "avatar": m.get("avatar") or None,
+        })
+
+    # Stats are a separate call and many teams have never played a match, so a
+    # miss here must not take the profile down with it.
+    stats = None
+    try:
+        raw = _get(f"/teams/{team_id}/stats/{GAME}")
+        life = raw.get("lifetime") or {}
+        stats = {
+            "matches": _to_int(life.get("Matches")),
+            "wins": _to_int(life.get("Wins")),
+            "win_rate": _to_int(life.get("Win Rate %")),
+            "recent": (life.get("Recent Results") or [])[:5],
+            "longest_streak": _to_int(life.get("Longest Win Streak")),
+            "current_streak": _to_int(life.get("Current Win Streak")),
+        }
+        maps = []
+        for seg in raw.get("segments") or []:
+            if (seg.get("type") or "").lower() != "map":
+                continue
+            st = seg.get("stats") or {}
+            maps.append({
+                "map": seg.get("label"),
+                "matches": _to_int(st.get("Matches")),
+                "win_rate": _to_int(st.get("Win Rate %")),
+            })
+        maps.sort(key=lambda m: m["matches"] or 0, reverse=True)
+        stats["maps"] = maps[:8]
+    except FaceitError:
+        pass
+
+    result = {
+        "team_id": team_id,
+        "name": team.get("name"),
+        "nickname": team.get("nickname"),
+        "avatar": team.get("avatar") or None,
+        "cover": team.get("cover_image") or None,
+        "description": team.get("description") or "",
+        "game": team.get("game"),
+        "verified": bool(team.get("verified")),
+        "faceit_url": (team.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "leader": team.get("leader"),
+        "members": members,
+        "stats": stats,
+    }
+    cache.set(cache_key, result, 15 * 60)
+    return result
+
+
+# --------------------------------------------------------------------------- #
+#  Hub leaderboards
+# --------------------------------------------------------------------------- #
+
+def get_hub_leaderboards(hub_id):
+    """The ladders a hub runs: an all-time one plus a season each."""
+    try:
+        data = _get("/leaderboards/hubs/" + hub_id, params={"offset": 0, "limit": 20})
+    except FaceitError:
+        return []
+    out = []
+    for it in data.get("items", []):
+        out.append({
+            "leaderboard_id": it.get("leaderboard_id"),
+            "name": it.get("leaderboard_name"),
+            "mode": it.get("leaderboard_mode"),
+            "season": it.get("season"),
+            "min_matches": it.get("min_matches"),
+            "end_date": it.get("end_date"),
+        })
+    return [l for l in out if l["leaderboard_id"]]
+
+
+def _rank_rows(data):
+    """Shared row shape — every ranking endpoint returns the same object."""
+    rows = []
+    for it in data.get("items", []):
+        pl = it.get("player") or {}
+        rows.append({
+            "position": it.get("position"),
+            "nickname": pl.get("nickname"),
+            "player_id": pl.get("player_id") or pl.get("user_id"),
+            "avatar": pl.get("avatar") or None,
+            "points": it.get("points"),
+            "played": it.get("played"),
+            "won": it.get("won"),
+            "lost": it.get("lost"),
+            "win_rate": it.get("win_rate"),
+            "streak": it.get("current_streak"),
+        })
+    return rows
+
+
+def get_hub_ranking(hub_id, season=None, offset=0, limit=50):
+    """A hub's ranking - all-time by default, or one season."""
+    limit = max(1, min(int(limit or 50), 100))
+    offset = max(0, int(offset or 0))
+    cache_key = "hubrank:%s:%s:%s:%s" % (hub_id, season or "general", offset, limit)
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    if season:
+        path = "/leaderboards/hubs/%s/seasons/%s" % (hub_id, season)
+    else:
+        path = "/leaderboards/hubs/%s/general" % hub_id
+    data = _get(path, params={"offset": offset, "limit": limit})
+    result = {"items": _rank_rows(data), "offset": offset, "limit": limit}
+    result["has_more"] = len(result["items"]) == limit
+    cache.set(cache_key, result, 5 * 60)
+    return result
+
+
+# --------------------------------------------------------------------------- #
+#  Leagues - a player's division and standing
+# --------------------------------------------------------------------------- #
+
+def get_player_league(player_id, league_id, season_id):
+    """Where a player sits in one season of a league."""
+    try:
+        d = _get("/leagues/%s/seasons/%s/players/%s" % (league_id, season_id, player_id))
+    except FaceitError:
+        return None
+    return {
+        "division": d.get("division_name"),
+        "tier": d.get("division_tier"),
+        "type": d.get("division_type"),
+        "position": d.get("position"),
+        "points": d.get("points"),
+        "leaderboard_id": d.get("leaderboard_id"),
+    }
+
+
+# --------------------------------------------------------------------------- #
+#  Competitions - championships and tournaments share one search shape
+# --------------------------------------------------------------------------- #
+
+def _competition_rows(items):
+    out = []
+    for it in items:
+        out.append({
+            "id": it.get("competition_id") or it.get("championship_id") or it.get("tournament_id"),
+            "name": it.get("name"),
+            "kind": (it.get("competition_type") or "").lower() or None,
+            "region": it.get("region"),
+            "status": it.get("status"),
+            "organizer": it.get("organizer_name") or None,
+            "organizer_id": it.get("organizer_id"),
+            "players": it.get("players_joined") or it.get("number_of_members"),
+            "slots": it.get("slots"),
+            "prize": it.get("total_prize") or None,
+            "starts_at": it.get("started_at"),
+        })
+    return [c for c in out if c["id"] and c["name"]]
+
+
+def browse_championships(limit=20, offset=0, ctype="all"):
+    """List CS2 championships. Unlike hubs, this needs no search term - it is
+    the only browsable competition endpoint FACEIT exposes."""
+    limit = max(1, min(int(limit or 20), 50))
+    offset = max(0, int(offset or 0))
+    cache_key = "champs:%s:%s:%s" % (ctype, offset, limit)
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    data = _get("/championships", params={"game": GAME, "type": ctype,
+                                          "offset": offset, "limit": limit})
+    items = []
+    for it in data.get("items", []):
+        items.append({
+            "id": it.get("championship_id") or it.get("id"),
+            "name": it.get("name"),
+            "kind": "championship",
+            "avatar": it.get("avatar") or None,
+            "cover": it.get("cover_image") or None,
+            "description": (it.get("description") or "")[:200],
+            "region": it.get("region"),
+            "status": it.get("status"),
+            "starts_at": it.get("championship_start"),
+            "subscriptions": it.get("current_subscriptions"),
+            "slots": it.get("total_slots") or it.get("slots"),
+            "featured": bool(it.get("featured")),
+            "faceit_url": (it.get("faceit_url") or "").replace("{lang}", "en") or None,
+        })
+    result = {"items": [c for c in items if c["id"] and c["name"]],
+              "offset": offset, "limit": limit}
+    result["has_more"] = len(result["items"]) == limit
+    cache.set(cache_key, result, 10 * 60)
+    return result
+
+
+def search_competitions(query, limit=10):
+    """Search championships and tournaments together - one box, both kinds."""
+    cache_key = "compsearch:%s:%s" % (query.lower(), limit)
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    def one(path):
+        try:
+            d = _get(path, params={"name": query, "game": GAME,
+                                   "offset": 0, "limit": limit})
+            return _competition_rows(d.get("items", []))
+        except FaceitError:
+            return []
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        champs, tours = list(pool.map(one, ("/search/championships", "/search/tournaments")))
+
+    for c in champs:
+        c["kind"] = c["kind"] or "championship"
+    for t in tours:
+        t["kind"] = t["kind"] or "tournament"
+
+    merged = champs + tours
+    cache.set(cache_key, merged, 10 * 60)
+    return merged
+
+
+def get_championship(cid):
+    """One championship, with its final placements if it has any."""
+    c = _get("/championships/" + cid)
+    results = []
+    try:
+        r = _get("/championships/%s/results" % cid, params={"offset": 0, "limit": 30})
+        for row in r.get("items", []):
+            for place in (row.get("placements") or []):
+                results.append({
+                    "position": place.get("position"),
+                    "name": (place.get("team") or {}).get("name") or place.get("nickname"),
+                })
+    except FaceitError:
+        pass
+
+    return {
+        "id": cid,
+        "kind": "championship",
+        "name": c.get("name"),
+        "description": c.get("description") or "",
+        "avatar": c.get("avatar") or None,
+        "cover": c.get("cover_image") or None,
+        "region": c.get("region"),
+        "status": c.get("status"),
+        "starts_at": c.get("championship_start"),
+        "subscriptions": c.get("current_subscriptions"),
+        "slots": c.get("total_slots") or c.get("slots"),
+        "organizer_id": c.get("organizer_id"),
+        "faceit_url": (c.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "results": results[:16],
+    }
+
+
+def get_tournament(tid):
+    """One tournament, plus its bracket if one has been drawn."""
+    t = _get("/tournaments/" + tid)
+
+    rounds = []
+    try:
+        b = _get("/tournaments/%s/brackets" % tid)
+        for rnd in b.get("rounds") or []:
+            matches = []
+            for m in rnd.get("matches") or []:
+                fac = m.get("factions") or {}
+                score = (m.get("results") or {}).get("score") or {}
+
+                def side(key):
+                    f = fac.get(key) or {}
+                    return {"name": f.get("name"), "score": score.get(key)}
+
+                matches.append({
+                    "a": side("faction1"),
+                    "b": side("faction2"),
+                    "status": m.get("status"),
+                })
+            rounds.append({"name": rnd.get("name") or rnd.get("label"), "matches": matches})
+    except FaceitError:
+        pass
+
+    return {
+        "id": tid,
+        "kind": "tournament",
+        "name": t.get("name"),
+        "description": t.get("description") or "",
+        "cover": t.get("cover_image") or t.get("featured_image") or None,
+        "region": t.get("region"),
+        "status": t.get("status"),
+        "players": t.get("number_of_players"),
+        "best_of": t.get("best_of"),
+        "match_type": t.get("match_type"),
+        "min_skill": t.get("min_skill"),
+        "max_skill": t.get("max_skill"),
+        "organizer_id": t.get("organizer_id"),
+        "faceit_url": (t.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "rounds": rounds,
+    }
+
+
+def get_organizer(organizer_id):
+    """An organizer plus everything they run."""
+    o = _get("/organizers/" + organizer_id)
+
+    def hubs_of():
+        try:
+            d = _get("/organizers/%s/hubs" % organizer_id, params={"offset": 0, "limit": 12})
+            return [{"hub_id": h.get("hub_id"), "name": h.get("name"),
+                     "avatar": h.get("avatar") or None,
+                     "players": h.get("players_joined")}
+                    for h in d.get("items", []) if h.get("hub_id")]
+        except FaceitError:
+            return []
+
+    def comps_of(kind):
+        try:
+            d = _get("/organizers/%s/%s" % (organizer_id, kind),
+                     params={"offset": 0, "limit": 12})
+            return _competition_rows(d.get("items", []))
+        except FaceitError:
+            return []
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_hubs = pool.submit(hubs_of)
+        f_champs = pool.submit(comps_of, "championships")
+        f_tours = pool.submit(comps_of, "tournaments")
+        hubs, champs, tours = f_hubs.result(), f_champs.result(), f_tours.result()
+
+    return {
+        "organizer_id": organizer_id,
+        "name": o.get("name"),
+        "description": o.get("description") or "",
+        "avatar": o.get("avatar") or None,
+        "cover": o.get("cover") or None,
+        "followers": o.get("followers_count"),
+        "faceit_url": (o.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "links": dict((k, o.get(k)) for k in ("website", "twitch", "twitter", "youtube") if o.get(k)),
+        "hubs": hubs,
+        "championships": champs,
+        "tournaments": tours,
     }
 
 

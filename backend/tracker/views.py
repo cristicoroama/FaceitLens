@@ -317,13 +317,111 @@ def status(request):
     return JsonResponse(payload)
 
 
+def _api(fn, *a, **kw):
+    """Run a faceit call and turn its failures into the same JSON shape.
+
+    Every one of these views had the identical try/except; this keeps a broken
+    upstream from being reported as an internal error, and vice versa.
+    """
+    try:
+        return JsonResponse(fn(*a, **kw))
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
 @require_GET
-def hubs_search(request):
-    """GET /api/hubs/?q=name - search FACEIT hubs by name."""
+def hub_leaderboards(request, hub_id):
+    """GET /api/hub/<id>/leaderboards/ - which ladders this hub runs."""
+    return _api(lambda: {"items": faceit.get_hub_leaderboards(hub_id)})
+
+
+@require_GET
+def hub_ranking(request, hub_id):
+    """GET /api/hub/<id>/ranking/?season=&offset=&limit= - a hub's ladder."""
+    return _api(
+        faceit.get_hub_ranking,
+        hub_id,
+        season=request.GET.get("season") or None,
+        offset=_int_arg(request, "offset", 0),
+        limit=_int_arg(request, "limit", 50),
+    )
+
+
+@require_GET
+def competitions(request):
+    """GET /api/competitions/?q=&offset=&limit=
+
+    With a query: championships and tournaments matching it. Without one:
+    the championship listing, because that is the only competition endpoint
+    FACEIT lets you browse without knowing a name.
+    """
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        return _api(lambda: {"items": faceit.search_competitions(q), "searched": True})
+    return _api(
+        faceit.browse_championships,
+        limit=_int_arg(request, "limit", 20),
+        offset=_int_arg(request, "offset", 0),
+    )
+
+
+@require_GET
+def competition_detail(request, kind, comp_id):
+    """GET /api/competition/<championship|tournament>/<id>/"""
+    if kind == "championship":
+        return _api(faceit.get_championship, comp_id)
+    if kind == "tournament":
+        return _api(faceit.get_tournament, comp_id)
+    return JsonResponse({"error": "Unknown competition type."}, status=400)
+
+
+@require_GET
+def organizer_detail(request, organizer_id):
+    """GET /api/organizer/<id>/ - an organizer and everything they run."""
+    return _api(faceit.get_organizer, organizer_id)
+
+
+@require_GET
+def teams_search(request):
+    """GET /api/teams/?q=name - search FACEIT teams by name."""
     q = (request.GET.get("q") or "").strip()
     if not q:
         return JsonResponse({"items": []})
     try:
+        items = faceit.search_teams(q)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse({"items": items})
+
+
+@require_GET
+def team_detail(request, team_id):
+    """GET /api/team/<team_id>/ - one team's profile, roster and stats."""
+    try:
+        data = faceit.get_team(team_id)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
+
+
+@require_GET
+def hubs_search(request):
+    """GET /api/hubs/?q=name - search FACEIT hubs by name."""
+    q = (request.GET.get("q") or "").strip()
+    try:
+        # No query yet: show busy hubs rather than an empty page, so there is
+        # something to click before you know what to type.
+        if not q:
+            return JsonResponse({"items": faceit.popular_hubs(), "popular": True})
         items = faceit.search_hubs(q)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
