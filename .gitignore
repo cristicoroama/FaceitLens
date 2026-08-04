@@ -14,5 +14,8 @@ dist/
 .env
 *.env
 
-# Local tool settings — machine-specific paths, not useful to anyone else
-.claude/settings.local.json
+# Local tool settings — machine-specific paths, not useful to anyone else.
+# The whole directory, not just the one file: gitignore has no effect on
+# already-tracked paths, which is why settings.local.json stayed in the repo
+# despite being listed here.
+.claude/
