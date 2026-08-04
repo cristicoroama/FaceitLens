@@ -823,28 +823,41 @@ def build_nemeses(history_items, player_nickname, top=3, min_games=2):
     return nemeses[:top]
 
 
-def search_clubs(query, limit=8):
-    """Search FACEIT clubs by name."""
-    try:
-        data = _get("/search/clubs", params={"name": query, "offset": 0, "limit": limit})
-    except FaceitError:
-        return []
+def search_hubs(query, limit=8):
+    """Search FACEIT hubs by name.
+
+    These were written against `/search/clubs` and `/clubs/{id}`, which do not
+    exist in the Data API — FACEIT's term is "hub". Every call 404'd and the
+    error was swallowed, so the feature looked like it simply found nothing.
+    Errors now propagate so a broken query says so instead of going quiet.
+    """
+    data = _get(
+        "/search/hubs",
+        params={"name": query, "game": GAME, "offset": 0, "limit": limit},
+    )
     out = []
     for it in data.get("items", []):
         out.append({
-            "club_id": it.get("guid") or it.get("club_id") or it.get("id"),
+            # Search results identify a hub as `competition_id`, NOT `hub_id`
+            # — the detail endpoint is the one that calls it hub_id.
+            "hub_id": it.get("competition_id"),
             "name": it.get("name"),
-            "avatar": it.get("avatar") or None,
+            # Search returns no image of any kind; only the detail endpoint
+            # carries avatar/cover. The UI shows initials here instead.
+            "game": it.get("game"),
+            "region": it.get("region"),
+            "members": it.get("number_of_members") or it.get("players_joined"),
+            "organizer": it.get("organizer_name") or None,
         })
-    return [c for c in out if c["club_id"] and c["name"]][:limit]
+    return [h for h in out if h["hub_id"] and h["name"]][:limit]
 
 
-def get_club(club_id):
-    """One club's profile + members."""
-    club = _get(f"/clubs/{club_id}")
+def get_hub(hub_id):
+    """One hub's profile + members."""
+    hub = _get(f"/hubs/{hub_id}")
     members = []
     try:
-        mdata = _get(f"/clubs/{club_id}/members", params={"offset": 0, "limit": 40})
+        mdata = _get(f"/hubs/{hub_id}/members", params={"offset": 0, "limit": 40})
         for m in mdata.get("items", []):
             members.append({
                 "player_id": m.get("user_id") or m.get("player_id"),
@@ -852,24 +865,23 @@ def get_club(club_id):
                 "avatar": m.get("avatar") or None,
             })
     except FaceitError:
-        pass
-
-    owner = None
-    try:
-        oid = club.get("owner_id")
-        if oid:
-            op = _get(f"/players/{oid}")
-            owner = op.get("nickname")
-    except FaceitError:
+        # Some hubs hide their member list; the profile is still worth showing.
         pass
 
     return {
-        "club_id": club_id,
-        "name": club.get("name"),
-        "description": club.get("description") or "",
-        "avatar": club.get("avatar") or None,
-        "cover": club.get("cover_image") or None,
-        "owner": owner,
+        "hub_id": hub_id,
+        "name": hub.get("name"),
+        "description": hub.get("description") or "",
+        "avatar": hub.get("avatar") or None,
+        "cover": hub.get("cover_image") or None,
+        "background": hub.get("background_image") or None,
+        "game": hub.get("game_id"),
+        "region": hub.get("region"),
+        "organizer": (hub.get("organizer_data") or {}).get("name") or None,
+        "players": hub.get("players_joined"),
+        "faceit_url": (hub.get("faceit_url") or "").replace("{lang}", "en") or None,
+        "min_level": hub.get("min_skill_level"),
+        "max_level": hub.get("max_skill_level"),
         "member_count": len(members),
         "members": members,
     }

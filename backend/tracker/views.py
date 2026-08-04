@@ -318,13 +318,13 @@ def status(request):
 
 
 @require_GET
-def clubs_search(request):
-    """GET /api/clubs/?q=name - search FACEIT clubs by name."""
+def hubs_search(request):
+    """GET /api/hubs/?q=name - search FACEIT hubs by name."""
     q = (request.GET.get("q") or "").strip()
     if not q:
         return JsonResponse({"items": []})
     try:
-        items = faceit.search_clubs(q)
+        items = faceit.search_hubs(q)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
     except Exception as exc:
@@ -334,10 +334,10 @@ def clubs_search(request):
 
 
 @require_GET
-def club_detail(request, club_id):
-    """GET /api/club/<club_id>/ - one club's profile + members."""
+def hub_detail(request, hub_id):
+    """GET /api/hub/<hub_id>/ - one hub's profile + members."""
     try:
-        data = faceit.get_club(club_id)
+        data = faceit.get_hub(hub_id)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
     except Exception as exc:

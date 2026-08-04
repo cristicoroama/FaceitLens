@@ -24,7 +24,7 @@ import Games from "./components/Games.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
 import NewsPage from "./components/NewsPage.jsx";
-import Clubs from "./components/Clubs.jsx";
+import Hubs from "./components/Hubs.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
 import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
@@ -50,6 +50,7 @@ import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import Faq from "./components/Faq.jsx";
+import NotFound from "./components/NotFound.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 import { DISCORD_INVITE } from "./links.js";
 import { Icon } from "./icons.jsx";
@@ -133,8 +134,8 @@ const NAV = [
       hint: "Up to 5 players, head to head" },
     { id: "squad", label: "Squad", href: "/squad", icon: Icon.people,
       hint: "Look up your whole team at once" },
-    { id: "clubs", label: "Clubs", href: "/clubs", icon: Icon.diagram3,
-      hint: "Browse FACEIT clubs and hubs" },
+    { id: "hubs", label: "Hubs", href: "/hubs", icon: Icon.diagram3,
+      hint: "Find a community and see who plays there" },
     { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: Icon.star,
       hint: "Track players you care about" },
   ]},
@@ -208,7 +209,7 @@ const HOME_FEATURES = [
 /* tool pages that get their own shareable URL (/docs, /proguesser, …) */
 const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
-  "squad", "clubs", "proguesser", "games", "docs",
+  "squad", "hubs", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew", "feedback", "privacy", "terms", "faq",
 ]);
@@ -244,8 +245,8 @@ const PAGE_META = {
     "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
   squad: ["Squad Stats — Look Up Your CS2 Team",
     "Check your whole CS2 squad at once. Enter nicknames and get every player's FACEIT ELO and stats on one page."],
-  clubs: ["FACEIT Clubs & Hubs Finder",
-    "Browse FACEIT clubs and hubs, see members and find active CS2 communities to play in."],
+  hubs: ["FACEIT Hubs — Find CS2 Communities",
+    "Search FACEIT hubs by name, see who plays there and open any member's stats. Find an active CS2 community to queue in."],
   proguesser: ["ProGuesser — Guess the CS2 Pro Game",
     "Can you name the CS2 pro from their stats? A daily guessing game for Counter-Strike fans."],
   prosettings: ["CS2 Pro Settings — Crosshair, Sensitivity & Config",
@@ -273,15 +274,21 @@ const PAGE_META = {
 };
 
 /** Swap the document title + meta description for the current view. */
-function applyMeta(title, desc) {
+function applyMeta(title, desc, robots = "index, follow") {
   document.title = title;
-  let tag = document.querySelector('meta[name="description"]');
-  if (!tag) {
-    tag = document.createElement("meta");
-    tag.setAttribute("name", "description");
-    document.head.appendChild(tag);
-  }
-  tag.setAttribute("content", desc);
+  const set = (name, content) => {
+    let tag = document.querySelector(`meta[name="${name}"]`);
+    if (!tag) {
+      tag = document.createElement("meta");
+      tag.setAttribute("name", name);
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute("content", content);
+  };
+  set("description", desc);
+  // A static SPA always answers 200, so an unknown path would otherwise be
+  // indexed as a real page. This is what keeps soft 404s out of search.
+  set("robots", robots);
 }
 
 const PROFILE_TABS = [
@@ -469,7 +476,10 @@ export default function App() {
   // Tool pages have their own URLs (/docs, /proguesser, /whatsnew…) so they're
   // directly shareable. Map the path segment to the internal mode.
   useEffect(() => {
-    if (routePage && TOOL_PAGES.has(routePage)) setMode(routePage);
+    if (!routePage) return;
+    // Unknown segment: show a 404 rather than silently rendering the home
+    // page at someone else's URL.
+    setMode(TOOL_PAGES.has(routePage) ? routePage : "notfound");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePage]);
 
@@ -504,6 +514,11 @@ export default function App() {
         `${name} — Steam & CS2 Account Check | Faceit-Lens`,
         `Steam account overview for ${name}: CS2 hours, inventory value, bans, profile age and account trust signals.`,
       );
+      return;
+    }
+    if (mode === "notfound") {
+      applyMeta("Page not found | Faceit-Lens",
+        "That page doesn't exist. Search for a CS2 player instead.", "noindex, follow");
       return;
     }
     const meta = PAGE_META[mode];
@@ -972,7 +987,7 @@ export default function App() {
           {mode === "bans" && <FaceitBans onPick={go} />}
           {mode === "prosettings" && <ProSettings />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
-          {mode === "clubs" && <Clubs onPick={go} />}
+          {mode === "hubs" && <Hubs onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}
@@ -980,6 +995,15 @@ export default function App() {
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
           {mode === "feedback" && <Feedback user={user} />}
+          {mode === "notfound" && (
+            <NotFound
+              nickname={nickname}
+              setNickname={setNickname}
+              onSearch={searchHome}
+              onPick={go}
+              onNav={pickNav}
+            />
+          )}
           {mode === "faq" && <Faq />}
           {mode === "privacy" && <PrivacyPolicy />}
           {mode === "terms" && <Terms />}

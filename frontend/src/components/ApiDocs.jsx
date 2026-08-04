@@ -22,7 +22,7 @@ const ENDPOINTS = [
       { m: "GET", path: "/api/matchroom/?url={room}", desc: "Scout a live/upcoming match room: both teams with ELO/level + an ELO win prediction.", ex: "/api/matchroom/?url=faceit.com/en/cs2/room/1-xxxx" },
       { m: "GET", path: "/api/squad/?players={a,b,c}", desc: "Combined stats for a group of players and matches played together.", ex: "/api/squad/?players=s1mple,ZywOo,NiKo" },
       { m: "GET", path: "/api/met/?p1={a}&p2={b}", desc: "Whether two players have crossed paths recently (together / against).", ex: "/api/met/?p1=s1mple&p2=b1t" },
-      { m: "GET", path: "/api/clubs/?q={name}", desc: "Search FACEIT clubs by name.", ex: "/api/clubs/?q=NAVI" },
+      { m: "GET", path: "/api/hubs/?q={name}", desc: "Search FACEIT hubs by name.", ex: "/api/hubs/?q=ESEA" },
     ],
   },
   {
