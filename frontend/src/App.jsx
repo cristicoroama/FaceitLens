@@ -49,6 +49,7 @@ import WhatsNew, {
 import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
+import Faq from "./components/Faq.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 import { DISCORD_INVITE } from "./links.js";
 import { Icon } from "./icons.jsx";
@@ -158,6 +159,8 @@ const NAV = [
       hint: "Free REST API" },
     { id: "whatsnew", label: "What's New", href: "/whatsnew", icon: Icon.star,
       hint: "Changelog" },
+    { id: "faq", label: "FAQ", href: "/faq", icon: Icon.patchCheckFill,
+      hint: "How the numbers actually work" },
     { id: "feedback", label: "Feedback", href: "/feedback", icon: Icon.chatDots,
       hint: "Report a bug, request a feature" },
   ],
@@ -207,7 +210,7 @@ const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
   "squad", "clubs", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings", "whatsnew", "feedback", "privacy", "terms",
+  "settings", "whatsnew", "feedback", "privacy", "terms", "faq",
 ]);
 
 /** The URL a nav id points at, so nav entries can be real <a href> links —
@@ -261,6 +264,8 @@ const PAGE_META = {
   whatsnew: ["What's New — Faceit-Lens Changelog", "Latest features, fixes and improvements shipped to Faceit-Lens."],
   feedback: ["Feedback — Faceit-Lens", "Report a bug, request a feature or tell us what to improve on Faceit-Lens."],
   settings: ["Settings — Faceit-Lens", DEFAULT_DESC],
+  faq: ["FAQ — How Faceit-Lens Works",
+    "How the trust score and smurf detector are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
   privacy: ["Privacy Policy",
     "What Faceit-Lens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
   terms: ["Terms of Service",
@@ -972,6 +977,7 @@ export default function App() {
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
           {mode === "feedback" && <Feedback user={user} />}
+          {mode === "faq" && <Faq />}
           {mode === "privacy" && <PrivacyPolicy />}
           {mode === "terms" && <Terms />}
           {mode === "settings" && (

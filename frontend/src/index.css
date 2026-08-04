@@ -4038,3 +4038,47 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   .lb-count { margin-left: 0; width: 100%; }
   .lb-pos { min-width: 30px; }
 }
+
+/* ============================================================
+   FAQ — native <details> accordion
+   Chosen over a JS one so it keeps keyboard support for free and
+   the answers stay in the DOM for search engines while collapsed.
+   ============================================================ */
+.faq { max-width: 780px; }
+.faq-intro { color: var(--text-dim); font-size: 14px; line-height: 1.7; margin-bottom: 26px; }
+.faq-intro a, .faq-foot a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+.faq section { margin-bottom: 26px; }
+.faq h3 {
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.6px;
+  color: var(--text-dim); margin: 0 0 10px;
+}
+
+.faq-item {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-elev); margin-bottom: 8px;
+  transition: border-color 0.15s ease;
+}
+.faq-item[open] { border-color: var(--border-hi); }
+.faq-item summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; cursor: pointer; list-style: none;
+  font-size: 14.5px; font-weight: 600; color: var(--text);
+}
+/* Safari draws its own triangle unless this is cleared */
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:hover { color: var(--accent); }
+.faq-item summary svg {
+  flex-shrink: 0; color: var(--text-dim);
+  transition: transform 0.18s ease;
+}
+.faq-item[open] summary svg { transform: rotate(180deg); }
+.faq-item p {
+  margin: 0; padding: 0 16px 16px;
+  color: var(--text-dim); font-size: 14px; line-height: 1.75;
+}
+.faq-foot {
+  margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--border);
+  color: var(--text-dim); font-size: 13px;
+}

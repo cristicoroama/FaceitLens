@@ -26,6 +26,8 @@ export default function SiteFooter({ onNav }) {
           Discord and Buy-me-a-coffee stay in the nav's More menu instead,
           because those are actions and down here nobody would press them. */}
       <div className="site-foot-links">
+        {link("faq", "FAQ")}
+        <span className="site-foot-sep">·</span>
         {link("privacy", "Privacy")}
         <span className="site-foot-sep">·</span>
         {link("terms", "Terms")}
