@@ -140,7 +140,15 @@ a { color: inherit; }
    Replaced the left sidebar: 16 entries needed ~850px of column on a
    viewport that gave ~600px, so half of it hid under a scrollbar.
    ============================================================ */
-.main { min-width: 0; width: 100%; }
+/* `clip`, not `hidden`, on purpose.
+   The hero art escapes the content column with `width: 100vw; margin-left:
+   -50vw`, and 100vw counts the scrollbar — so it is already a hair wider than
+   the visible page, and anything that scales it (the hero's entrance) pushes
+   wider still. This clips that bleed.
+   `hidden` would do the same but also turns this into a scroll container,
+   which silently breaks `position: sticky` for anything inside it. `clip`
+   doesn't, so sticky elements keep working. */
+.main { min-width: 0; width: 100%; overflow-x: clip; }
 
 .topnav {
   position: sticky; top: 0; z-index: 60; min-height: var(--topbar-h);
@@ -532,9 +540,11 @@ a { color: inherit; }
 @media (prefers-reduced-motion: no-preference) {
   .home-hero::before { animation: heroIn 0.7s ease-out both; }
 }
+/* The scale is back now that .main clips the overflow it used to cause.
+   Kept small — at 100vw wide, 1.04 is already ~40px of travel on a laptop. */
 @keyframes heroIn {
-  from { opacity: 0; }
-  to { opacity: 0.55; }
+  from { opacity: 0; transform: scale(1.04); }
+  to { opacity: 0.55; transform: none; }
 }
 .home-title {
   font-family: var(--font-display); font-weight: 700;
