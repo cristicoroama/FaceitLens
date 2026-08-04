@@ -540,11 +540,11 @@ a { color: inherit; }
 @media (prefers-reduced-motion: no-preference) {
   .home-hero::before { animation: heroIn 0.7s ease-out both; }
 }
-/* The scale is back now that .main clips the overflow it used to cause.
-   Kept small — at 100vw wide, 1.04 is already ~40px of travel on a laptop. */
+/* Fade only. The scale was tried twice and broke the page both times — at
+   100vw wide there is no headroom for it to grow into. */
 @keyframes heroIn {
-  from { opacity: 0; transform: scale(1.04); }
-  to { opacity: 0.55; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 0.55; }
 }
 .home-title {
   font-family: var(--font-display); font-weight: 700;
