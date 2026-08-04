@@ -67,6 +67,13 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Reserve the scrollbar's space whether or not it's needed.
+   Without this the viewport narrows by ~15px the moment a page grows tall
+   enough to scroll — which on the home page happens after load, when the
+   "recently searched" chips appear. The hero art is sized in `vw`, and `vw`
+   always counts the scrollbar, so at that instant it became wider than the
+   visible page and visibly jumped. A stable gutter means the width never
+   changes, so nothing shifts. */
 html { scrollbar-color: var(--bg-elev-3) var(--bg); }
 
 /* slim premium scrollbar */
@@ -140,14 +147,10 @@ a { color: inherit; }
    Replaced the left sidebar: 16 entries needed ~850px of column on a
    viewport that gave ~600px, so half of it hid under a scrollbar.
    ============================================================ */
-/* `clip`, not `hidden`, on purpose.
-   The hero art escapes the content column with `width: 100vw; margin-left:
-   -50vw`, and 100vw counts the scrollbar — so it is already a hair wider than
-   the visible page, and anything that scales it (the hero's entrance) pushes
-   wider still. This clips that bleed.
-   `hidden` would do the same but also turns this into a scroll container,
-   which silently breaks `position: sticky` for anything inside it. `clip`
-   doesn't, so sticky elements keep working. */
+/* `clip`, not `hidden`.
+   A safety net for anything that bleeds sideways. `hidden` would clip the
+   same way but also turns this into a scroll container, which silently breaks
+   `position: sticky` for anything inside it. `clip` doesn't. */
 .main { min-width: 0; width: 100%; overflow-x: clip; }
 
 .topnav {
@@ -478,47 +481,51 @@ a { color: inherit; }
    drop-shadow. One flat accent word carries more weight than all three. */
 .home-hero { text-align: center; padding: 72px 0 34px; position: relative; }
 
-/* Cover image behind the hero.
-   Sits in a ::before so it can bleed past the content column and fade out on
-   every edge without affecting layout. The image is composed with its subject
-   on the right and empty space on the left, so it's anchored right and the
-   mask keeps the left side — where the headline sits — essentially black. */
-.home-hero::before {
+
+
+/* Fade only. The art no longer overflows, but an entrance that scales a
+   full-width layer still shifts everything behind it, so opacity is enough. */
+@keyframes heroIn {
+  from { opacity: 0; }
+  to { opacity: 0.55; }
+}
+/* Hero art behind the home page.
+
+   Painted by .main rather than .home-hero, and this is the whole point: it is
+   sized with `width: 100%` of a normal block, so it measures the real content
+   width. The previous version used `width: 100vw; margin-left: -50vw` to
+   escape the 1120px content column — but `vw` always counts the scrollbar, so
+   the moment the page grew tall enough to scroll (which on this page happens
+   after load, when the recent-search chips appear) the art became ~15px wider
+   than the visible page and visibly jumped sideways. No `vw`, no jump. */
+.main.is-home { position: relative; }
+.main.is-home::before,
+.main.is-home::after {
   content: "";
   position: absolute;
-  top: -40px; bottom: 0;
-  /* escape the content padding so it reaches the window edges */
-  left: 50%; width: 100vw; margin-left: -50vw;
-  /* Not -1: body paints a background, and a negative z-index here would put
-     the image behind it and make it invisible. 0 + children at 1 is safe. */
+  top: 0; left: 0; width: 100%; height: 620px;
+  /* body paints a background, so a negative z-index would hide this entirely.
+     0 here with .content above it is what works. */
   z-index: 0; pointer-events: none;
-  background-image: image-set(
-    url("/hero-sm.webp") 1x,
-    url("/hero.webp") 2x
-  );
+}
+.main.is-home::before {
+  background-image: image-set(url("/hero-sm.webp") 1x, url("/hero.webp") 2x);
   background-repeat: no-repeat;
   background-position: right center;
   background-size: cover;
   opacity: 0.55;
-  /* Fade to nothing at every edge so it never ends in a hard line. */
+  /* Fade out on every edge so it never ends on a hard line. */
   -webkit-mask-image:
-    linear-gradient(to bottom, transparent 0%, #000 22%, #000 62%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 18%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 38%, #000 88%, transparent 100%);
   mask-image:
-    linear-gradient(to bottom, transparent 0%, #000 22%, #000 62%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 18%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 38%, #000 88%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
 }
-
-/* Keeps contrast under the headline regardless of how bright the art is. */
-.home-hero::after {
-  content: "";
-  position: absolute; inset: -40px 0 0;
-  left: 50%; width: 100vw; margin-left: -50vw;
-  /* Not -1: body paints a background, and a negative z-index here would put
-     the image behind it and make it invisible. 0 + children at 1 is safe. */
-  z-index: 0; pointer-events: none;
+/* Holds contrast under the headline whatever the art is doing. */
+.main.is-home::after {
   background: linear-gradient(
     to right,
     var(--bg) 0%,
@@ -526,26 +533,16 @@ a { color: inherit; }
     transparent 72%
   );
 }
+.main.is-home > * { position: relative; z-index: 1; }
 
-.home-hero > * { position: relative; z-index: 1; }
-
+@media (prefers-reduced-motion: no-preference) {
+  .main.is-home::before { animation: heroIn 0.7s ease-out both; }
+}
 @media (max-width: 760px) {
   /* On a phone the art sits behind the whole column, so pull it right back. */
-  .home-hero::before { opacity: 0.3; background-position: 72% center; }
+  .main.is-home::before { opacity: 0.3; background-position: 72% center; height: 460px; }
 }
 
-/* Fade only — no transform. Scaling a 100vw layer on load makes the whole page
-   look like it's zooming out on every refresh, which is worse than having no
-   entrance at all. */
-@media (prefers-reduced-motion: no-preference) {
-  .home-hero::before { animation: heroIn 0.7s ease-out both; }
-}
-/* Fade only. The scale was tried twice and broke the page both times — at
-   100vw wide there is no headroom for it to grow into. */
-@keyframes heroIn {
-  from { opacity: 0; }
-  to { opacity: 0.55; }
-}
 .home-title {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(34px, 5.4vw, 56px); line-height: 1.06; letter-spacing: -1px;

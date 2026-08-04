@@ -814,7 +814,10 @@ export default function App() {
       />
 
       {/* ============ MAIN ============ */}
-      <div className="main">
+      {/* The hero art is painted by .main, not by .home-hero — see index.css.
+          It needs a full-width block to size against, and .home-hero sits
+          inside the 1120px content column. */}
+      <div className={`main ${showHome ? "is-home" : ""}`}>
 
         <div className="content">
           {/* ---------- HOME HERO ---------- */}
