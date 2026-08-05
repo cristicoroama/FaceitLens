@@ -673,7 +673,7 @@ a { color: inherit; }
   width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--bg-elev);
 }
 .suggestion-name { flex: 1; font-size: 14px; font-weight: 500; }
-.suggestion-country { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.suggestion .flag-icon { flex: 0 0 auto; }
 
 /* states */
 .state { text-align: center; color: var(--text-dim); padding: 46px 0; font-size: 15px; line-height: 1.6; }
