@@ -1,25 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 
 /**
- * Sponsor placements.
+ * Sponsor placements. Two different units:
  *
- * A note on what went wrong before, so it doesn't get reintroduced: this used
- * to run an ad-block *detector* — a bait element with class names like
- * "adsbox" — and hide the slot whenever the bait got hidden. Brave hides that
- * bait, so the slot vanished for every Brave user even though the advertiser's
- * frame loads there perfectly well. The detector was blocking the ads, not the
- * browser. It's gone.
+ *   AdBanner — the home page. A plain image linking to the affiliate URL.
+ *   AdInline — a player profile. The advertiser's interactive frame.
  *
- * What's left is deliberately plain: the advertiser's frame, first-party
- * fallback art under a normal image path, and no ad- prefixed class names to
- * trip cosmetic filters that were never aimed at us.
+ * A note so it doesn't get reintroduced: this used to run an ad-block
+ * *detector* — a bait element with class names like "adsbox" — and hide the
+ * slot whenever the bait got hidden. Brave hides that bait, so the slot
+ * vanished for every Brave user even though the advertiser's frame loads there
+ * perfectly well. The detector was hiding the ads, not the browser. It's gone.
  *
- * The frame is still sandboxed WITHOUT allow-same-origin, so the advertiser's
- * code sits on an opaque origin and can't reach our cookies, session or
- * localStorage. It renders and animates fine that way — verified in the wild.
+ * Everything else is deliberately plain: first-party art under a normal image
+ * path, no ad- prefixed class names, no ad-network script. The frame is
+ * sandboxed WITHOUT allow-same-origin, so the advertiser's code sits on an
+ * opaque origin and can't reach our cookies, session or localStorage — it
+ * renders and animates fine that way.
  *
- * The "Sponsored" marker stays, and the affiliate link carries rel="sponsored"
- * as Google requires. Paid placement should read as paid placement.
+ * The "Sponsored" marker stays and the link carries rel="sponsored", as Google
+ * requires. Paid placement should read as paid placement.
  */
 
 const AFFILIATE = "https://hunt.gg/r/FACEITLENS";
@@ -30,8 +30,7 @@ function Tag() {
   return <span className="partner-tag">Sponsored</span>;
 }
 
-/** Shown only if the frame genuinely never loads (advertiser down, offline). */
-function Fallback({ art, width, height }) {
+function Art({ art, width, height }) {
   const [dead, setDead] = useState(false);
   if (dead) return null;
   return (
@@ -46,7 +45,7 @@ function Fallback({ art, width, height }) {
         srcSet={`/img/partner/${art}.webp 1x, /img/partner/${art}@2x.webp 2x`}
         width={width}
         height={height}
-        alt="Hunt.gg — open CS2 cases with code FACEITLENS"
+        alt="Hunt.gg — claim 6 free CS2 cases with code FACEITLENS"
         loading="lazy"
         decoding="async"
         onError={() => setDead(true)}
@@ -55,7 +54,36 @@ function Fallback({ art, width, height }) {
   );
 }
 
-function Slot({ className }) {
+/** Static strip: 970x90 on desktop, 300x100 on a phone. */
+function Banner() {
+  return (
+    <>
+      <div className="partner-wide">
+        <Art art="leaderboard" width={970} height={90} />
+      </div>
+      <div className="partner-narrow">
+        <Art art="mobile" width={300} height={100} />
+      </div>
+    </>
+  );
+}
+
+/** Home page, between the recent searches and the feature grid. */
+export function AdBanner() {
+  return (
+    <div className="partner">
+      <Tag />
+      <Banner />
+    </div>
+  );
+}
+
+/**
+ * Player profile, between the tab bar and whichever tab is open.
+ * Falls back to the static strip only if the frame never arrives — the
+ * advertiser being down, or the visitor being offline.
+ */
+export function AdInline() {
   const [failed, setFailed] = useState(false);
   const frameRef = useRef(null);
 
@@ -67,17 +95,10 @@ function Slot({ className }) {
   }, []);
 
   return (
-    <div className={`partner ${className || ""}`}>
+    <div className="partner partner-inline">
       <Tag />
       {failed ? (
-        <>
-          <div className="partner-wide">
-            <Fallback art="leaderboard" width={970} height={90} />
-          </div>
-          <div className="partner-narrow">
-            <Fallback art="mobile" width={300} height={100} />
-          </div>
-        </>
+        <Banner />
       ) : (
         <iframe
           ref={frameRef}
@@ -92,16 +113,6 @@ function Slot({ className }) {
       )}
     </div>
   );
-}
-
-/** Home page, between the recent searches and the feature grid. */
-export function AdBanner() {
-  return <Slot />;
-}
-
-/** Player profile, between the tab bar and whichever tab is open. */
-export function AdInline() {
-  return <Slot className="partner-inline" />;
 }
 
 export default AdBanner;
