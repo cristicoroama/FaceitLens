@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
 import EloChart from "./components/EloChart.jsx";
@@ -32,6 +32,7 @@ import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
 import SteamStatus from "./components/SteamStatus.jsx";
 import Leaderboard from "./components/Leaderboard.jsx";
+import WorldMap from "./components/WorldMap.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import NewsButton from "./components/NewsButton.jsx";
@@ -128,6 +129,8 @@ const NAV = [
     { id: "leaderboard:SA", label: "South America", href: "/leaderboard/SA", icon: Icon.trophy },
     { id: "leaderboard:SEA", label: "Southeast Asia", href: "/leaderboard/SEA", icon: Icon.trophy },
     { id: "leaderboard:OCE", label: "Oceania", href: "/leaderboard/OCE", icon: Icon.trophy },
+    { id: "leaderboard:map", label: "World Map", href: "/leaderboard/map", icon: Icon.globe,
+      hint: "Which countries the top players come from" },
   ]},
   { label: "Tools", items: [
     { id: "matchroom", label: "Match Room", href: "/matchroom", icon: Icon.binoculars,
@@ -243,6 +246,8 @@ const DEFAULT_DESC =
 const PAGE_META = {
   leaderboard: ["FACEIT CS2 Leaderboard — Top Players by ELO",
     "Live FACEIT CS2 leaderboard: the highest ELO players ranked, with level, win rate and recent form."],
+  worldmap: ["CS2 World Map — Which Countries Have the Best FACEIT Players",
+    "An interactive world map of the FACEIT CS2 Challenger pool: how many top players each country has, their average ELO and who leads them."],
   watchlist: ["Watchlist — Track FACEIT Players",
     "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
   matchroom: ["FACEIT Match Room Analyzer — Scout Your Lobby",
@@ -323,6 +328,7 @@ export default function App() {
     handle: routeHandle, region: routeRegion,
   } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [nickname, setNickname] = useState(routeNick || "");
   const [mode, setMode] = useState("single");
@@ -493,9 +499,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePage]);
 
-  // /leaderboard/<region> is a real, shareable URL per ladder.
+  // /leaderboard/<region> is a real, shareable URL per ladder, and
+  // /leaderboard/map is the world map over the same data.
   useEffect(() => {
-    if (routeRegion) setMode("leaderboard");
+    if (routeRegion) {
+      setMode(routeRegion.toLowerCase() === "map" ? "worldmap" : "leaderboard");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeRegion]);
 
@@ -728,8 +737,9 @@ export default function App() {
     // at its own URL so each region can be linked and indexed separately.
     const [page, arg] = id.split(":");
     if (page === "leaderboard") {
-      setMode("leaderboard");
-      navigate(`/leaderboard/${arg || "EU"}`);
+      const seg = arg || "EU";
+      setMode(seg === "map" ? "worldmap" : "leaderboard");
+      navigate(`/leaderboard/${seg}`);
       return;
     }
     setMode(id);
@@ -991,7 +1001,22 @@ export default function App() {
             </>
           )}
 
-          {mode === "leaderboard" && <Leaderboard onPick={go} initialRegion={routeRegion} />}
+          {mode === "leaderboard" && (
+            <Leaderboard
+              onPick={go}
+              initialRegion={routeRegion}
+              initialCountry={searchParams.get("country") || ""}
+            />
+          )}
+          {mode === "worldmap" && (
+            <WorldMap
+              onPick={go}
+              // Clicking a country drops into the ladder it was counted in,
+              // already filtered — the map answers "who", the list answers
+              // "which players".
+              onCountry={(c) => navigate(`/leaderboard/${c.region}?country=${c.country}`)}
+            />
+          )}
           {mode === "faceitstatus" && <FaceitStatus />}
           {mode === "steamstatus" && <SteamStatus />}
           {mode === "bans" && <FaceitBans onPick={go} />}

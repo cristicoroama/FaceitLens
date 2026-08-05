@@ -522,6 +522,24 @@ def leaderboard(request):
 
 
 @require_GET
+def leaderboard_countries(request):
+    """
+    GET /api/leaderboard/countries/
+
+    Every country represented in the Challenger pool, with how many players it
+    has there and how strong they are. Feeds the world map.
+    """
+    try:
+        data = faceit.get_country_stats()
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
+
+
+@require_GET
 def analyze(request, nickname):
     """GET /api/analyze/<nickname>/ - short AI scouting report (cached 12h)."""
     try:

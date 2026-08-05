@@ -4210,3 +4210,141 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .brk-side b { font-family: var(--font-mono); flex-shrink: 0; }
 .brk-side.won { color: var(--text); }
 .brk-side.won b { color: var(--accent); }
+
+/* ============================================================
+   World map — where the Challengers come from
+   A choropleth, so colour carries magnitude and nothing else:
+   one hue (the brand orange at 42.2°) over a ramp whose lightness
+   rises monotonically out of the surface. A second hue would read
+   as a category rather than as "more".
+   ============================================================ */
+.wm-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.wm-toggle {
+  display: flex; gap: 6px; padding: 4px; border-radius: 13px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+}
+.wm-tab {
+  min-width: 96px; padding: 8px 16px; border-radius: 9px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 650;
+  transition: color 0.15s, background 0.15s;
+}
+.wm-tab:hover { color: var(--text); background: var(--bg-elev-2); }
+.wm-tab.on { color: var(--on-accent); background: var(--accent); }
+.wm-hint { color: var(--text-dim); font-size: 12.5px; line-height: 1.5; flex: 1; min-width: 200px; }
+
+.wm-panel { position: relative; padding: 10px; }
+.wm-svg { display: block; width: 100%; height: auto; }
+
+.wm-c {
+  /* A hairline in the surface colour keeps neighbouring fills from bleeding
+     into one shape — the map's version of the gap between stacked bars. */
+  stroke: var(--bg); stroke-width: calc(0.5 * var(--wm-k, 1)); stroke-linejoin: round;
+  transition: fill 0.25s ease;
+}
+.wm-c.on { cursor: pointer; }
+.wm-c.on:hover { stroke: var(--text); stroke-width: calc(0.9 * var(--wm-k, 1)); }
+.wm-dot { stroke-width: calc(0.4 * var(--wm-k, 1)); }
+.wm-dot.on:hover { stroke-width: calc(0.8 * var(--wm-k, 1)); }
+
+.wm-tip {
+  position: absolute; z-index: 5; pointer-events: none;
+  transform: translate(14px, -50%);
+  min-width: 168px; padding: 10px 12px;
+  /* set below by .flip when the cursor is near the right edge */
+  background: var(--bg-elev-2); border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+}
+.wm-tip.flip { transform: translate(calc(-100% - 14px), -50%); }
+.wm-tip-head {
+  display: flex; align-items: center; gap: 7px; margin-bottom: 8px;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px;
+}
+.wm-tip-row {
+  display: flex; justify-content: space-between; gap: 16px;
+  font-size: 12px; color: var(--text-dim); line-height: 1.9;
+}
+.wm-tip-row b { font-family: var(--font-mono); color: var(--text); font-weight: 700; }
+.wm-tip-top {
+  margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-dim);
+}
+.wm-tip-top b { color: var(--text); font-weight: 650; }
+
+.wm-legend {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 12px 6px 4px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+}
+.wm-leg-ramp { display: flex; gap: 2px; }
+.wm-leg-ramp i { width: 26px; height: 9px; border-radius: 2px; }
+.wm-leg-cap { min-width: 28px; }
+.wm-leg-none { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.wm-leg-none i {
+  width: 12px; height: 9px; border-radius: 2px; border: 1px solid var(--border);
+}
+
+.wm-table { margin-top: 16px; padding: 14px 16px; }
+.wm-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 8px 6px; border: none; background: none; cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-brd) 55%, transparent);
+  color: var(--text); font-family: inherit; text-align: left;
+  transition: background 0.12s;
+}
+.wm-row:last-child { border-bottom: none; }
+.wm-row:hover { background: var(--glass-bg-2); }
+.wm-rank {
+  min-width: 26px; text-align: right; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);
+}
+.wm-name {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wm-row:hover .wm-name { color: var(--accent); }
+.wm-top {
+  flex-shrink: 0; max-width: 130px; font-size: 11.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wm-top:hover { color: var(--accent); text-decoration: underline; }
+.wm-val {
+  flex-shrink: 0; min-width: 52px; text-align: right;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 800;
+}
+.wm-bar-track {
+  flex-shrink: 0; width: 90px; height: 6px; border-radius: 3px;
+  background: var(--bg-elev-3); overflow: hidden;
+}
+.wm-bar-track i { display: block; height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+
+@media (max-width: 640px) {
+  .wm-tab { min-width: 0; flex: 1; }
+  .wm-toggle { width: 100%; }
+  .wm-top, .wm-bar-track { display: none; }
+  .wm-tip { min-width: 140px; }
+}
+
+/* Preset zoom windows. They float over the map rather than sitting above it:
+   the panel is already tall, and a second control row would push the legend
+   below the fold on a laptop. */
+.wm-views {
+  position: absolute; z-index: 3; top: 18px; left: 18px;
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 11px;
+  max-width: calc(100% - 36px);
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  border: 1px solid var(--border);
+}
+.wm-view {
+  padding: 6px 11px; border-radius: 7px; border: none; background: none;
+  cursor: pointer; color: var(--text-dim);
+  font-family: inherit; font-size: 11.5px; font-weight: 650;
+  transition: color 0.15s, background 0.15s;
+}
+.wm-view:hover { color: var(--text); background: var(--bg-elev-2); }
+.wm-view.on { color: var(--on-accent); background: var(--accent); }
+
+@media (max-width: 640px) {
+  .wm-views { top: 12px; left: 12px; gap: 2px; padding: 3px; }
+  .wm-view { padding: 5px 8px; font-size: 10.5px; }
+}

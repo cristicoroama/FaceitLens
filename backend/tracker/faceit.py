@@ -272,6 +272,97 @@ def build_elo_history(player_id, current_elo, limit=30, items=None):
     return history
 
 
+# How deep into each region's ladder the world map looks. 1,000 is the
+# Challenger cutoff FACEIT itself uses, so "in the map" and "is a Challenger"
+# mean the same thing. 10 pages per region, 50 requests per rebuild.
+MAP_DEPTH = 1000
+
+# A country needs this many ranked players before its average ELO is shown as
+# a real number. Below it the average is one or two players wide and swings
+# hundreds of points, which would paint a random country as the world's best.
+MIN_FOR_AVG = 5
+
+
+def get_country_stats():
+    """Per-country breakdown of the Challenger pool, for the world map.
+
+    FACEIT publishes no "players per country" endpoint, so this walks the top
+    MAP_DEPTH of every region and tallies the `country` each row carries. One
+    pass yields both map metrics: how many elite players a country has, and how
+    strong they are on average.
+
+    Cached for 6h — the top of the ladder moves slowly and a rebuild costs 50
+    requests, which is far too much to spend per visitor.
+    """
+    hit = cache.get("countrymap")
+    if hit is not None:
+        return hit
+
+    def page(args):
+        region, offset = args
+        try:
+            items = get_leaderboard(region, offset=offset, limit=LEADERBOARD_PAGE)["items"]
+        except FaceitError:
+            # One dead page shouldn't sink the whole map; the countries in it
+            # simply come up a little short this round.
+            return []
+        return [(region, p) for p in items]
+
+    jobs = [
+        (region, offset)
+        for region in REGIONS
+        for offset in range(0, MAP_DEPTH, LEADERBOARD_PAGE)
+    ]
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        pages = list(pool.map(page, jobs))
+
+    tally = {}
+    for items in pages:
+        for region, p in items:
+            code = (p.get("country") or "").strip().lower()
+            elo = p.get("elo")
+            # Rows without a country or an ELO can't be placed or scored.
+            if len(code) != 2 or not elo:
+                continue
+            c = tally.setdefault(code, {"count": 0, "elo_sum": 0, "top": None, "regions": {}})
+            c["count"] += 1
+            c["elo_sum"] += elo
+            # Players emigrate, so a country shows up in more than one region's
+            # ladder. Remember where each was seen and keep the busiest as the
+            # one the map links to.
+            c["regions"][region] = c["regions"].get(region, 0) + 1
+            if not c["top"] or elo > c["top"]["elo"]:
+                c["top"] = {
+                    "nickname": p.get("nickname"),
+                    "player_id": p.get("player_id"),
+                    "elo": elo,
+                }
+
+    countries = [
+        {
+            "country": code,
+            "count": c["count"],
+            "avg_elo": round(c["elo_sum"] / c["count"]),
+            # Kept separate from avg_elo so the map can grey out a thin sample
+            # instead of colouring it like a verified result.
+            "thin": c["count"] < MIN_FOR_AVG,
+            "region": max(c["regions"], key=c["regions"].get),
+            "top": c["top"],
+        }
+        for code, c in tally.items()
+    ]
+    countries.sort(key=lambda c: -c["count"])
+
+    result = {
+        "countries": countries,
+        "depth": MAP_DEPTH,
+        "total": sum(c["count"] for c in countries),
+        "min_for_avg": MIN_FOR_AVG,
+    }
+    cache.set("countrymap", result, 6 * 60 * 60)
+    return result
+
+
 def get_player_ranking(player_id, region):
     """Player's global position in a region. Returns the position or None."""
     if not region:

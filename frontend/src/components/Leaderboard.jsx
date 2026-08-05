@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
+import { COUNTRY_NAMES } from "../country-names.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -38,10 +39,10 @@ const COUNTRIES = {
 
 const PAGE = 100;
 
-export default function Leaderboard({ onPick, initialRegion }) {
+export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
   const [regions, setRegions] = useState(DEFAULT_REGIONS);
   const [region, setRegion] = useState((initialRegion || "EU").toUpperCase());
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState((initialCountry || "").toLowerCase());
   const [items, setItems] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,16 @@ export default function Leaderboard({ onPick, initialRegion }) {
     }
   }
 
-  const countryList = COUNTRIES[region] || [];
+  // The hand-kept list above covers the scenes worth offering up front, but the
+  // world map can send us anywhere. A country arriving from there gets added so
+  // the picker shows what's actually being filtered on.
+  const countryList = useMemo(() => {
+    const list = COUNTRIES[region] || [];
+    if (!country || list.some(([c]) => c === country)) return list;
+    const name = COUNTRY_NAMES[country] || country.toUpperCase();
+    return [...list, [country, name]].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [region, country]);
+
   const regionLabel = regions.find((r) => r.key === region)?.label || region;
   const countryName = countryList.find(([c]) => c === country)?.[1];
 

@@ -66,6 +66,7 @@ urlpatterns = [
     path("search/", views.search, name="search"),
     path("recent/", views.recent, name="recent"),
     path("leaderboard/", views.leaderboard, name="leaderboard"),
+    path("leaderboard/countries/", views.leaderboard_countries, name="leaderboard-countries"),
     path("analyze/<str:nickname>/", views.analyze, name="analyze"),
     path("roast/<str:nickname>/", views.roast, name="roast"),
     path("met/", views.have_we_met, name="have-we-met"),
