@@ -46,6 +46,7 @@ import Wrapped from "./components/Wrapped.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
 import PublicProfile from "./components/PublicProfile.jsx";
 import Feedback from "./components/Feedback.jsx";
+import { AdBanner, AdInline } from "./components/AdSlot.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
 } from "./components/WhatsNew.jsx";
@@ -933,6 +934,8 @@ export default function App() {
                 ))}
               </div>
 
+              <AdBanner />
+
               <a
                 className="home-discord"
                 href={DISCORD_INVITE}
@@ -1193,6 +1196,10 @@ export default function App() {
                   <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
                 </>
               )}
+
+              {/* One slot below whichever tab is open — Overview, Smurf, HLTV,
+                  all of them — rather than ten copies inside each branch. */}
+              <AdInline />
             </>
           )}
 
