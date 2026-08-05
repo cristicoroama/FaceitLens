@@ -918,6 +918,8 @@ export default function App() {
                 </div>
               )}
 
+              <AdBanner />
+
               <div className="home-section-label">Everything you can do</div>
               <div className="home-features">
                 {HOME_FEATURES.map((f) => (
@@ -933,8 +935,6 @@ export default function App() {
                   </button>
                 ))}
               </div>
-
-              <AdBanner />
 
               <a
                 className="home-discord"
@@ -1157,6 +1157,10 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Above the tab content, so it sits in one fixed place on every
+                  tab instead of appearing at a different scroll depth per tab. */}
+              <AdInline />
+
               {profileTab === "account" ? (
                 <AccountView nickname={data.nickname} />
               ) : profileTab === "leetify" ? (
@@ -1197,9 +1201,6 @@ export default function App() {
                 </>
               )}
 
-              {/* One slot below whichever tab is open — Overview, Smurf, HLTV,
-                  all of them — rather than ten copies inside each branch. */}
-              <AdInline />
             </>
           )}
 

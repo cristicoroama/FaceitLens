@@ -4355,6 +4355,7 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
    reflows the page around it.
    ========================================================================== */
 .ad-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ad-inline-slot { align-items: stretch; }
 
 /* The disclosure marker. Required, so kept — but as quiet as it can be while
    staying legible. */
@@ -4385,14 +4386,14 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 
 /* --- interactive unit, under whichever profile tab is open ---------------- */
-.ad-inline-slot { margin: 24px 0 8px; }
+.ad-inline-slot { margin: 4px 0 18px; }
 .ad-frame-wrap {
+  /* Full content width, matching the cards below it, but deliberately short.
+     The advertiser ships this at 800x600; a fixed height rather than that
+     ratio keeps it a band across the page instead of a square that owns the
+     screen. Their layout is centred, so it stays centred as the box widens. */
   width: 100%;
-  /* The advertiser ships this at 800x600. Capped well below that so it sits
-     inside a stats page instead of dominating it; the ratio is kept so the
-     unit scales rather than cropping. */
-  max-width: 520px;
-  aspect-ratio: 4 / 3;
+  height: 260px;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
@@ -4400,6 +4401,6 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 .ad-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
 
-@supports not (aspect-ratio: 1) {
-  .ad-frame-wrap { height: 390px; }
+@media (max-width: 640px) {
+  .ad-frame-wrap { height: 300px; }
 }

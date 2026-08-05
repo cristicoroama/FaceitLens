@@ -59,6 +59,13 @@ function Label() {
 }
 
 function StaticBanner({ stem, width, height }) {
+  const [dead, setDead] = useState(false);
+
+  // A blocker that stops the image still leaves the <img> in the page, where
+  // it renders as a broken-image icon and alt text. Better to remove the whole
+  // slot than to show the wreckage of one.
+  if (dead) return null;
+
   return (
     <a
       className="ad-static"
@@ -72,9 +79,10 @@ function StaticBanner({ stem, width, height }) {
         srcSet={`/ads/${stem}.webp 1x, /ads/${stem}@2x.webp 2x`}
         width={width}
         height={height}
-        alt="Hunt.gg — sponsored"
+        alt=""
         loading="lazy"
         decoding="async"
+        onError={() => setDead(true)}
       />
     </a>
   );
