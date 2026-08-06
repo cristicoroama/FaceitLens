@@ -136,11 +136,20 @@ function avgOf(team, key) {
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 }
 
+/** Green when this side won the row, red when it lost, neutral on a tie. */
+function sideClass(leader, side) {
+  if (leader === 0) return "tie";
+  return leader === side ? "up" : "down";
+}
+
 /**
- * Team comparison. Rather than two bars racing to opposite edges — where the
- * eye has to measure both to find the winner — one bar leaves the centre line
- * and points at whichever side is ahead, its length being the size of the gap.
- * A glance gives you the answer; the numbers on the flanks give the detail.
+ * Team comparison, one row per stat.
+ *
+ * Both sides always draw a bar. Length is the value measured against the
+ * bigger of the pair, so the row compares magnitudes and the bar agrees with
+ * the number printed beside it. Colour carries the judgement instead: green
+ * for the side that came out ahead, which on the deaths row is the smaller
+ * number. Leaving the losing side blank said nothing and read as missing data.
  */
 function TeamAverages({ teams }) {
   if (teams.length !== 2) return null;
@@ -150,13 +159,13 @@ function TeamAverages({ teams }) {
     const va = avgOf(a, r.key);
     const vb = avgOf(b, r.key);
     if (va == null || vb == null) return null;
-    const bigger = Math.max(Math.abs(va), Math.abs(vb)) || 1;
-    // Share of the leader's value that the gap represents, so a 17-vs-17 kill
-    // line stays flat and a 0.4-vs-1.2 K/D line runs long.
-    const gap = Math.min(1, Math.abs(va - vb) / bigger);
+    const top = Math.max(Math.abs(va), Math.abs(vb));
+    // A floor of 4%, so a side that got shut out on a stat still shows as a
+    // stub rather than vanishing into the track.
+    const len = (v) => (top ? Math.max(4, Math.round((Math.abs(v) / top) * 100)) : 0);
     let leader = 0;
     if (va !== vb) leader = (r.lowerWins ? va < vb : va > vb) ? -1 : 1;
-    return { ...r, va, vb, gap, leader };
+    return { ...r, va, vb, lenA: len(va), lenB: len(vb), leader };
   }).filter(Boolean);
 
   if (!rows.length) return null;
@@ -169,20 +178,21 @@ function TeamAverages({ teams }) {
         <span className="ta-team right">{b.name || "Team 2"}</span>
       </div>
       {rows.map((r) => {
-        const len = `${Math.max(5, Math.round(r.gap * 100))}%`;
+        const left = sideClass(r.leader, -1);
+        const right = sideClass(r.leader, 1);
         return (
           <div className="ta-row" key={r.key}>
-            <span className={`ta-val left ${r.leader === -1 ? "on" : ""}`}>
+            <span className={`ta-val left ${left}`}>
               {r.va.toFixed(r.dp)}{r.suffix || ""}
             </span>
             <span className="ta-half left">
-              <i style={{ width: r.leader === -1 ? len : 0 }} />
+              <i className={left} style={{ width: `${r.lenA}%` }} />
             </span>
             <span className="ta-label">{r.label}</span>
             <span className="ta-half right">
-              <i style={{ width: r.leader === 1 ? len : 0 }} />
+              <i className={right} style={{ width: `${r.lenB}%` }} />
             </span>
-            <span className={`ta-val right ${r.leader === 1 ? "on" : ""}`}>
+            <span className={`ta-val right ${right}`}>
               {r.vb.toFixed(r.dp)}{r.suffix || ""}
             </span>
           </div>

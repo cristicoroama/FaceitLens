@@ -2342,12 +2342,20 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 .ta-val { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-dim); }
 .ta-val.left { text-align: right; }
-.ta-val.on { color: var(--text); font-weight: 700; }
+/* The winning side is stated twice — bold and green — because on a row like
+   deaths the longer bar is the losing one, and weight alone would read as
+   "bigger number wins". */
+.ta-val.up { color: var(--win); font-weight: 700; }
+.ta-val.down { color: var(--loss); }
+.ta-val.tie { color: var(--text-dim); }
 .ta-half { height: 7px; border-radius: 99px; background: var(--bg-elev-2); position: relative; }
 .ta-half i {
   position: absolute; top: 0; bottom: 0; border-radius: 99px;
-  background: var(--accent); transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  background: var(--border-hi);
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.ta-half i.up { background: var(--win); }
+.ta-half i.down { background: var(--loss); }
 .ta-half.left i { right: 0; }
 .ta-half.right i { left: 0; }
 .ta-label {
