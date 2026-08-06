@@ -4765,7 +4765,7 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
    than the cap, so phones keep the advertiser's shape untouched. */
 .partner-frame {
   width: 100%;
-  aspect-ratio: 24 / 7;
+  aspect-ratio: 48 / 7;
   max-height: 180px;
   display: block;
   border: 1px solid var(--border);

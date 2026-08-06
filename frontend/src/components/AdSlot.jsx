@@ -68,34 +68,23 @@ function Banner() {
   );
 }
 
-/** Home page, between the recent searches and the feature grid. */
-export function AdBanner() {
-  return (
-    <div className="partner">
-      <Tag />
-      <Banner />
-    </div>
-  );
-}
-
-/**
- * Player profile, between the tab bar and whichever tab is open.
- * Falls back to the static strip only if the frame never arrives — the
- * advertiser being down, or the visitor being offline.
- */
-export function AdInline() {
+function Slot({ className }) {
   const [failed, setFailed] = useState(false);
   const frameRef = useRef(null);
 
+  // Only reacts to what actually happened: if the frame hasn't fired onLoad in
+  // a few seconds, show the static banner instead. That covers a blocker
+  // stopping the request, the advertiser being down and a flaky connection,
+  // without guessing about anyone's browser the way the old bait detector did.
   useEffect(() => {
     const t = setTimeout(() => {
       if (!frameRef.current?.dataset.loaded) setFailed(true);
-    }, 6000);
+    }, 3500);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div className="partner partner-inline">
+    <div className={`partner ${className || ""}`}>
       <Tag />
       {failed ? (
         <Banner />
@@ -113,6 +102,16 @@ export function AdInline() {
       )}
     </div>
   );
+}
+
+/** Home page, between the recent searches and the feature grid. */
+export function AdBanner() {
+  return <Slot />;
+}
+
+/** Player profile, between the tab bar and whichever tab is open. */
+export function AdInline() {
+  return <Slot className="partner-inline" />;
 }
 
 export default AdBanner;
