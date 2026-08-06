@@ -72,7 +72,7 @@ export default function ShareCard({ player, onClose }) {
 
       // brand
       ctx.fillStyle = "#eef0ff";
-      ctx.font = "700 40px 'Space Grotesk', sans-serif";
+      ctx.font = "700 40px 'Roboto', sans-serif";
       ctx.textBaseline = "top";
       ctx.fillText("Faceit", 70, 66);
       const bw = ctx.measureText("Faceit").width;
@@ -93,7 +93,7 @@ export default function ShareCard({ player, onClose }) {
       } else {
         ctx.fillStyle = "#121634"; ctx.fillRect(ax - ar, ay - ar, ar * 2, ar * 2);
         ctx.fillStyle = t.accent;
-        ctx.font = "700 90px 'Space Grotesk', sans-serif";
+        ctx.font = "700 90px 'Roboto', sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(initials(player.nickname), ax, ay + 4);
       }
@@ -102,12 +102,12 @@ export default function ShareCard({ player, onClose }) {
       // name
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ffffff";
-      ctx.font = "700 68px 'Space Grotesk', sans-serif";
+      ctx.font = "700 68px 'Roboto', sans-serif";
       ctx.fillText(player.nickname || "—", S / 2, 500);
 
       // level + ELO line
       ctx.fillStyle = t.accent2;
-      ctx.font = "700 40px 'JetBrains Mono', monospace";
+      ctx.font = "700 40px 'Roboto Mono', monospace";
       ctx.fillText(`LVL ${player.skill_level ?? "?"}  ·  ${player.elo ?? "?"} ELO`, S / 2, 582);
 
       // stat tiles
@@ -127,18 +127,18 @@ export default function ShareCard({ player, onClose }) {
         ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1.5;
         roundRect(ctx, tx, ty, tw, th, 22); ctx.stroke();
         ctx.fillStyle = "#ffffff";
-        ctx.font = "700 52px 'JetBrains Mono', monospace";
+        ctx.font = "700 52px 'Roboto Mono', monospace";
         ctx.textBaseline = "middle";
         ctx.fillText(String(val), tx + tw / 2, ty + th / 2 - 8);
         ctx.fillStyle = "#8e95c4";
-        ctx.font = "700 22px 'Space Grotesk', sans-serif";
+        ctx.font = "700 22px 'Roboto', sans-serif";
         ctx.fillText(label, tx + tw / 2, ty + th - 34);
         tx += tw + gap;
       });
 
       // footer url
       ctx.fillStyle = t.accent;
-      ctx.font = "600 34px 'JetBrains Mono', monospace";
+      ctx.font = "600 34px 'Roboto Mono', monospace";
       ctx.textBaseline = "alphabetic";
       ctx.fillText(`faceit-lens.com/player/${player.nickname}`, S / 2, S - 60);
 

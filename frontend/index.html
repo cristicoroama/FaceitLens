@@ -8,8 +8,13 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Weight ranges, not a list of fixed weights: the stylesheet asks for 650
+         and 750 in ~20 places, and a discrete request would serve static cuts
+         that round both to 700. A range serves the variable font, which hits
+         them exactly. Roboto Mono stops at 700, so the few mono rules set to
+         800 clamp there. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..900&family=Roboto+Mono:wght@400..700&display=swap"
       rel="stylesheet"
     />
     <title>Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker</title>

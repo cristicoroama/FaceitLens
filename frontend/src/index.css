@@ -49,9 +49,12 @@
   --glass-hi: transparent;       /* kills the inset white "sheen" line */
   --blur: 0px;
   /* type */
-  --font-display: "Space Grotesk", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
-  --font-body: "Inter", sans-serif;
+  /* One family in two cuts. The three roles below stay separate because ~250
+     rules address them by name and because display/body still differ in
+     weight and tracking — they just no longer differ in typeface. */
+  --font-display: "Roboto", sans-serif;
+  --font-mono: "Roboto Mono", monospace;
+  --font-body: "Roboto", sans-serif;
   /* depth — black, like a real shadow. Never a coloured halo. */
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -361,7 +364,7 @@ a { color: inherit; }
 .sys-banner-text { font-weight: 700; font-size: 14px; color: var(--text); }
 .sys-banner-time {
   margin-left: auto; font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
 }
 
 /* ---- Status page: incident history ---- */
@@ -392,12 +395,12 @@ a { color: inherit; }
 .impact-maintenance { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 45%, transparent); }
 .inc-component {
   margin-left: auto; font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
 }
 .inc-title { font-size: 15.5px; font-weight: 700; margin: 0 0 4px; color: var(--text); }
 .inc-window {
   font-size: 12px; color: var(--text-dim); margin-bottom: 13px;
-  font-family: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
 }
 .inc-timeline { border-left: 1px solid var(--border); margin-left: 4px; }
 .inc-update { position: relative; padding: 0 0 16px 18px; }
@@ -410,7 +413,7 @@ a { color: inherit; }
 .inc-up-status { font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--st); }
 .inc-up-time {
   font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
 }
 .inc-up-text { font-size: 13.5px; line-height: 1.6; color: var(--text-dim); margin: 0; }
 
