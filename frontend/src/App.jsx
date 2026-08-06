@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
+import StatPanels from "./components/StatPanels.jsx";
 import MapHighlights from "./components/MapHighlights.jsx";
 import ProfileTools from "./components/ProfileTools.jsx";
 import EloChart from "./components/EloChart.jsx";
@@ -1160,6 +1161,10 @@ export default function App() {
                       explanation of how it was scored. */}
                   <MapHighlights maps={data.map_stats} />
                   <SkillRatings skills={data.skills} />
+                  {/* Directly under the ratings: these are the numbers those
+                      bars were scored from, so a rating you disagree with can
+                      be checked rather than just disbelieved. */}
+                  <StatPanels stats={data.stats} />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
                   <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                   <div className="duo">

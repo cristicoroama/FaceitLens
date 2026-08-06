@@ -3346,6 +3346,36 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 
 /* ============================================================
+   Lifetime stat panels (combat / entry / clutch / utility)
+   ============================================================ */
+/* A grid rather than a right-hand rail: the profile is one column, and these
+   four are reference tables you consult, not a summary you scan while reading
+   something else. auto-fit means a phone gets one per row without a query. */
+.sp-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.sp {
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+  border-radius: var(--radius); padding: 14px 16px;
+}
+.sp-title {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;
+  color: var(--text-dim); padding-bottom: 9px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.sp-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; padding: 5px 0;
+}
+.sp-k { font-size: 12.5px; color: var(--text-dim); min-width: 0; }
+.sp-v {
+  font-family: var(--font-mono); font-weight: 700; font-size: 13px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.sp-v.none { color: var(--text-dim); font-weight: 400; opacity: 0.6; }
+
+/* ============================================================
    Profile "Generate" menu
    ============================================================ */
 .ptools { position: relative; }

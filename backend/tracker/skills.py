@@ -160,18 +160,34 @@ def build_skill_profile(lifetime, recent=None):
 
     overall = int(round(sum(r["score"] for r in scored) / len(scored)))
 
-    # A rating is only worth calling a strength or a weakness against this
-    # player's own baseline — telling a 30-overall player their best area is
-    # "weak" is true but useless, and the same for a strong player's worst.
-    strengths = [r for r in scored if r["score"] >= max(60, overall + 12)]
-    weaknesses = [r for r in scored if r["score"] <= min(45, overall - 12)]
-    strengths.sort(key=lambda r: -r["score"])
-    weaknesses.sort(key=lambda r: r["score"])
+    # Strength and weakness are read against this player's own shape, not an
+    # absolute bar. Gating on one (">= 60") left the column empty for every
+    # player whose ratings sat in a band, which is most of them — and a heading
+    # with nothing under it reads as broken rather than as "nothing stands out".
+    #
+    # SPREAD is the exception that keeps it honest: a player who scores 44 45 46
+    # 47 48 has no strongest area worth naming, and calling the 48 one would be
+    # inventing a shape out of rounding.
+    SPREAD = 8
+    ranked = sorted(scored, key=lambda r: -r["score"])
+    strengths, weaknesses = [], []
+    if ranked[0]["score"] - ranked[-1]["score"] >= SPREAD:
+        # The top one, plus a second only if it is also clearly above the rest.
+        strengths = [ranked[0]]
+        if len(ranked) > 2 and ranked[1]["score"] - ranked[-1]["score"] >= SPREAD:
+            strengths.append(ranked[1])
+        # Everything below the midpoint of the player's own range, worst first,
+        # minus anything already named a strength.
+        floor = (ranked[0]["score"] + ranked[-1]["score"]) / 2
+        weaknesses = [
+            r for r in reversed(ranked)
+            if r["score"] < floor and r not in strengths
+        ][:3]
 
     return {
         "overall": overall,
         "ratings": ratings,
-        "strengths": [r["key"] for r in strengths[:3]],
-        "weaknesses": [r["key"] for r in weaknesses[:3]],
+        "strengths": [r["key"] for r in strengths],
+        "weaknesses": [r["key"] for r in weaknesses],
         "rated": len(scored),
     }

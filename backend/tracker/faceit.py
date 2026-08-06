@@ -1926,8 +1926,11 @@ def build_player_summary(nickname):
             "adr": lifetime.get("ADR") or lifetime.get("Average Damage per Round"),
             "total_kills": lifetime.get("Total Kills with extended stats")
             or lifetime.get("Total Kills"),
-            "total_headshots": lifetime.get("Total Headshots with extended stats")
-            or lifetime.get("Total Headshots"),
+            # Deliberately NOT forwarding "Total Headshots": FACEIT returns a
+            # number there that exceeds the player's total kills (177k headshots
+            # against 24k kills on the account this was checked with), so it is
+            # a sum of per-match percentages, not a count. The honest headshot
+            # figure is avg_hs above.
             "longest_win_streak": lifetime.get("Longest Win Streak"),
             "current_win_streak": lifetime.get("Current Win Streak"),
             # CS2-era fields. Accounts that stopped playing before FACEIT
@@ -1936,10 +1939,19 @@ def build_player_summary(nickname):
             "entry_rate": lifetime.get("Entry Rate"),
             "entry_success": lifetime.get("Entry Success Rate"),
             "total_entry_count": lifetime.get("Total Entry Count"),
+            "total_entry_wins": lifetime.get("Total Entry Wins"),
             "clutch_1v1": lifetime.get("1v1 Win Rate"),
             "clutch_1v2": lifetime.get("1v2 Win Rate"),
+            "total_1v1_count": lifetime.get("Total 1v1 Count"),
+            "total_1v1_wins": lifetime.get("Total 1v1 Wins"),
+            "total_1v2_count": lifetime.get("Total 1v2 Count"),
+            "total_1v2_wins": lifetime.get("Total 1v2 Wins"),
             "util_damage_per_round": lifetime.get("Utility Damage per Round"),
+            "util_success": lifetime.get("Utility Success Rate"),
             "flash_success": lifetime.get("Flash Success Rate"),
+            "flashes_per_round": lifetime.get("Flashes per Round"),
+            "enemies_flashed_per_round": lifetime.get("Enemies Flashed per Round"),
+            "sniper_kill_rate": lifetime.get("Sniper Kill Rate"),
         },
         # Five 0-100 ratings from the block above. None when the account
         # predates every stat they're built from.
