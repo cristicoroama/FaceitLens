@@ -463,7 +463,10 @@ def get_match_detail(match_id):
     Simplified scoreboard for a single match (per-player in-match stats).
     Cached 6h since a finished match never changes.
     """
-    cache_key = f"match:{match_id}"
+    # Versioned: entries cached before avatars were added have no `avatar` key,
+    # and a 6h TTL would have served scoreboards without pictures for the rest
+    # of the day.
+    cache_key = f"match:v2:{match_id}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -479,6 +482,27 @@ def get_match_detail(match_id):
     if score:
         detail["score"] = " - ".join(str(v) for v in score.values())
 
+    # Match context, all of it already in the meta response the score came
+    # from. Duration is derived rather than reported: FACEIT gives the two
+    # timestamps and nothing else.
+    started = _ts_seconds(meta.get("started_at"))
+    finished = _ts_seconds(meta.get("finished_at"))
+    detail.update({
+        "competition": meta.get("competition_name"),
+        "competition_type": meta.get("competition_type"),
+        "region": meta.get("region"),
+        "game_mode": meta.get("game_mode"),
+        "best_of": meta.get("best_of"),
+        "status": meta.get("status"),
+        "started_at": started,
+        "finished_at": finished,
+        "duration": (finished - started) if (started and finished) else None,
+        "faceit_url": (meta.get("faceit_url") or "").replace("{lang}", "en") or None,
+        # Present on some matches, absent on most — the UI shows a dash rather
+        # than hiding the field, so the row keeps its shape.
+        "server": meta.get("server") or None,
+    })
+
     try:
         stats = _get(f"/matches/{match_id}/stats")
     except FaceitError:
@@ -487,6 +511,21 @@ def get_match_detail(match_id):
     rounds = stats.get("rounds", [])
     if not rounds:
         return detail
+
+    # The stats endpoint carries no avatars, but /matches/<id> — already
+    # fetched above for the score — ships a roster that does, so the pictures
+    # cost no extra request. Keyed on player_id, with the nickname as a second
+    # key for the odd row where the two endpoints disagree on the id.
+    avatars = {}
+    for faction in (meta.get("teams") or {}).values():
+        for member in (faction or {}).get("roster") or []:
+            avatar = member.get("avatar") or None
+            if not avatar:
+                continue
+            if member.get("player_id"):
+                avatars[member["player_id"]] = avatar
+            if member.get("nickname"):
+                avatars[member["nickname"].lower()] = avatar
 
     rnd = rounds[0]
     rstats = rnd.get("round_stats", {})
@@ -512,22 +551,34 @@ def get_match_detail(match_id):
         for p in team.get("players", []):
             ps = p.get("player_stats", {})
             perf = _perf.match_performance(ps, rounds=map_rounds)
+            pid = p.get("player_id")
             players.append({
+                "player_id": pid,
                 "nickname": p.get("nickname"),
+                "avatar": avatars.get(pid)
+                or avatars.get((p.get("nickname") or "").lower()),
                 "kills": ps.get("Kills"),
                 "deaths": ps.get("Deaths"),
                 "assists": ps.get("Assists"),
                 "kd": ps.get("K/D Ratio"),
+                "kr": ps.get("K/R Ratio"),
                 "hs": ps.get("Headshots %"),
+                "mvps": _to_int(ps.get("MVPs")),
                 "adr": ps.get("ADR") or ps.get("Average Damage per Round"),
                 "rating": perf["rating"] if perf else None,
                 "firepower": perf["firepower"] if perf else None,
+                "kast": perf["kast"] if perf else None,
             })
         players.sort(key=lambda x: float(x["kd"] or 0), reverse=True)
         detail["teams"].append({
             "name": tstats.get("Team"),
-            "score": tstats.get("Final Score"),
+            "score": _to_int(tstats.get("Final Score")),
             "win": tstats.get("Team Win") == "1",
+            # Halves are what turn a 13-11 into a story — a team that went 3-9
+            # down and won didn't play the same match as one that cruised.
+            "half1": _to_int(tstats.get("First Half Score")),
+            "half2": _to_int(tstats.get("Second Half Score")),
+            "overtime": _to_int(tstats.get("Overtime score")) or None,
             "players": players,
         })
 
@@ -774,6 +825,59 @@ def build_sessions_and_streak(player_id, limit=50, items=None):
         "tilt": tilt_run >= 3,
     }
     return {"streak": streak, "last_session": last_session}
+
+
+def _score_pair(raw):
+    """The two round totals out of a FACEIT score string, e.g. '13 / 7'."""
+    cleaned = str(raw or "").replace("/", " ").replace("-", " ").replace(":", " ")
+    nums = [n for n in (_to_int(x) for x in cleaned.split()) if n is not None]
+    return nums[:2] if len(nums) >= 2 else None
+
+
+def match_line(stats, perf=None):
+    """One match seen from this player's side: map, score and their scoreline.
+
+    Everything a collapsed row in the match list shows, pulled out of the
+    per-match stats we already fetch for the ELO curve — so the list costs no
+    extra request.
+    """
+    s = stats or {}
+
+    # FACEIT's "Score" is the scoreboard as played, not as this player lived
+    # it: a loss can read "13 / 7". "Final Score" is their own team's total, so
+    # put that first and the opponent second, and the column always reads
+    # "us / them".
+    score = None
+    pair = _score_pair(s.get("Score"))
+    if pair:
+        ours = _to_int(s.get("Final Score"))
+        if ours is not None and ours in pair:
+            theirs = pair[1] if pair[0] == ours else pair[0]
+            score = f"{ours} / {theirs}"
+        else:
+            score = f"{pair[0]} / {pair[1]}"
+
+    adr = s.get("ADR") or s.get("Average Damage per Round")
+    adr_estimated = adr is None
+    if adr is None and perf:
+        adr = perf.get("adr")
+
+    return {
+        "map": s.get("Map"),
+        "score": score,
+        "rounds": _to_int(s.get("Rounds")),
+        "kills": _to_int(s.get("Kills")),
+        "deaths": _to_int(s.get("Deaths")),
+        "assists": _to_int(s.get("Assists")),
+        "kd": s.get("K/D Ratio"),
+        "kr": s.get("K/R Ratio"),
+        "hs": _to_int(s.get("Headshots %")),
+        "mvps": _to_int(s.get("MVPs")),
+        "adr": round(float(adr)) if adr is not None else None,
+        # Older matches predate FACEIT's ADR field; the UI marks a modelled
+        # number rather than passing it off as measured.
+        "adr_estimated": adr_estimated,
+    }
 
 
 def build_form_and_trend(items):
@@ -1723,6 +1827,7 @@ def build_player_summary(nickname):
     # can show a rating without expanding each row.
     from . import performance as _perf
     perf_by_match = {}
+    line_by_match = {}
     for _it in match_items:
         _s = _it.get("stats", {})
         _mid = _s.get("Match Id") or _it.get("match_id")
@@ -1730,6 +1835,9 @@ def build_player_summary(nickname):
             _p = _perf.match_performance(_s)
             if _p:
                 perf_by_match[_mid] = _p["rating"]
+            # The history endpoint knows who played; only this one knows how it
+            # went. Joined on match id so a row can show both.
+            line_by_match[_mid] = match_line(_s, _p)
     # distinct maps in recent matches (for the filter dropdown)
     maps_played = sorted({
         it.get("stats", {}).get("Map")
@@ -1820,6 +1928,7 @@ def build_player_summary(nickname):
                 "competition": m.get("competition_name"),
                 "won": _player_won(m, player.get("nickname")),
                 "rating": perf_by_match.get(m.get("match_id")),
+                **(line_by_match.get(m.get("match_id")) or {}),
                 "teams": {
                     side: {
                         "nickname": t.get("nickname"),
