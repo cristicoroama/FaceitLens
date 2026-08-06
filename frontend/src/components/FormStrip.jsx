@@ -50,15 +50,6 @@ export default function FormStrip({ matches, limit = 10 }) {
   const wins = last.filter((m) => m.won === true).length;
   const losses = last.filter((m) => m.won === false).length;
 
-  // The current run, counted from the newest end and stopping at the first
-  // different result. A match with no recorded outcome ends it too — treating
-  // one as a continuation would report a streak the player never had.
-  const runResult = last[0].won;
-  let run = 0;
-  if (runResult != null) {
-    while (run < last.length && last[run].won === runResult) run++;
-  }
-
   return (
     <div className="form-strip">
       <span className="form-strip-label">Recent form</span>
@@ -77,12 +68,6 @@ export default function FormStrip({ matches, limit = 10 }) {
         <span className="fs-sep">–</span>
         <b className="fs-l">{losses}L</b>
       </span>
-
-      {run >= 2 && (
-        <span className={`form-strip-streak ${runResult ? "up" : "down"}`}>
-          {run} {runResult ? "win" : "loss"} streak
-        </span>
-      )}
 
       <span className="form-strip-hint">newest first</span>
     </div>
