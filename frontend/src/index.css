@@ -4365,10 +4365,16 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 
 /* 24/7 is the shape the advertiser designs this unit for — a wide, short band
    rather than a square that owns the screen. Reserving the box by ratio means
-   nothing below it moves when the frame finishes loading. */
+   nothing below it moves when the frame finishes loading.
+
+   The cap is what keeps it a band on a wide screen: at the 1120px content
+   width the raw ratio works out to ~310px, tall enough to push the tab content
+   under the fold on a laptop. Below ~620px wide the ratio is already shorter
+   than the cap, so phones keep the advertiser's shape untouched. */
 .partner-frame {
   width: 100%;
   aspect-ratio: 24 / 7;
+  max-height: 180px;
   display: block;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -4376,7 +4382,7 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 
 @supports not (aspect-ratio: 1) {
-  .partner-frame { height: 300px; }
+  .partner-frame { height: 180px; }
 }
 
 /* Fallback art, only rendered if the frame never arrives. */
