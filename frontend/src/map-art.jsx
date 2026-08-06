@@ -8,17 +8,16 @@ import { useState } from "react";
  * the second net, for a name in the list whose file went missing.
  */
 const HAS_IMAGE = new Set([
-  "agency", "ancient", "anubis", "baggage", "basalt", "dust2", "edin",
-  "grail", "inferno", "italy", "jura", "mills", "mirage", "nuke", "office",
-  "overpass", "palais", "pool_day", "shoots", "thera", "train", "vertigo",
-  "whistle",
+  "agency", "ancient", "anubis", "baggage", "basalt", "cache", "dust2",
+  "edin", "grail", "inferno", "italy", "jura", "mills", "mirage", "nuke",
+  "office", "overpass", "palais", "pool_day", "shoots", "thera", "train",
+  "vertigo", "whistle",
 ]);
 
-/* Accent + three-letter code for the maps we have no picture for. Cache and
-   Cobblestone still turn up in old match history, so they get a real colour
-   rather than the generic accent. */
+/* Accent + three-letter code for the maps we have no picture for. Cobblestone
+   still turns up in old match history, so it gets a real colour rather than
+   the generic accent. */
 const MAP_META = {
-  cache: { c: "#c98a3c", code: "CCH" },
   cbble: { c: "#7d9b4e", code: "CBL" },
   dogtown: { c: "#b5643c", code: "DGT" },
   tuscan: { c: "#c2a35a", code: "TSC" },

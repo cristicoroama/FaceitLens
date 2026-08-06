@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
+import SkillRatings from "./components/SkillRatings.jsx";
+import MapHighlights from "./components/MapHighlights.jsx";
+import ProfileTools from "./components/ProfileTools.jsx";
 import EloChart from "./components/EloChart.jsx";
 import CompareView from "./components/CompareView.jsx";
 import MapStats from "./components/MapStats.jsx";
@@ -40,7 +43,6 @@ import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
 import Nemeses from "./components/Nemeses.jsx";
-import SmurfMeter from "./components/SmurfMeter.jsx";
 import ShareCard from "./components/ShareCard.jsx";
 import Wrapped from "./components/Wrapped.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
@@ -202,8 +204,6 @@ const NAV = [
 /* flagship features showcased on the home page. nav = tool page id (clickable),
    no nav = feature lives inside a player profile → focus the search box. */
 const HOME_FEATURES = [
-  { icon: Icon.incognito, title: "Smurf Detector", nav: null,
-    desc: "Combines HS%, K/D, hours and account age into a smurf likelihood — and flags FACEIT bans." },
   { icon: Icon.shieldCheck, title: "Account Trust Score", nav: null,
     desc: "Steam age, hours, level, bans and inventory in one legit-o-meter. Spot throwaways instantly." },
   { icon: Icon.people, title: "Match Room Analyzer", nav: "matchroom",
@@ -252,7 +252,7 @@ const PAGE_META = {
   watchlist: ["Watchlist — Track FACEIT Players",
     "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
   matchroom: ["FACEIT Match Room Analyzer — Scout Your Lobby",
-    "Paste a FACEIT match room link and scout all 10 players instantly: ELO, trust score, smurf signals and recent form."],
+    "Paste a FACEIT match room link and scout all 10 players instantly: ELO, level, trust score and recent form."],
   compare: ["Compare FACEIT Players — Head to Head CS2 Stats",
     "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
   squad: ["Squad Stats — Look Up Your CS2 Team",
@@ -282,11 +282,11 @@ const PAGE_META = {
   feedback: ["Feedback — Faceit-Lens", "Report a bug, request a feature or tell us what to improve on Faceit-Lens."],
   settings: ["Settings — Faceit-Lens", DEFAULT_DESC],
   faq: ["FAQ — How Faceit-Lens Works",
-    "How the trust score and smurf detector are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
+    "How the trust score and skill ratings are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
   privacy: ["Privacy Policy",
     "What Faceit-Lens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
   terms: ["Terms of Service",
-    "Terms for using Faceit-Lens: fair use, API limits, and why trust and smurf scores are estimates rather than accusations."],
+    "Terms for using Faceit-Lens: fair use, API limits, and why trust scores and skill ratings are estimates rather than accusations."],
 };
 
 /** Swap the document title + meta description for the current view. */
@@ -310,10 +310,6 @@ function applyMeta(title, desc, robots = "index, follow") {
 const PROFILE_TABS = [
   ["overview", "Overview", Icon.grid1x2],
   ["account", "Trust", Icon.shieldCheck],
-  // Sits next to Trust: both answer "is this account what it looks like?".
-  // It used to open the Overview tab, where it pushed the actual stats below
-  // the fold for every player, most of whom aren't smurfs.
-  ["smurf", "Smurf", Icon.incognito],
   ["leetify", "Leetify", Icon.graphUpArrow],
   ["clips", "Clips", Icon.playBtn],
   ["hltv", "HLTV Stats", Icon.barChartLine],
@@ -361,9 +357,6 @@ export default function App() {
   const [showCard, setShowCard] = useState(false);
   const [showWrapped, setShowWrapped] = useState(false);
   const [cs2Online, setCs2Online] = useState(null);
-  // Leetify ban history, fetched alongside the profile (not blocking it) so
-  // the smurf detector can use cross-platform bans as a signal.
-  const [leetifyBans, setLeetifyBans] = useState(null);
   const changelog = useChangelog();
 
   // The site is dark-only, so there is no theme state and no [data-theme]
@@ -387,21 +380,6 @@ export default function App() {
       })
       .catch(() => {});
   }, []);
-
-  // Leetify ban history for the player on screen. Fetched separately so it
-  // never delays the profile itself — the smurf meter simply sharpens once it
-  // lands. Players Leetify doesn't know about just return nothing.
-  useEffect(() => {
-    const nick = data?.nickname;
-    if (!nick) { setLeetifyBans(null); return; }
-    let cancelled = false;
-    setLeetifyBans(null);
-    fetch(`${API_BASE}/api/player/${encodeURIComponent(nick)}/leetify/`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((j) => !cancelled && setLeetifyBans(j.bans || []))
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [data?.nickname]);
 
   // Live status / incident feed (managed from the Django admin). Drives the
   // header indicator (blink on active incident) and the /news status page.
@@ -1101,22 +1079,14 @@ export default function App() {
                   {copied ? Icon.checkLg : Icon.link45deg}
                   {copied ? "Copied" : "Share"}
                 </button>
-                <button className="act-btn ai" onClick={runAnalysis} disabled={aiLoading}>
-                  {Icon.stars}
-                  {aiLoading ? "Analyzing…" : "AI Analysis"}
-                </button>
-                <button className="act-btn roast" onClick={runRoast} disabled={roastLoading}>
-                  {Icon.fire}
-                  {roastLoading ? "Cooking…" : "Roast me"}
-                </button>
-                <button className="act-btn" onClick={() => setShowCard(true)}>
-                  {Icon.cardImage}
-                  Share card
-                </button>
-                <button className="act-btn wrapped-btn" onClick={() => setShowWrapped(true)}>
-                  {Icon.cameraReels}
-                  Wrapped
-                </button>
+                <ProfileTools
+                  onAnalyze={runAnalysis}
+                  aiLoading={aiLoading}
+                  onRoast={runRoast}
+                  roastLoading={roastLoading}
+                  onShareCard={() => setShowCard(true)}
+                  onWrapped={() => setShowWrapped(true)}
+                />
                 {data.form && <span className="form-badge">Last 10: {data.form}</span>}
               </PlayerHeader>
 
@@ -1177,8 +1147,6 @@ export default function App() {
                 <SteamInfo steam={data.steam} />
               ) : profileTab === "nicknames" ? (
                 <Nicknames nicknames={data.nicknames} />
-              ) : profileTab === "smurf" ? (
-                <SmurfMeter data={data} leetifyBans={leetifyBans} />
               ) : (
                 <>
                   <OverviewGrid
@@ -1187,6 +1155,11 @@ export default function App() {
                     mapFilter={mapFilter}
                     onMapFilter={applyMapFilter}
                   />
+                  {/* Best/weakest sits above the skill bars: which map to pick
+                      is the question people came to answer, and it needs no
+                      explanation of how it was scored. */}
+                  <MapHighlights maps={data.map_stats} />
+                  <SkillRatings skills={data.skills} />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
                   <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                   <div className="duo">

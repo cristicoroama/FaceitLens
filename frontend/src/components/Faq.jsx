@@ -90,7 +90,7 @@ const FAQ = [
     ],
   },
   {
-    group: "Trust Score and Smurf Detector",
+    group: "Trust Score",
     items: [
       {
         q: "How is the Trust Score calculated?",
@@ -107,14 +107,6 @@ const FAQ = [
             no inventory scores low whether it belongs to a cheater, a smurf, or
             somebody who just started playing. It is not cheat detection and it
             is not evidence of anything.`,
-      },
-      {
-        q: "What about the Smurf Detector?",
-        a: `Also an estimate. It weighs gameplay dominance against account
-            signals — a very high win rate on a young account with few hours
-            looks different from the same win rate on a six-year-old account.
-            Smurfing can only really be confirmed from demos, so treat the number
-            as a sniff test and never as an accusation.`,
       },
       {
         q: "Someone's score is unfair. Can it be removed?",

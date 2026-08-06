@@ -393,6 +393,10 @@ def extract_map_stats(stats):
             "matches": matches,
             "win_rate": s.get("Win Rate %"),
             "avg_kd": s.get("Average K/D Ratio"),
+            # Only on segments FACEIT recorded after CS2's advanced stats
+            # landed; the cards that show it fall back to hiding the figure.
+            "adr": s.get("ADR") or s.get("Average Damage per Round"),
+            "avg_hs": s.get("Average Headshots %"),
         })
     maps.sort(key=lambda m: m["matches"], reverse=True)
     return maps
@@ -1872,6 +1876,7 @@ def build_player_summary(nickname):
         pass
 
     from . import allstar as _allstar
+    from . import skills as _skills
     result = {
         "player_id": player_id,
         "nickname": player.get("nickname"),
@@ -1916,10 +1921,29 @@ def build_player_summary(nickname):
             "matches": lifetime.get("Matches"),
             "win_rate": lifetime.get("Win Rate %"),
             "avg_kd": lifetime.get("Average K/D Ratio"),
+            "avg_kr": lifetime.get("Average K/R Ratio"),
             "avg_hs": lifetime.get("Average Headshots %"),
+            "adr": lifetime.get("ADR") or lifetime.get("Average Damage per Round"),
+            "total_kills": lifetime.get("Total Kills with extended stats")
+            or lifetime.get("Total Kills"),
+            "total_headshots": lifetime.get("Total Headshots with extended stats")
+            or lifetime.get("Total Headshots"),
             "longest_win_streak": lifetime.get("Longest Win Streak"),
             "current_win_streak": lifetime.get("Current Win Streak"),
+            # CS2-era fields. Accounts that stopped playing before FACEIT
+            # started recording them simply have nothing here, which is why
+            # every consumer treats a missing key as "unknown" and not as zero.
+            "entry_rate": lifetime.get("Entry Rate"),
+            "entry_success": lifetime.get("Entry Success Rate"),
+            "total_entry_count": lifetime.get("Total Entry Count"),
+            "clutch_1v1": lifetime.get("1v1 Win Rate"),
+            "clutch_1v2": lifetime.get("1v2 Win Rate"),
+            "util_damage_per_round": lifetime.get("Utility Damage per Round"),
+            "flash_success": lifetime.get("Flash Success Rate"),
         },
+        # Five 0-100 ratings from the block above. None when the account
+        # predates every stat they're built from.
+        "skills": _skills.build_skill_profile(lifetime, recent_avg),
         "recent_matches": [
             {
                 "match_id": m.get("match_id"),

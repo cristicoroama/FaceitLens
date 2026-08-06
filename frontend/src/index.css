@@ -3223,41 +3223,164 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .hub-member-name { font-weight: 600; font-size: 12.5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* ============================================================
-   Smurf Detector
+   Best / weakest map
    ============================================================ */
-.smurf-body { display: grid; grid-template-columns: 170px 1fr; gap: 20px; align-items: center; }
-@media (max-width: 640px) { .smurf-body { grid-template-columns: 1fr; justify-items: center; } }
-.smurf-gauge { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.smurf-tier {
-  font-family: var(--font-display); font-weight: 700; font-size: 11px; letter-spacing: 1.5px;
-  padding: 4px 12px; border: 1px solid; border-radius: 999px; text-align: center;
+.mhl-pair {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 12px; margin-bottom: 16px;
 }
-.smurf-signals { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.smurf-clean {
-  color: var(--win); font-size: 14px; font-weight: 600;
-  background: color-mix(in srgb, var(--win) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 35%, transparent);
-  border-radius: 12px; padding: 14px 16px;
+@media (max-width: 700px) { .mhl-pair { grid-template-columns: 1fr; } }
+
+.mhl {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  min-height: 132px; display: flex; flex-direction: column; justify-content: flex-end;
 }
-.smurf-sig {
-  display: flex; align-items: center; gap: 11px; padding: 9px 12px;
-  background: color-mix(in srgb, var(--bg-elev-2) 50%, transparent);
-  border: 1px solid var(--glass-brd); border-radius: 11px;
-  animation: fadeUp 0.3s ease both;
+/* The art is the card's background, not a thumbnail beside the text, so the
+   map is recognisable before a single word is read. */
+.mhl .map-thumb.mhl-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border: none; border-radius: 0; box-shadow: none;
 }
-.smurf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.smurf-sig-main { flex: 1; min-width: 0; }
-.smurf-sig-label { font-weight: 700; font-size: 13px; }
-.smurf-sig-detail { color: var(--text-dim); font-size: 11.5px; margin-top: 2px; }
-.smurf-sig-w { font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
-.smurf-note { color: var(--text-dim); font-size: 11px; line-height: 1.5; margin-top: 14px; opacity: 0.85; }
-.smurf-legit { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.smurf-legit-badge {
-  font-size: 11.5px; font-weight: 600; color: var(--win);
-  background: color-mix(in srgb, var(--win) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 38%, transparent);
-  border-radius: 999px; padding: 4px 11px;
+.mhl .map-thumb.mhl-art img { width: 100%; height: 100%; }
+/* Text sits on a photograph, so it gets a gradient of its own to sit on
+   rather than trusting whatever happens to be in that corner of the map. */
+.mhl::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(8, 8, 11, 0.93) 0%, rgba(8, 8, 11, 0.72) 42%, rgba(8, 8, 11, 0.25) 100%);
 }
+.mhl-tag {
+  position: absolute; top: 10px; left: 10px; z-index: 2;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px;
+}
+.mhl.best .mhl-tag {
+  color: var(--win); background: color-mix(in srgb, var(--win) 16%, rgba(8, 8, 11, 0.8));
+  border: 1px solid color-mix(in srgb, var(--win) 45%, transparent);
+}
+.mhl.worst .mhl-tag {
+  color: var(--loss); background: color-mix(in srgb, var(--loss) 16%, rgba(8, 8, 11, 0.8));
+  border: 1px solid color-mix(in srgb, var(--loss) 45%, transparent);
+}
+.mhl-body { position: relative; z-index: 2; padding: 12px 14px; }
+.mhl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mhl-name {
+  font-family: var(--font-display); font-weight: 700; font-size: 19px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mhl-wr {
+  font-family: var(--font-mono); font-weight: 700; font-size: 17px; flex-shrink: 0;
+}
+.mhl.best .mhl-wr { color: var(--win); }
+.mhl.worst .mhl-wr { color: var(--loss); }
+.mhl-wr i {
+  display: block; font-style: normal; font-weight: 400; font-size: 9.5px;
+  letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dim);
+  text-align: right; margin-top: 1px;
+}
+.mhl-facts {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   Skill ratings
+   ============================================================ */
+.sr-overall {
+  margin-left: auto; font-family: var(--font-mono); font-weight: 800; font-size: 21px;
+  line-height: 1;
+}
+.sr-overall span { font-size: 11px; font-weight: 400; color: var(--text-dim); margin-left: 1px; }
+.sr-overall.high { color: var(--win); }
+.sr-overall.mid { color: var(--accent); }
+.sr-overall.low { color: var(--loss); }
+
+/* Bars left, the verdict right — but only above 860px. Below it the verdict
+   goes under the bars rather than squeezing both into half a phone. */
+.sr-body { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 860px) {
+  .sr-body { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 26px; }
+}
+
+.sr-bars { display: flex; flex-direction: column; gap: 11px; }
+.sr-row.missing { opacity: 0.55; }
+.sr-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.sr-label { font-weight: 700; font-size: 13px; }
+.sr-detail {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim);
+  margin-left: auto; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sr-score {
+  font-family: var(--font-mono); font-weight: 800; font-size: 13px;
+  min-width: 26px; text-align: right; flex-shrink: 0; color: var(--text-dim);
+}
+.sr-score.high { color: var(--win); }
+.sr-score.mid { color: var(--accent); }
+.sr-score.low { color: var(--loss); }
+.sr-track { height: 6px; border-radius: 99px; background: var(--bg-elev-2); overflow: hidden; }
+.sr-track i {
+  display: block; height: 100%; border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sr-track i.high { background: var(--win); }
+.sr-track i.mid { background: var(--accent); }
+.sr-track i.low { background: var(--loss); }
+
+.sr-verdict { display: flex; flex-direction: column; gap: 14px; }
+.sr-group-head {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.sr-group-head.good { color: var(--win); }
+.sr-group-head.bad { color: var(--loss); }
+.sr-item { padding: 4px 0; }
+.sr-item-label { display: block; font-weight: 600; font-size: 12.5px; }
+.sr-item-detail {
+  display: block; font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-dim); margin-top: 1px;
+}
+.sr-note {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 10.5px; line-height: 1.5; color: var(--text-dim); opacity: 0.85;
+}
+
+/* ============================================================
+   Profile "Generate" menu
+   ============================================================ */
+.ptools { position: relative; }
+.ptools-caret { margin-left: 1px; opacity: 0.7; }
+.ptools-trigger.on .ptools-caret { transform: rotate(180deg); }
+.ptools-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+  min-width: 262px; padding: 5px;
+  background: var(--bg-elev-2); border: 1px solid var(--border-hi);
+  border-radius: 12px; box-shadow: var(--shadow);
+  animation: fadeUp 0.14s ease both;
+}
+/* Anchored left, but a profile header sits inside a 1120px column that can end
+   well before the viewport does — on a narrow window the menu would otherwise
+   run off the right edge. */
+@media (max-width: 520px) {
+  .ptools-menu { left: auto; right: 0; min-width: min(262px, calc(100vw - 40px)); }
+}
+.ptools-item {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  padding: 8px 10px; border: none; border-radius: 8px; background: none;
+  color: var(--text); text-align: left; cursor: pointer;
+  font-family: inherit; transition: background 0.12s;
+}
+.ptools-item:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.ptools-item:disabled { opacity: 0.55; cursor: default; }
+.ptools-ic {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 7px; margin-top: 1px;
+  background: var(--bg-elev-3); color: var(--accent);
+}
+.ptools-ic svg { width: 13px; height: 13px; }
+.ptools-text { min-width: 0; }
+.ptools-label { display: block; font-weight: 600; font-size: 13px; }
+.ptools-hint { display: block; font-size: 11px; color: var(--text-dim); margin-top: 1px; }
 
 /* ============================================================
    Match Room Analyzer
