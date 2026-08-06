@@ -3295,14 +3295,10 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .sr-overall.mid { color: var(--accent); }
 .sr-overall.low { color: var(--loss); }
 
-/* Bars left, the verdict right — but only above 860px. Below it the verdict
-   goes under the bars rather than squeezing both into half a phone. */
-.sr-body { display: grid; grid-template-columns: 1fr; gap: 18px; }
-@media (min-width: 860px) {
-  .sr-body { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 26px; }
-}
-
-.sr-bars { display: flex; flex-direction: column; gap: 11px; }
+/* Full panel width. The bars used to share the row with a strengths column,
+   which cost them a third of their length for a list that repeated numbers
+   already printed beside every bar. */
+.sr-bars { display: flex; flex-direction: column; gap: 13px; }
 .sr-row.missing { opacity: 0.55; }
 .sr-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
 .sr-label { font-weight: 700; font-size: 13px; }
@@ -3327,19 +3323,6 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .sr-track i.mid { background: var(--accent); }
 .sr-track i.low { background: var(--loss); }
 
-.sr-verdict { display: flex; flex-direction: column; gap: 14px; }
-.sr-group-head {
-  font-size: 9.5px; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;
-  margin-bottom: 7px;
-}
-.sr-group-head.good { color: var(--win); }
-.sr-group-head.bad { color: var(--loss); }
-.sr-item { padding: 4px 0; }
-.sr-item-label { display: block; font-weight: 600; font-size: 12.5px; }
-.sr-item-detail {
-  display: block; font-family: var(--font-mono); font-size: 10.5px;
-  color: var(--text-dim); margin-top: 1px;
-}
 .sr-note {
   margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
   font-size: 10.5px; line-height: 1.5; color: var(--text-dim); opacity: 0.85;

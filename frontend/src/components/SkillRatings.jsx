@@ -39,10 +39,6 @@ function Bar({ r }) {
 export default function SkillRatings({ skills }) {
   if (!skills || !skills.ratings?.length) return null;
 
-  const byKey = Object.fromEntries(skills.ratings.map((r) => [r.key, r]));
-  const strengths = (skills.strengths || []).map((k) => byKey[k]).filter(Boolean);
-  const weaknesses = (skills.weaknesses || []).map((k) => byKey[k]).filter(Boolean);
-
   return (
     <div className="panel sr">
       <div className="panel-head">
@@ -57,37 +53,8 @@ export default function SkillRatings({ skills }) {
         </div>
       </div>
 
-      <div className="sr-body">
-        <div className="sr-bars">
-          {skills.ratings.map((r) => <Bar r={r} key={r.key} />)}
-        </div>
-
-        {(strengths.length > 0 || weaknesses.length > 0) && (
-          <div className="sr-verdict">
-            {strengths.length > 0 && (
-              <div className="sr-group">
-                <div className="sr-group-head good">Strengths</div>
-                {strengths.map((r) => (
-                  <div className="sr-item" key={r.key}>
-                    <span className="sr-item-label">{r.label}</span>
-                    <span className="sr-item-detail">{r.detail}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {weaknesses.length > 0 && (
-              <div className="sr-group">
-                <div className="sr-group-head bad">Areas to improve</div>
-                {weaknesses.map((r) => (
-                  <div className="sr-item" key={r.key}>
-                    <span className="sr-item-label">{r.label}</span>
-                    <span className="sr-item-detail">{r.detail}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      <div className="sr-bars">
+        {skills.ratings.map((r) => <Bar r={r} key={r.key} />)}
       </div>
 
       <p className="sr-note">
