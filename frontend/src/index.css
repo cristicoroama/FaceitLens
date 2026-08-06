@@ -49,12 +49,18 @@
   --glass-hi: transparent;       /* kills the inset white "sheen" line */
   --blur: 0px;
   /* type */
-  /* One family in two cuts. The three roles below stay separate because ~250
-     rules address them by name and because display/body still differ in
-     weight and tracking — they just no longer differ in typeface. */
-  --font-display: "Roboto", sans-serif;
-  --font-mono: "Roboto Mono", monospace;
-  --font-body: "Roboto", sans-serif;
+  /* Bootstrap 5's stacks, copied verbatim from its scss/_variables.scss
+     ($font-family-sans-serif / $font-family-monospace). Bootstrap ships no
+     webfont on purpose — it takes whatever the OS already has, which is why
+     there is no <link> to a font CDN in index.html any more. Roboto is still
+     in the sans stack; it's simply fourth, behind whatever Windows and macOS
+     hand over first.
+
+     The three roles stay separate because ~250 rules address them by name and
+     because display/body still differ in weight and tracking. */
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   /* depth — black, like a real shadow. Never a coloured halo. */
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -364,7 +370,7 @@ a { color: inherit; }
 .sys-banner-text { font-weight: 700; font-size: 14px; color: var(--text); }
 .sys-banner-time {
   margin-left: auto; font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 /* ---- Status page: incident history ---- */
@@ -395,12 +401,12 @@ a { color: inherit; }
 .impact-maintenance { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 45%, transparent); }
 .inc-component {
   margin-left: auto; font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 .inc-title { font-size: 15.5px; font-weight: 700; margin: 0 0 4px; color: var(--text); }
 .inc-window {
   font-size: 12px; color: var(--text-dim); margin-bottom: 13px;
-  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 .inc-timeline { border-left: 1px solid var(--border); margin-left: 4px; }
 .inc-update { position: relative; padding: 0 0 16px 18px; }
@@ -413,7 +419,7 @@ a { color: inherit; }
 .inc-up-status { font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--st); }
 .inc-up-time {
   font-size: 12px; color: var(--text-dim);
-  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 .inc-up-text { font-size: 13.5px; line-height: 1.6; color: var(--text-dim); margin: 0; }
 
@@ -1183,28 +1189,23 @@ a { color: inherit; }
   color: var(--text-dim); font-family: var(--font-display);
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.2px;
 }
-.mt-rating { font-weight: 700; }
-.mt-rating.good { color: var(--win); }
-.mt-rating.bad { color: var(--loss); }
-.mt-dim { color: var(--text-dim); }
 .mt-cols .mt-rating-h { cursor: help; }
 
-/* A number in a scoreboard only means something next to the other nine, so the
-   four columns where that comparison matters carry a fill rising from the
-   bottom of the cell. It's a background, not a bar under the digits: the digits
-   stay the thing you read, and nothing new occupies a row's height.
-   z-index keeps the fill under the text — an absolutely positioned ::before
-   otherwise paints over its own parent's text. */
-.mt-n { position: relative; z-index: 0; }
-.mt-n.heat::before {
-  content: ""; position: absolute; z-index: -1;
-  left: 2px; right: 2px; bottom: 1px;
-  height: var(--f, 0%); max-height: calc(100% - 2px);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-  pointer-events: none;
-}
-.mt-row.me .mt-n.heat::before { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+/* Same treatment as the collapsed list: bold, full-strength numbers, and K/D
+   coloured against 1.0. These were 400-weight at --text-dim, which is what made
+   the two tables look like they were set in different faces — same family all
+   along, one of them just whispering.
+
+   All four rules are scoped through `.mt-row >` on purpose. `:not(.mt-player)`
+   carries its argument's specificity, so the base rule below scores (0,2,1);
+   an unscoped `.mt-kd.good` at (0,2,0) would lose to it and the green would
+   never appear. */
+.mt-row > span:not(.mt-player) { font-weight: 700; color: var(--text); }
+.mt-row > span.mt-dim { font-weight: 400; color: var(--text-dim); }
+.mt-row > span.mt-kd.good, .mt-row > span.mt-rating.good { color: var(--win); }
+.mt-row > span.mt-kd.bad, .mt-row > span.mt-rating.bad { color: var(--loss); }
+.mt-nick { font-weight: 600; }
+.mt-cols { font-weight: 600; }
 /* ---- Allstar clips ---- */
 .clips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 18px; }
 .clip-card { background: var(--glass-bg); border: 1px solid var(--glass-brd); border-radius: 12px; overflow: hidden; }

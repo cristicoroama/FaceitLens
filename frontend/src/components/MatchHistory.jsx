@@ -63,35 +63,7 @@ function Avatar({ src, nickname }) {
 
 /* ---------------------------------------------------------------- expanded */
 
-/**
- * The four columns where one player's number only means something next to the
- * other nine get a fill behind the cell, scaled to the best in the match.
- * Deaths invert: on that column the fullest cell is the one who died least.
- */
-const HEAT = {
-  kills: (v, hi, lo) => (hi > lo ? (v - lo) / (hi - lo) : 1),
-  deaths: (v, hi, lo) => (hi > lo ? 1 - (v - lo) / (hi - lo) : 1),
-  adr: (v, hi, lo) => (hi > lo ? (v - lo) / (hi - lo) : 1),
-  rating: (v, hi, lo) => (hi > lo ? (v - lo) / (hi - lo) : 1),
-};
-
-function heatScale(teams) {
-  const all = teams.flatMap((t) => t.players || []);
-  const range = {};
-  for (const key of Object.keys(HEAT)) {
-    const vals = all.map((p) => num(p[key])).filter((v) => v != null && !isNaN(v));
-    range[key] = vals.length ? { hi: Math.max(...vals), lo: Math.min(...vals) } : null;
-  }
-  return (key, value) => {
-    const v = num(value);
-    const r = range[key];
-    if (v == null || isNaN(v) || !r) return undefined;
-    // Never a full-bleed cell: at 100% the fill reads as a selected row.
-    return { "--f": `${Math.round(HEAT[key](v, r.hi, r.lo) * 78)}%` };
-  };
-}
-
-function TeamBoard({ team, me, onPick, heat }) {
+function TeamBoard({ team, me, onPick }) {
   const halves = [team.half1, team.half2, team.overtime]
     .filter((h) => h != null)
     .join(" · ");
@@ -125,17 +97,18 @@ function TeamBoard({ team, me, onPick, heat }) {
             <Avatar src={p.avatar} nickname={p.nickname} />
             <span className="mt-nick">{p.nickname}</span>
           </span>
-          <span className="mt-n heat" style={heat("kills", p.kills)}>{p.kills ?? "—"}</span>
-          <span className="mt-n heat" style={heat("deaths", p.deaths)}>{p.deaths ?? "—"}</span>
+          <span className="mt-n">{p.kills ?? "—"}</span>
+          <span className="mt-n">{p.deaths ?? "—"}</span>
           <span className="mt-n">{p.assists ?? "—"}</span>
-          <span className="mt-n">{p.kd ?? "—"}</span>
+          <span className={`mt-n mt-kd ${num(p.kd) >= 1 ? "good" : num(p.kd) != null ? "bad" : ""}`}>
+            {p.kd ?? "—"}
+          </span>
           <span className="mt-n">{p.kr ?? "—"}</span>
-          <span className="mt-n">{p.hs ?? "—"}</span>
+          <span className="mt-n">{p.hs != null ? `${p.hs}%` : "—"}</span>
           <span className="mt-n mt-dim">{p.mvps ?? "—"}</span>
-          <span className="mt-n heat" style={heat("adr", p.adr)}>{p.adr ?? "—"}</span>
+          <span className="mt-n">{p.adr ?? "—"}</span>
           <span
-            className={`mt-n heat mt-rating ${p.rating >= 1.1 ? "good" : p.rating != null && p.rating < 0.9 ? "bad" : ""}`}
-            style={heat("rating", p.rating)}
+            className={`mt-n mt-rating ${p.rating >= 1.1 ? "good" : p.rating != null && p.rating < 0.9 ? "bad" : ""}`}
           >
             {p.rating != null ? p.rating.toFixed(2) : "—"}
           </span>
@@ -283,7 +256,6 @@ function MatchRow({ m, me, onPick }) {
   }
 
   const kd = num(m.kd);
-  const heat = detail && !detail.error ? heatScale(detail.teams || []) : null;
 
   return (
     <div className="mh-block">
@@ -328,7 +300,7 @@ function MatchRow({ m, me, onPick }) {
             <>
               <MetaBar d={detail} />
               {(detail.teams || []).map((t, ti) => (
-                <TeamBoard team={t} me={me} onPick={onPick} heat={heat} key={ti} />
+                <TeamBoard team={t} me={me} onPick={onPick} key={ti} />
               ))}
               <TeamAverages teams={detail.teams || []} />
               <LeetifyMatch matchId={m.match_id} me={me} />

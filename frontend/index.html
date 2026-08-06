@@ -6,17 +6,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Weight ranges, not a list of fixed weights: the stylesheet asks for 650
-         and 750 in ~20 places, and a discrete request would serve static cuts
-         that round both to 700. A range serves the variable font, which hits
-         them exactly. Roboto Mono stops at 700, so the few mono rules set to
-         800 clamp there. -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400..900&family=Roboto+Mono:wght@400..700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- No font <link>. Typography is Bootstrap 5's system stack, declared in
+         index.css — Bootstrap ships no webfont, so there is nothing to fetch
+         and no render-blocking request to a font CDN. -->
     <title>Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker</title>
     <meta name="description" content="Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings." />
     <meta name="keywords" content="faceit finder, faceit tracker, cs2 stats, faceit elo, cs2 tracker, faceit stats checker, smurf checker, cs2 account checker, faceit level, cs2 smurf detector, faceit account linking" />
