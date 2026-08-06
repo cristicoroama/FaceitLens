@@ -1,4 +1,5 @@
 import CountUp from "./CountUp.jsx";
+import FormStrip from "./FormStrip.jsx";
 import { Icon } from "../icons.jsx";
 
 /* mini stroke icons for the stat cards */
@@ -74,6 +75,11 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
           </select>
         )}
       </div>
+
+      {/* Above the cards: the last ten results are the first thing anyone
+          scouting a player looks for, and the card grid only ever showed them
+          summed into a "6-4" buried in the session card's third sub-row. */}
+      <FormStrip matches={data.recent_matches} />
 
       <div className="ov-grid">
         <Card

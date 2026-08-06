@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ResultChip } from "./FormStrip.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -87,7 +88,7 @@ function MatchRow({ m, me, onPick }) {
         className={`m2 ${m.won === true ? "won" : m.won === false ? "lost" : ""} ${open ? "open" : ""}`}
         onClick={toggle}
       >
-        <div className="m2-pill">{m.won === true ? "W" : m.won === false ? "L" : "?"}</div>
+        <ResultChip won={m.won} size="lg" />
         <div className="m2-main">
           <div className="m2-teams">{teamNames || "—"}</div>
           <div className="m2-comp">{m.competition || "CS2"}</div>
