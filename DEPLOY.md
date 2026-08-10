@@ -94,3 +94,39 @@ Note: CS2 hours require the player's Steam game details to be public.
 
 Nickname history is built going forward — FaceitLens records each nickname it
 sees when a player is searched (needs the DB migrated; migration 0003).
+
+## How pages get their <head> (search indexing)
+
+This is a Vite SPA, so the server has one HTML file for every route. React
+fixes the title and canonical after it boots, but a crawler has already read
+the HTML by then. Until this was addressed, index.html carried a canonical
+pointing at "/", which every route inherited — so each of the 23 tool pages
+and every player profile told Google it was a duplicate of the homepage.
+
+Three pieces now keep that from happening, and they share one source of truth
+(`frontend/lib/seo.js`):
+
+- **`frontend/index.html`** has a `<!-- SEO:START --> … <!-- SEO:END -->` block
+  holding the homepage's own tags. Nothing outside that block may set a
+  canonical: anything there applies to every route.
+- **`frontend/scripts/prerender.mjs`** runs after `vite build` and writes
+  `dist/<route>/index.html` for each fixed page with its own title,
+  description and self-referencing canonical. Vercel checks the filesystem
+  before applying rewrites, so those files win over the SPA catch-all.
+- **`frontend/api/render.js`** does the same per request for `/player/:nick`,
+  where there are too many pages to prerender. It needs `BACKEND_URL` (the
+  same value `api/share.js` uses). If the backend is asleep it still serves a
+  correct canonical — only the title is less specific. Responses are cached at
+  the edge for 10 minutes.
+
+`npm run build` runs `scripts/seo-check.mjs` at the end and **fails the build**
+if any page loses its canonical, if two pages share a title, or if
+`api/render` stops behaving when the backend times out. That check is the
+point: the failure it guards against is invisible in a browser, so nothing
+else would catch a regression.
+
+Run it alone with `npm run seo-check` (after a build).
+
+Adding a new tool page: add it to `TOOL_PAGES` and `PAGE_META` in
+`frontend/src/page-meta.js`, then add the URL to `frontend/public/sitemap.xml`.
+Prerendering picks it up automatically.

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { PAGE_META, DEFAULT_TITLE, DEFAULT_DESC, SITE_URL, TOOL_PAGES } from "./page-meta.js";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
@@ -217,14 +218,6 @@ const HOME_FEATURES = [
     desc: "Is FACEIT or CS2 matchmaking down? Live platform status and recent bans." },
 ];
 
-/* tool pages that get their own shareable URL (/docs, /proguesser, …) */
-const TOOL_PAGES = new Set([
-  "watchlist", "leaderboard", "matchroom", "compare",
-  "squad", "hubs", "teams", "competitions", "proguesser", "games", "docs",
-  "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings", "whatsnew", "feedback", "privacy", "terms", "faq",
-]);
-
 /** The URL a nav id points at, so nav entries can be real <a href> links —
     crawlable by Google and ctrl/middle-clickable into a new tab. */
 function navHref(id) {
@@ -238,59 +231,8 @@ function isPlainClick(e) {
   return !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0;
 }
 
-/* Per-page <title> and meta description. Without these every one of the 17
-   tool pages inherits the homepage title, which is bad for search and for
-   anyone holding a dozen tabs open. */
-const DEFAULT_TITLE = "Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker";
-const DEFAULT_DESC =
-  "Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings.";
 
-const PAGE_META = {
-  leaderboard: ["FACEIT CS2 Leaderboard — Top Players by ELO",
-    "Live FACEIT CS2 leaderboard: the highest ELO players ranked, with level, win rate and recent form."],
-  worldmap: ["CS2 World Map — Which Countries Have the Best FACEIT Players",
-    "An interactive world map of the FACEIT CS2 Challenger pool: how many top players each country has, their average ELO and who leads them."],
-  watchlist: ["Watchlist — Track FACEIT Players",
-    "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
-  matchroom: ["FACEIT Match Room Analyzer — Scout Your Lobby",
-    "Paste a FACEIT match room link and scout all 10 players instantly: ELO, level, trust score and recent form."],
-  compare: ["Compare FACEIT Players — Head to Head CS2 Stats",
-    "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
-  squad: ["Squad Stats — Look Up Your CS2 Team",
-    "Check your whole CS2 squad at once. Enter nicknames and get every player's FACEIT ELO and stats on one page."],
-  competitions: ["CS2 Championships & Tournaments on FACEIT",
-    "Browse open CS2 championships and tournaments, see brackets, final standings and who organises them."],
-  teams: ["FACEIT Teams — Rosters, Records & Map Stats",
-    "Search any FACEIT CS2 team: roster, win rate, best maps and every player's stats."],
-  hubs: ["FACEIT Hubs — Find CS2 Communities",
-    "Search FACEIT hubs by name, see who plays there and open any member's stats. Find an active CS2 community to queue in."],
-  proguesser: ["ProGuesser — Guess the CS2 Pro Game",
-    "Can you name the CS2 pro from their stats? A daily guessing game for Counter-Strike fans."],
-  prosettings: ["CS2 Pro Settings — Crosshair, Sensitivity & Config",
-    "Crosshair codes, sensitivity, DPI, resolution and video settings from professional CS2 players."],
-  games: ["CS2 Minigames — Quizzes & Trivia",
-    "Test your Counter-Strike knowledge: economy quizzes, callout trivia and more CS2 minigames."],
-  bans: ["Recent FACEIT Bans — CS2 Cheaters & Smurfs",
-    "A live feed of recent FACEIT CS2 bans. See who got banned, when, and why."],
-  faceitstatus: ["FACEIT Status — Is FACEIT Down Right Now?",
-    "Live FACEIT server status. Check outages, incidents and whether FACEIT is down before you queue."],
-  steamstatus: ["Steam & CS2 Status — Is CS2 Down Right Now?",
-    "Live Steam and Counter-Strike 2 server status, player counts and current outages."],
-  docs: ["Faceit-Lens API Documentation",
-    "Free REST API for FACEIT CS2 player stats, ELO history and account trust scores. Endpoints, examples and rate limits."],
-  news: ["CS2 & FACEIT Status News", "Latest FACEIT and Counter-Strike 2 incidents, outages and service updates."],
-  whatsnew: ["What's New — Faceit-Lens Changelog", "Latest features, fixes and improvements shipped to Faceit-Lens."],
-  feedback: ["Feedback — Faceit-Lens", "Report a bug, request a feature or tell us what to improve on Faceit-Lens."],
-  settings: ["Settings — Faceit-Lens", DEFAULT_DESC],
-  faq: ["FAQ — How Faceit-Lens Works",
-    "How the trust score and skill ratings are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
-  privacy: ["Privacy Policy",
-    "What Faceit-Lens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
-  terms: ["Terms of Service",
-    "Terms for using Faceit-Lens: fair use, API limits, and why trust scores and skill ratings are estimates rather than accusations."],
-};
-
-/** Swap the document title + meta description for the current view. */
+/** Swap the document title, meta description and canonical for the current view. */
 function applyMeta(title, desc, robots = "index, follow") {
   document.title = title;
   const set = (name, content) => {
@@ -302,10 +244,50 @@ function applyMeta(title, desc, robots = "index, follow") {
     }
     tag.setAttribute("content", content);
   };
+  const setProp = (property, content) => {
+    let tag = document.querySelector(`meta[property="${property}"]`);
+    if (!tag) {
+      tag = document.createElement("meta");
+      tag.setAttribute("property", property);
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute("content", content);
+  };
+
   set("description", desc);
   // A static SPA always answers 200, so an unknown path would otherwise be
   // indexed as a real page. This is what keeps soft 404s out of search.
   set("robots", robots);
+
+  // The canonical has to move with the route. It used to be hardcoded to the
+  // homepage in index.html, which told Google every single page here — every
+  // player profile, every tool page — was really just "/". Google obliged and
+  // indexed none of them.
+  //
+  // A page we've asked not to be indexed gets no canonical: pointing at itself
+  // while saying "noindex" is a contradiction, and pointing anywhere else
+  // would hand its signals to a page that didn't earn them.
+  const canonical = robots.includes("noindex")
+    ? null
+    : SITE_URL + window.location.pathname.replace(/\/+$/, "").replace(/^$/, "/");
+
+  let link = document.querySelector('link[rel="canonical"]');
+  if (canonical) {
+    if (!link) {
+      link = document.createElement("link");
+      link.setAttribute("rel", "canonical");
+      document.head.appendChild(link);
+    }
+    link.setAttribute("href", canonical);
+    setProp("og:url", canonical);
+  } else if (link) {
+    link.remove();
+  }
+
+  // Link previews (Discord, WhatsApp, Twitter) read og:*, not the plain meta
+  // tags — without this they showed the homepage blurb for every page.
+  setProp("og:title", title);
+  setProp("og:description", desc);
 }
 
 const PROFILE_TABS = [

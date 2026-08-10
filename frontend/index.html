@@ -9,26 +9,37 @@
     <!-- No font <link>. Typography is Bootstrap 5's system stack, declared in
          index.css — Bootstrap ships no webfont, so there is nothing to fetch
          and no render-blocking request to a font CDN. -->
-    <title>Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker</title>
-    <meta name="description" content="Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings." />
     <meta name="keywords" content="faceit finder, faceit tracker, cs2 stats, faceit elo, cs2 tracker, faceit stats checker, smurf checker, cs2 account checker, faceit level, cs2 smurf detector, faceit account linking" />
-    <link rel="canonical" href="https://faceit-lens.com/" />
-    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0a0a0c" />
+    <meta property="og:site_name" content="Faceit-Lens" />
 
-    <!-- Open Graph (Discord / WhatsApp / Twitter link previews) -->
-    <meta property="og:title" content="Faceit-Lens — FACEIT CS2 Stats & Account Checker" />
+    <!-- SEO:START — everything between these markers is per-page.
+         `scripts/prerender.mjs` rewrites it at build time for the tool pages,
+         and `api/render.js` rewrites it per request for /player/:nick. What is
+         written here is the homepage's own version, which is what "/" serves.
+
+         Do not hardcode a canonical outside this block. A canonical in the
+         shared shell applies to every route the SPA serves, so a homepage
+         canonical here told Google that every player profile and every tool
+         page was really just "/" — and Google indexed none of them. If the
+         markers are removed, the injectors fail loudly rather than silently
+         serving the wrong tags; that is deliberate. -->
+    <title>Faceit-Lens — FACEIT CS2 Stats, ELO Tracker &amp; Account Checker</title>
+    <meta name="description" content="Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://faceit-lens.com/" />
+    <meta property="og:title" content="Faceit-Lens — FACEIT CS2 Stats &amp; Account Checker" />
     <meta property="og:description" content="Scan any CS2 player: ELO, K/D, trust score, inventory, Leetify stats and a match-room analyzer — all on one page." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Faceit-Lens" />
     <meta property="og:url" content="https://faceit-lens.com/" />
     <meta property="og:image" content="https://faceit-lens.com/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta name="theme-color" content="#0a0a0c" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Faceit-Lens — FACEIT CS2 Stats & Account Checker" />
+    <meta name="twitter:title" content="Faceit-Lens — FACEIT CS2 Stats &amp; Account Checker" />
     <meta name="twitter:description" content="Scan any CS2 player: ELO, K/D, trust score, inventory, Leetify stats and a match-room analyzer — all on one page." />
     <meta name="twitter:image" content="https://faceit-lens.com/og.png" />
+    <!-- SEO:END -->
 
     <!-- Structured data: helps Google show a rich result + search box -->
     <script type="application/ld+json">
