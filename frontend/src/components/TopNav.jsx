@@ -5,8 +5,26 @@ import { Icon } from "../icons.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
 /* Short codes for the bar — the full names would push the nav off a laptop
-   screen, and every one of these is recognisable to the people who need it. */
+   screen, and every one of these is recognisable to the people who need it.
+
+   The flag is the country whose flag people actually associate with the
+   language, which is not always the language code: Ukrainian is `uk` but flies
+   `ua`, and English gets the Union Jack. */
 const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
+const LOCALE_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
+
+function LangFlag({ code, size = 18 }) {
+  return (
+    <img
+      className="flag-icon"
+      src={`/flags/${LOCALE_FLAG[code] || code}.svg`}
+      alt=""
+      style={{ width: size }}
+      loading="lazy"
+      onError={(e) => { e.currentTarget.style.display = "none"; }}
+    />
+  );
+}
 
 /** The current path with any locale prefix removed, so switching language
     keeps you on the page you were reading instead of dumping you home. */
@@ -30,6 +48,7 @@ export default function TopNav({
   const [open, setOpen] = useState(null);      // id of the open dropdown
   const [drawer, setDrawer] = useState(false); // mobile
   const navRef = useRef(null);
+  const langRef = useRef(null);
   const t = makeT(lang);
 
   /* Real <a href> links rather than a JS-driven select. Two reasons: a crawler
@@ -44,11 +63,19 @@ export default function TopNav({
     )),
   }));
 
-  // Close on outside click and on Escape.
+  /* Close on outside click and on Escape.
+   *
+   * Both containers have to be consulted. The language picker lives outside
+   * <nav> — it sits after the search box — so a handler that only knew about
+   * navRef treated every click inside the language menu as an outside click.
+   * It closed the menu on mousedown, the <a> unmounted before mouseup, and the
+   * link never fired: the picker looked completely dead. */
   useEffect(() => {
     if (open === null) return;
     const onDoc = (e) => {
-      if (navRef.current && !navRef.current.contains(e.target)) setOpen(null);
+      const inNav = navRef.current?.contains(e.target);
+      const inLang = langRef.current?.contains(e.target);
+      if (!inNav && !inLang) setOpen(null);
     };
     const onKey = (e) => {
       if (e.key === "Escape") setOpen(null);
@@ -178,7 +205,7 @@ export default function TopNav({
 
         <div className="tn-search">{search}</div>
 
-        <div className="tn-item tn-lang" ref={null}>
+        <div className="tn-item tn-lang" ref={langRef}>
           <button
             className={`tn-trigger ${open === "__lang" ? "open" : ""}`}
             aria-expanded={open === "__lang"}
@@ -186,7 +213,7 @@ export default function TopNav({
             aria-label={t("chrome.language")}
             onClick={() => setOpen((o) => (o === "__lang" ? null : "__lang"))}
           >
-            {Icon.globe}
+            <LangFlag code={lang} size={17} />
             <span className="tn-lang-code">{LOCALE_SHORT[lang] || lang.toUpperCase()}</span>
             <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
                  stroke="currentColor" strokeWidth="3" strokeLinecap="round">
@@ -205,7 +232,7 @@ export default function TopNav({
                   lang={l.code}
                   aria-current={l.code === lang ? "true" : undefined}
                 >
-                  <span className="tn-menu-ic">{LOCALE_SHORT[l.code]}</span>
+                  <span className="tn-menu-ic"><LangFlag code={l.code} size={20} /></span>
                   <span className="tn-menu-text">{LOCALE_NAMES[l.code]}</span>
                 </a>
               ))}
@@ -275,6 +302,7 @@ export default function TopNav({
                   hrefLang={l.code}
                   lang={l.code}
                 >
+                  <LangFlag code={l.code} size={16} />
                   {LOCALE_NAMES[l.code]}
                 </a>
               ))}

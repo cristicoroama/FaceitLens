@@ -4893,3 +4893,22 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 @media (max-width: 900px) {
   .tn-lang { display: none; }
 }
+
+/* Flags inside the language picker: the trigger, the dropdown rows, the mobile
+   chips and the footer all need the flag to sit on the text baseline rather
+   than on the line box, or it rides high next to the label. */
+.tn-lang .flag-icon,
+.tn-menu-right .flag-icon,
+.tn-drawer-lang .flag-icon,
+.site-foot-lang .flag-icon {
+  display: block;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.tn-drawer-lang,
+.site-foot-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}

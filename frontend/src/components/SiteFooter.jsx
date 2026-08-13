@@ -1,6 +1,10 @@
 import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
+/* Flag by association, not by language code — Ukrainian is `uk` but flies
+   `ua`, and English gets the Union Jack. */
+const FOOT_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
+
 /**
  * Site-wide footer. Carries the "not affiliated" notice that keeps our use of
  * the FACEIT / Valve marks clearly descriptive, plus the attribution
@@ -31,8 +35,11 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
   const langSwitch = ALL_LOCALES.filter((l) => l !== lang).map((l) => (
     <span key={l}>
       <span className="site-foot-sep">·</span>
-      <a href={localePath(l, window.location.pathname.replace(/^\/(ru|pl|uk)(?=\/|$)/, "") || "/")}
-         hrefLang={l}>
+      <a className="site-foot-lang"
+         href={localePath(l, window.location.pathname.replace(/^\/(ru|pl|uk)(?=\/|$)/, "") || "/")}
+         hrefLang={l} lang={l}>
+        <img className="flag-icon" src={`/flags/${FOOT_FLAG[l]}.svg`} alt="" width="15"
+             loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
         {LOCALE_NAMES[l]}
       </a>
     </span>
