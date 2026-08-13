@@ -13,11 +13,16 @@
 
 export const SITE_URL = "https://faceit-lens.com";
 
+/* "analyser" is the term this market actually searches: ~67k/month against
+   ~21k for the American "analyzer" and far more than "tracker" or "finder",
+   which is what this title used to lead with. Both spellings appear — the
+   title carries one, the description the other, so neither is missing from
+   the page. */
 export const DEFAULT_TITLE =
-  "Faceit-Lens — FACEIT CS2 Stats, ELO Tracker & Account Checker";
+  "FACEIT Analyser — CS2 Stats & Smurf Checker | Faceit-Lens";
 
 export const DEFAULT_DESC =
-  "Look up any FACEIT CS2 player: ELO, level, win rate, K/D, map stats and match history. Plus an account trust score to spot smurfs, inventory value, Leetify demo stats, a match-room analyzer and pro player settings.";
+  "Free FACEIT analyzer for CS2. Check any player's ELO, win rate, K/D and map stats, or paste a match room link to analyse all 10 players and spot smurfs.";
 
 export const PAGE_META = {
   leaderboard: ["FACEIT CS2 Leaderboard — Top Players by ELO",
@@ -26,8 +31,8 @@ export const PAGE_META = {
     "An interactive world map of the FACEIT CS2 Challenger pool: how many top players each country has, their average ELO and who leads them."],
   watchlist: ["Watchlist — Track FACEIT Players",
     "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
-  matchroom: ["FACEIT Match Room Analyzer — Scout Your Lobby",
-    "Paste a FACEIT match room link and scout all 10 players instantly: ELO, level, trust score and recent form."],
+  matchroom: ["FACEIT Match Room Analyser — Scout Your Lobby",
+    "Free FACEIT match room analyzer: paste a lobby link and scout all 10 players instantly — ELO, level, trust score to spot smurfs, and recent form."],
   compare: ["Compare FACEIT Players — Head to Head CS2 Stats",
     "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
   squad: ["Squad Stats — Look Up Your CS2 Team",
