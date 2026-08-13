@@ -1,14 +1,15 @@
 import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
+import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath } from "../i18n.js";
 
 /**
  * Site-wide footer. Carries the "not affiliated" notice that keeps our use of
  * the FACEIT / Valve marks clearly descriptive, plus the attribution
  * Liquipedia's CC BY-SA licence requires.
  */
-export default function SiteFooter({ onNav }) {
+export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
   const link = (page, label) => (
     <a
-      href={`/${page}`}
+      href={localePath(lang, `/${page}`)}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
@@ -18,6 +19,23 @@ export default function SiteFooter({ onNav }) {
       {label}
     </a>
   );
+
+  /* Real <a href> links, not a JS dropdown: the language switcher is how a
+     crawler walks from one translation to the next, and how a person lands on
+     the version they want from a shared link. A select element would be
+     invisible to both.
+     Deliberately not auto-switching on browser language — a visitor who
+     arrived on a Russian search result should stay there, and guessing
+     overrides the choice Google already made. */
+  const langSwitch = ALL_LOCALES.filter((l) => l !== lang).map((l) => (
+    <span key={l}>
+      <span className="site-foot-sep">·</span>
+      <a href={localePath(l, window.location.pathname.replace(/^\/(ru|pl|uk)(?=\/|$)/, "") || "/")}
+         hrefLang={l}>
+        {LOCALE_NAMES[l]}
+      </a>
+    </span>
+  ));
 
   return (
     <footer className="site-foot">
@@ -43,6 +61,7 @@ export default function SiteFooter({ onNav }) {
         <a href="https://t.me/cristicor1" target="_blank" rel="noopener noreferrer">Telegram</a>
         <span className="site-foot-sep">·</span>
         <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
+        {langSwitch}
       </div>
 
       <p className="site-foot-note">

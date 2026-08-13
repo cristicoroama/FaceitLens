@@ -58,7 +58,16 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- The block between the BODY markers is the page's heading and intro in
+         its own language, written here at build time. React replaces it the
+         moment it mounts, and renders the same words again — this is the copy
+         a crawler reads before any JavaScript runs.
+
+         It has to exist because Google decides a page's language from visible
+         text, not from <title>. A Russian title over an English body gets
+         filed as English and never answers a Russian query, which would make
+         the whole translation pointless. -->
+    <div id="root"><!-- SEO:BODY --><!-- /SEO:BODY --></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

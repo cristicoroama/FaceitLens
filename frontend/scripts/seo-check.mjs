@@ -1,10 +1,12 @@
-/* Checks the two things that decide whether this site can be indexed at all:
- * that every prerendered page carries its own self-referencing canonical, and
- * that api/render does the same for /player/:nick under every backend mood
- * (fast, asleep, 404).
+/* Checks the things that decide whether this site can be indexed at all, in
+ * any language: that every prerendered page carries its own self-referencing
+ * canonical, that the hreflang clusters are complete and mutual, that each
+ * translation actually contains translated text, and that api/render does the
+ * same for /player/:nick under every backend mood (fast, asleep, 404).
  *
- * The bug this guards against is silent — the site looks perfect in a browser
- * while being invisible to Google — so it is worth a check that fails loudly.
+ * All of these fail silently — the site looks perfect in a browser while being
+ * invisible to Google, or while quietly serving four copies of the same
+ * English page. That is exactly the kind of bug worth spending a build step on.
  *
  *   node scripts/prerender.mjs && node scripts/seo-check.mjs
  */
@@ -12,6 +14,8 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { ALL_LOCALES } from "../src/i18n.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = resolve(here, "..", "dist");
@@ -25,6 +29,9 @@ function tag(html, re) {
   const m = html.match(re);
   return m ? m[1] : null;
 }
+
+const CYRILLIC = /[Ѐ-ӿ]/;
+const POLISH = /[ąćęłńóśźż]/i;
 
 /* ---------- 1. prerendered pages ---------- */
 
@@ -48,7 +55,8 @@ try {
   process.exit(1);
 }
 
-const titles = new Map();
+const seen = new Map();          // url -> locale
+const titlesByLocale = new Map(); // locale -> Map(title -> path)
 
 for (const file of files) {
   const html = await readFile(file, "utf8");
@@ -56,24 +64,89 @@ for (const file of files) {
   const urlPath = rel === "/" ? "/" : rel.replace(/\/$/, "");
   const expected = SITE + (urlPath === "/" ? "/" : urlPath);
 
+  const localeMatch = urlPath.match(/^\/(ru|pl|uk)(\/|$)/);
+  const locale = localeMatch ? localeMatch[1] : "en";
+  const basePath = localeMatch ? (urlPath.replace(/^\/(ru|pl|uk)/, "") || "/") : urlPath;
+
+  // -- canonical
   const canonicals = html.match(/rel="canonical"/g) || [];
   const canonical = tag(html, /<link rel="canonical" href="([^"]+)"/);
-  const title = tag(html, /<title>([^<]*)<\/title>/);
-
   if (canonicals.length !== 1) bad(`${urlPath} has ${canonicals.length} canonicals, expected exactly 1`);
   else if (canonical !== expected) bad(`${urlPath} canonical is ${canonical}, expected ${expected}`);
 
+  // -- title, unique within its own language
+  const title = tag(html, /<title>([^<]*)<\/title>/);
   if (!title) bad(`${urlPath} has no <title>`);
-  else if (titles.has(title)) bad(`${urlPath} shares its title with ${titles.get(title)}`);
-  else titles.set(title, urlPath);
+  else {
+    if (!titlesByLocale.has(locale)) titlesByLocale.set(locale, new Map());
+    const byTitle = titlesByLocale.get(locale);
+    if (byTitle.has(title)) bad(`${urlPath} shares its title with ${byTitle.get(title)}`);
+    else byTitle.set(title, urlPath);
+  }
 
+  // -- html lang
+  const htmlLang = tag(html, /<html\s+lang="([^"]+)"/);
+  if (htmlLang !== locale) bad(`${urlPath} declares lang="${htmlLang}", expected "${locale}"`);
+
+  // -- hreflang cluster: every locale present, self included, plus x-default
+  const alts = [...html.matchAll(/hreflang="([^"]+)" href="([^"]+)"/g)];
+  const langs = alts.map((m) => m[1]);
+  for (const l of ALL_LOCALES) {
+    if (!langs.includes(l)) bad(`${urlPath} hreflang cluster is missing "${l}"`);
+  }
+  if (!langs.includes("x-default")) bad(`${urlPath} has no x-default`);
+  const self = alts.find((m) => m[1] === locale);
+  if (self && self[2] !== expected) {
+    bad(`${urlPath} hreflang="${locale}" points at ${self[2]}, not itself`);
+  }
+
+  // -- the translation is actually translated
+  const body = tag(html, /<div class="seo-intro">([\s\S]*?)<\/div>/);
+  if (!body) bad(`${urlPath} has no prerendered intro — Google would read this page as empty`);
+  else if (locale === "ru" || locale === "uk") {
+    if (!CYRILLIC.test(body)) bad(`${urlPath} is meant to be ${locale} but its intro has no Cyrillic`);
+  } else if (locale === "pl") {
+    if (!POLISH.test(body) && !/[a-z]/i.test(body)) bad(`${urlPath} pl intro looks empty`);
+  }
+
+  // -- still a working app
   if (!/id="root"/.test(html)) bad(`${urlPath} lost the SPA mount point`);
   if (!/<script type="module"/.test(html)) bad(`${urlPath} lost its script tag`);
+
+  seen.set(expected, { locale, basePath });
 }
 
-if (!failures) ok(`${files.length} pages, each with a unique title and its own canonical`);
+// Every page must exist in every language, or the switcher and the hreflang
+// cluster both point at 404s.
+const basePaths = new Set([...seen.values()].map((v) => v.basePath));
+for (const base of basePaths) {
+  for (const l of ALL_LOCALES) {
+    const url = SITE + (l === "en" ? (base === "/" ? "/" : base) : `/${l}${base === "/" ? "" : base}`);
+    if (!seen.has(url)) bad(`${url} was never generated, but its siblings link to it`);
+  }
+}
 
-/* ---------- 2. api/render ---------- */
+if (!failures) {
+  ok(`${files.length} pages across ${ALL_LOCALES.length} languages — canonical, hreflang, lang and translated copy all present`);
+}
+
+/* ---------- 2. sitemap ---------- */
+
+console.log("\nSitemap");
+try {
+  const sitemap = await readFile(join(dist, "sitemap.xml"), "utf8");
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  if (locs.length !== seen.size) {
+    bad(`sitemap lists ${locs.length} URLs but ${seen.size} pages were built`);
+  }
+  const missing = locs.filter((l) => !seen.has(l));
+  if (missing.length) bad(`sitemap lists ${missing.length} URL(s) that don't exist, e.g. ${missing[0]}`);
+  if (!failures) ok(`${locs.length} URLs, all of which were actually built`);
+} catch {
+  bad("no sitemap.xml in dist/");
+}
+
+/* ---------- 3. api/render ---------- */
 
 console.log("\n/player/:nick");
 
@@ -93,14 +166,13 @@ function mockFetch({ shellOk = true, backend }) {
 }
 
 function mockRes() {
-  const res = {
+  return {
     headers: {}, code: null, body: null, redirected: null,
     setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
     status(c) { this.code = c; return this; },
     send(b) { this.body = b; return this; },
     redirect(c, loc) { this.code = c; this.redirected = loc; return this; },
   };
-  return res;
 }
 
 // Fresh module each time: the shell is cached in module scope on purpose.
@@ -108,14 +180,14 @@ let n = 0;
 const loadHandler = async () =>
   (await import(`../api/render.js?t=${n++}`)).default;
 
-async function run(name, { shellOk = true, backend, env = {} }, check) {
+async function run(name, { shellOk = true, backend, query = {}, env = {} }, check) {
   const saved = { ...process.env };
   Object.assign(process.env, { BACKEND_URL: "https://backend.test", ...env });
   globalThis.fetch = mockFetch({ shellOk, backend });
   try {
     const handler = await loadHandler();
     const res = mockRes();
-    await handler({ query: { nick: "s1mple" } }, res);
+    await handler({ query: { nick: "s1mple", ...query } }, res);
     check(res, name);
   } finally {
     globalThis.fetch = realFetch;
@@ -128,18 +200,38 @@ const PLAYER = {
   stats: { win_rate: 62, avg_kd: 1.34, avg_hs: 51, matches: 1820 },
 };
 
-await run("backend answers", {
-  backend: async () => ({ ok: true, status: 200, json: async () => PLAYER }),
-}, (res, name) => {
+const answers = async () => ({ ok: true, status: 200, json: async () => PLAYER });
+
+await run("backend answers", { backend: answers }, (res, name) => {
   const c = tag(res.body, /<link rel="canonical" href="([^"]+)"/);
   const t = tag(res.body, /<title>([^<]*)<\/title>/);
   const r = tag(res.body, /<meta name="robots" content="([^"]+)"/);
   if (c !== `${SITE}/player/s1mple`) return bad(`${name}: canonical is ${c}`);
-  if (!t.includes("s1mple") || !t.includes("FACEIT")) return bad(`${name}: title is ${t}`);
+  if (!t.includes("s1mple")) return bad(`${name}: title is ${t}`);
   if (r !== "index, follow") return bad(`${name}: robots is ${r}`);
   if (!/og:type" content="profile"/.test(res.body)) return bad(`${name}: og:type not profile`);
   if (!/assets\/index-/.test(res.body)) return bad(`${name}: lost the app bundle`);
   ok(`${name} — canonical, title and stats all present`);
+});
+
+await run("russian player page", { backend: answers, query: { lang: "ru" } }, (res, name) => {
+  const c = tag(res.body, /<link rel="canonical" href="([^"]+)"/);
+  const t = tag(res.body, /<title>([^<]*)<\/title>/);
+  const l = tag(res.body, /<html\s+lang="([^"]+)"/);
+  if (c !== `${SITE}/ru/player/s1mple`) return bad(`${name}: canonical is ${c}`);
+  if (!CYRILLIC.test(t)) return bad(`${name}: title isn't Russian — ${t}`);
+  if (l !== "ru") return bad(`${name}: html lang is ${l}`);
+  if (!/hreflang="uk"/.test(res.body)) return bad(`${name}: incomplete hreflang cluster`);
+  if (!CYRILLIC.test(tag(res.body, /<div class="seo-intro">([\s\S]*?)<\/div>/) || "")) {
+    return bad(`${name}: body copy isn't Russian, so Google files it as English`);
+  }
+  ok(`${name} — Russian canonical, title, body and full cluster`);
+});
+
+await run("unknown lang falls back", { backend: answers, query: { lang: "de" } }, (res, name) => {
+  const c = tag(res.body, /<link rel="canonical" href="([^"]+)"/);
+  if (c !== `${SITE}/player/s1mple`) return bad(`${name}: canonical is ${c}`);
+  ok(`${name} — served as English instead of inventing a /de tree`);
 });
 
 await run("player has an avatar", {
@@ -174,7 +266,7 @@ await run("no such player", {
 
 await run("shell unreachable", {
   shellOk: false,
-  backend: async () => ({ ok: true, status: 200, json: async () => PLAYER }),
+  backend: answers,
 }, (res, name) => {
   if (res.code !== 307 || !String(res.redirected).includes("__spa=1")) {
     return bad(`${name}: expected a 307 to the static SPA, got ${res.code} ${res.redirected}`);

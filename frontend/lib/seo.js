@@ -16,6 +16,9 @@ export const SITE_URL = "https://faceit-lens.com";
 const START = "<!-- SEO:START";
 const END = "<!-- SEO:END -->";
 
+/* og:locale wants the underscored territory form, not the bare ISO code. */
+const OG_LOCALE = { en: "en_US", ru: "ru_RU", pl: "pl_PL", uk: "uk_UA" };
+
 export function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
@@ -51,6 +54,12 @@ export function buildMetaBlock({
   imageWidth = 1200,
   imageHeight = 630,
   twitterCard = "summary_large_image",
+  /* [{ locale, url }] for every language this page exists in, including the
+     page's own. Google requires the set to be complete and self-referencing:
+     if /ru/faq lists /faq but /faq doesn't list /ru/faq back, the whole
+     cluster is discarded and the translations compete with each other. */
+  alternates = null,
+  locale = "en",
 }) {
   const t = escapeHtml(title);
   const d = escapeHtml(description);
@@ -67,6 +76,21 @@ export function buildMetaBlock({
   if (indexable && canonical) {
     lines.push(`    <link rel="canonical" href="${escapeHtml(canonical)}" />`);
     lines.push(`    <meta property="og:url" content="${escapeHtml(canonical)}" />`);
+  }
+
+  if (indexable && alternates && alternates.length > 1) {
+    for (const alt of alternates) {
+      lines.push(
+        `    <link rel="alternate" hreflang="${escapeHtml(alt.locale)}" href="${escapeHtml(alt.url)}" />`,
+      );
+    }
+    // x-default is where Google sends a searcher whose language matches none
+    // of the above. English at the root is the right home for that.
+    const fallback = alternates.find((a) => a.locale === "en") || alternates[0];
+    lines.push(
+      `    <link rel="alternate" hreflang="x-default" href="${escapeHtml(fallback.url)}" />`,
+    );
+    lines.push(`    <meta property="og:locale" content="${escapeHtml(OG_LOCALE[locale] || "en_US")}" />`);
   }
 
   lines.push(
@@ -113,5 +137,57 @@ export function injectMeta(html, meta) {
     );
   }
 
-  return html.slice(0, start) + buildMetaBlock(meta) + html.slice(end + END.length);
+  const withMeta =
+    html.slice(0, start) + buildMetaBlock(meta) + html.slice(end + END.length);
+
+  return setHtmlLang(withMeta, meta.locale || "en");
+}
+
+const BODY_START = "<!-- SEO:BODY -->";
+const BODY_END = "<!-- /SEO:BODY -->";
+
+/**
+ * Write the page's heading and intro into #root, in the page's own language.
+ *
+ * React overwrites this on mount and prints the same text again, so nothing a
+ * person sees differs from what a crawler was served. That equivalence is the
+ * point — serving different content to crawlers is cloaking, and Google
+ * penalises it.
+ *
+ * Silently does nothing if the markers are absent, because a missing intro
+ * costs some ranking signal while a thrown error costs the whole page.
+ */
+export function injectBody(html, { heading, body } = {}) {
+  const start = html.indexOf(BODY_START);
+  const end = html.indexOf(BODY_END);
+  if (start === -1 || end === -1 || end < start || !heading) return html;
+
+  const content =
+    `${BODY_START}<div class="seo-intro"><h1>${escapeHtml(heading)}</h1>` +
+    `<p>${escapeHtml(body || "")}</p></div>`;
+
+  return html.slice(0, start) + content + html.slice(end);
+}
+
+/**
+ * Point <html lang> at the page's actual language.
+ *
+ * This is not cosmetic. Google weighs the declared language when deciding
+ * which query language a page answers, and screen readers switch voice on it —
+ * a Russian page announced as English is read with English phonetics, which is
+ * unintelligible.
+ */
+export function setHtmlLang(html, lang) {
+  return html.replace(/<html\s+lang="[^"]*"/i, `<html lang="${escapeHtml(lang)}"`);
+}
+
+/**
+ * The full hreflang cluster for one page, given the locales it exists in.
+ * Every page in the cluster gets the identical list, itself included.
+ */
+export function buildAlternates(path, locales) {
+  return locales.map((locale) => ({
+    locale,
+    url: canonicalUrl(locale === "en" ? path : `/${locale}${path === "/" ? "" : path}`),
+  }));
 }

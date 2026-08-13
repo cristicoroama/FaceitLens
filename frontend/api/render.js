@@ -17,7 +17,8 @@
  * Env: BACKEND_URL = https://<your-service>.onrender.com
  */
 
-import { injectMeta, canonicalUrl, SITE_URL } from "../lib/seo.js";
+import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL } from "../lib/seo.js";
+import { ALL_LOCALES, DEFAULT_LOCALE, PLAYER_META, STAT_LABELS, localePath } from "../src/i18n.js";
 
 /* The backend is on Render's free tier, which sleeps after 15 minutes idle and
  * then takes ~a minute to wake. Waiting on that would hold up the page for a
@@ -91,55 +92,50 @@ async function getPlayer(nick) {
 
 export default async function handler(req, res) {
   const nick = (req.query.nick || "").toString();
+  const raw = (req.query.lang || "").toString();
+  const lang = ALL_LOCALES.includes(raw) ? raw : DEFAULT_LOCALE;
+
   const path = `/player/${encodeURIComponent(nick)}`;
+  const localised = localePath(lang, path);
 
   const shell = await getShell();
   if (!shell) {
     // Never show a person an error over a meta tag. Bounce to the same URL
     // with a flag that vercel.json routes straight to the static SPA.
     res.setHeader("Cache-Control", "no-store");
-    res.redirect(307, `${path}?__spa=1`);
+    res.redirect(307, `${localised}?__spa=1`);
     return;
   }
 
   const { answered, player } = await getPlayer(nick);
+  const found = Boolean(player);
 
-  let title = `${nick} — FACEIT CS2 Stats, ELO & Trust Score | Faceit-Lens`;
-  let description =
-    `FACEIT CS2 stats for ${nick}: ELO, level, win rate, K/D, map performance, ` +
-    `match history and an account trust score to spot smurfing.`;
+  const name = player?.nickname || nick;
+  const L = STAT_LABELS[lang] || STAT_LABELS[DEFAULT_LOCALE];
+  const s = player?.stats || {};
+  const stats = [
+    s.win_rate ? L.wr(s.win_rate) : "",
+    s.avg_kd ? L.kd(s.avg_kd) : "",
+    s.avg_hs ? L.hs(s.avg_hs) : "",
+    s.matches ? L.m(s.matches) : "",
+  ].filter(Boolean).join(", ");
+
+  const template = PLAYER_META[lang] || PLAYER_META[DEFAULT_LOCALE];
+  const [bareTitle, description] = template(name, stats);
+  const title = `${bareTitle} | Faceit-Lens`;
+
   let image = `${SITE_URL}/og.png`;
   let imageWidth = 1200;
   let imageHeight = 630;
   let twitterCard = "summary_large_image";
-  let found = Boolean(player);
 
-  if (player) {
-    const name = player.nickname || nick;
-    const lvl = player.skill_level ? ` Level ${player.skill_level},` : "";
-    const elo = player.elo ? ` ${player.elo} ELO` : "";
-    title = `${name} — FACEIT CS2 Stats, ELO & Trust Score | Faceit-Lens`;
-
-    const s = player.stats || {};
-    const bits = [
-      s.win_rate ? `${s.win_rate}% win rate` : "",
-      s.avg_kd ? `${s.avg_kd} K/D` : "",
-      s.avg_hs ? `${s.avg_hs}% HS` : "",
-      s.matches ? `${s.matches} matches` : "",
-    ].filter(Boolean);
-
-    description = bits.length
-      ? `FACEIT CS2 stats for ${name}:${lvl}${elo}, ${bits.join(", ")}, map performance and an account trust score.`
-      : `FACEIT CS2 stats for ${name}:${lvl}${elo} win rate, K/D, map performance, match history and an account trust score to spot smurfing.`;
-
-    if (player.avatar) {
-      image = player.avatar;
-      // A square avatar isn't 1200x630; declaring those dimensions makes
-      // Discord letterbox it.
-      imageWidth = null;
-      imageHeight = null;
-      twitterCard = "summary";
-    }
+  if (player?.avatar) {
+    image = player.avatar;
+    // A square avatar isn't 1200x630; declaring those dimensions makes
+    // Discord letterbox it.
+    imageWidth = null;
+    imageHeight = null;
+    twitterCard = "summary";
   }
 
   /* A nickname that doesn't exist still answers 200 from a static host, so
@@ -154,7 +150,11 @@ export default async function handler(req, res) {
     html = injectMeta(shell, {
       title,
       description,
-      canonical: canonicalUrl(path),
+      canonical: canonicalUrl(localised),
+      // The same player exists in all four languages, so the cluster is
+      // complete by construction — no page here is ever missing a sibling.
+      alternates: buildAlternates(path, ALL_LOCALES),
+      locale: lang,
       robots,
       ogType: "profile",
       image,
@@ -162,6 +162,7 @@ export default async function handler(req, res) {
       imageHeight,
       twitterCard,
     });
+    html = injectBody(html, { heading: bareTitle, body: description });
   } catch {
     html = shell; // markers missing: still serve a working page
   }

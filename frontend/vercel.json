@@ -2,9 +2,18 @@
   "rewrites": [
     { "source": "/p/:nick", "destination": "/api/share?nick=:nick" },
     {
+      "source": "/:lang(ru|pl|uk)/player/:nick",
+      "has": [{ "type": "query", "key": "__spa", "value": "1" }],
+      "destination": "/index.html"
+    },
+    {
       "source": "/player/:nick",
       "has": [{ "type": "query", "key": "__spa", "value": "1" }],
       "destination": "/index.html"
+    },
+    {
+      "source": "/:lang(ru|pl|uk)/player/:nick",
+      "destination": "/api/render?nick=:nick&lang=:lang"
     },
     { "source": "/player/:nick", "destination": "/api/render?nick=:nick" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

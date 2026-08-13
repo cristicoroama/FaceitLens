@@ -127,6 +127,50 @@ else would catch a regression.
 
 Run it alone with `npm run seo-check` (after a build).
 
+## Languages (en, ru, pl, uk)
+
+74% of the nearest competitor's organic traffic comes from Russia, Ukraine and
+Poland, and the Russian query for this category has ~27k searches a month with
+nobody ranking well for it. That is why those three and not, say, German.
+
+English stays unprefixed (`/faq`); the others live under a prefix (`/ru/faq`).
+Existing links and rankings are untouched.
+
+All the translated copy is in `frontend/src/i18n.js` — page titles,
+descriptions, landing copy and the player-page templates. Nothing else is
+translated: **the interface stays English on purpose.** These communities read
+English UIs without trouble, they just *search* in their own language, so the
+return is in the `<head>` and the landing copy, not in the buttons.
+
+What makes the translations actually rank, and what to not break:
+
+- **Every page carries a complete hreflang cluster**, itself included. Google
+  discards one-way sets, so a page that lists its siblings without being
+  listed back takes the whole cluster down with it.
+- **Each page has translated text in the body**, prerendered into `#root`
+  between the `SEO:BODY` markers. Google decides a page's language from
+  visible content — a Russian `<title>` over an English body is filed as
+  English and never answers a Russian query, which would make the entire
+  translation worthless. React reprints the same words on mount, so nothing a
+  crawler sees differs from what a person sees.
+- **`sitemap.xml` is generated** by `scripts/prerender.mjs`, not hand-written.
+  92 URLs across four languages cannot be maintained by hand without rotting.
+  `frontend/public/sitemap.xml` is only a fallback for a build that never ran.
+- **In-app navigation keeps the visitor's language.** `nav()` in `App.jsx`
+  prefixes every route, otherwise one click would drop a Russian visitor back
+  into the English tree for good.
+
+`npm run seo-check` fails the build if a cluster is incomplete, if a page is
+missing in one language, if `<html lang>` disagrees with the URL, or if a page
+claiming to be Russian has no Cyrillic in it.
+
 Adding a new tool page: add it to `TOOL_PAGES` and `PAGE_META` in
-`frontend/src/page-meta.js`, then add the URL to `frontend/public/sitemap.xml`.
-Prerendering picks it up automatically.
+`frontend/src/page-meta.js`, then add its translations to `PAGE_META_I18N` in
+`frontend/src/i18n.js`. Prerendering and the sitemap pick it up automatically.
+The build fails if a translation is missing, which is the intended nudge.
+
+Adding a language: add the code to `LOCALES` in `i18n.js`, add its block to
+`PAGE_META_I18N`, `HOME_META`, `HERO`, `PLAYER_META` and `STAT_LABELS`, and add
+it to the `(ru|pl|uk)` patterns in `frontend/vercel.json` and in
+`splitLocale()`. Use ISO 639-1 codes — Ukrainian is `uk`, not `ua`; Google
+ignores hreflang tags that use country codes.

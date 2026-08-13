@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { PAGE_META, DEFAULT_TITLE, DEFAULT_DESC, SITE_URL, TOOL_PAGES } from "./page-meta.js";
+import { DEFAULT_LOCALE, HERO, HOME_META, localePath, metaFor } from "./i18n.js";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
@@ -302,13 +303,22 @@ const PROFILE_TABS = [
   ["nicknames", "Nicknames", Icon.tags],
 ];
 
-export default function App() {
+export default function App({ lang = DEFAULT_LOCALE }) {
   const {
     nickname: routeNick, steamid: routeSteam, page: routePage,
     handle: routeHandle, region: routeRegion,
   } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  /* Every in-app navigation keeps the visitor in the language they arrived in.
+     Without this a Russian visitor clicking any link lands back on the English
+     tree and never returns — which would waste the translations entirely.
+     English is unprefixed, so for it this is the identity function. */
+  const nav = (to, opts) =>
+    navigate(typeof to === "string" ? localePath(lang, to) : to, opts);
+
+  const t = HERO[lang] || HERO[DEFAULT_LOCALE];
 
   const [nickname, setNickname] = useState(routeNick || "");
   const [mode, setMode] = useState("single");
@@ -447,7 +457,7 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get("player");
-    if (p && !routeNick) navigate(`/player/${encodeURIComponent(p)}`, { replace: true });
+    if (p && !routeNick) nav(`/player/${encodeURIComponent(p)}`, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -502,9 +512,21 @@ export default function App() {
         "That page doesn't exist. Search for a CS2 player instead.", "noindex, follow");
       return;
     }
-    const meta = PAGE_META[mode];
-    applyMeta(meta ? `${meta[0]} | Faceit-Lens` : DEFAULT_TITLE, meta ? meta[1] : DEFAULT_DESC);
-  }, [mode, data, steamProfile]);
+    // The prerendered HTML already carries the right tags for the language the
+    // visitor landed on; this keeps them right through in-app navigation,
+    // where no new document is fetched.
+    const isPage = Boolean(PAGE_META[mode]);
+    const [title, desc] = metaFor(
+      lang, isPage ? mode : null, PAGE_META[mode], [DEFAULT_TITLE, DEFAULT_DESC],
+    );
+    applyMeta(isPage ? `${title} | Faceit-Lens` : title, desc);
+  }, [mode, data, steamProfile, lang]);
+
+  // Screen readers pick their voice off this, and Google reads it as a signal
+  // of which language the page answers for.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   // Coming back from Steam: "nolink" means we signed them in but couldn't find
   // a FACEIT account for their Steam ID, so send them to settings to set it.
@@ -515,7 +537,7 @@ export default function App() {
     window.history.replaceState(null, "", window.location.pathname);
     if (login === "nolink") {
       setMode("settings");
-      navigate("/settings");
+      nav("/settings");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -637,7 +659,7 @@ export default function App() {
     if (!input) return;
 
     if (!steamOnly && !looksLikeSteam(input)) {
-      navigate(`/player/${encodeURIComponent(input)}`);
+      nav(`/player/${encodeURIComponent(input)}`);
       return;
     }
 
@@ -646,16 +668,16 @@ export default function App() {
     try {
       // Prefer the FACEIT profile when the account is linked...
       const nick = await resolveSteam(input);
-      navigate(`/player/${encodeURIComponent(nick)}`);
+      nav(`/player/${encodeURIComponent(nick)}`);
     } catch {
       // ...otherwise fall back to the Steam-first profile page (also handles
       // vanity names via the backend resolver).
       try {
         const json = await fetchSteamProfileByInput(input);
         if (json.faceit_nickname) {
-          navigate(`/player/${encodeURIComponent(json.faceit_nickname)}`);
+          nav(`/player/${encodeURIComponent(json.faceit_nickname)}`);
         } else {
-          navigate(`/steam/${json.steamid}`);
+          nav(`/steam/${json.steamid}`);
         }
       } catch (e2) {
         setError(e2.message);
@@ -685,14 +707,14 @@ export default function App() {
   function go(nick) {
     setNickname(nick);
     setMode("single");
-    navigate(`/player/${encodeURIComponent(nick)}`);
+    nav(`/player/${encodeURIComponent(nick)}`);
   }
 
   function pickNav(id) {
     setError("");
     if (id === "single") {
       setMode("single");
-      navigate("/");
+      nav("/");
       return;
     }
     // "leaderboard:NA" — one nav entry per ladder, all rendering the same page
@@ -701,12 +723,12 @@ export default function App() {
     if (page === "leaderboard") {
       const seg = arg || "EU";
       setMode(seg === "map" ? "worldmap" : "leaderboard");
-      navigate(`/leaderboard/${seg}`);
+      nav(`/leaderboard/${seg}`);
       return;
     }
     setMode(id);
     // give tool pages a real, shareable URL (/docs, /proguesser…)
-    if (TOOL_PAGES.has(id)) navigate(`/${id}`);
+    if (TOOL_PAGES.has(id)) nav(`/${id}`);
   }
 
   async function onToggleFav() {
@@ -763,7 +785,7 @@ export default function App() {
         mode={mode}
         onNav={pickNav}
         brandHref="/"
-        onBrand={() => { setMode("single"); navigate("/"); }}
+        onBrand={() => { setMode("single"); nav("/"); }}
         search={
           <>
             <span className="tn-search-ic">{Icon.search}</span>
@@ -796,13 +818,13 @@ export default function App() {
             <AccountMenu
               user={user}
               onLogout={logout}
-              onSettings={() => { setMode("settings"); navigate("/settings"); }}
+              onSettings={() => { setMode("settings"); nav("/settings"); }}
               onMyProfile={(handle, faceitStats) => {
                 if (faceitStats && user?.profile?.faceit_nickname) {
                   go(user.profile.faceit_nickname);
                 } else {
                   setMode("publicprofile");
-                  navigate(`/u/${handle}`);
+                  nav(`/u/${handle}`);
                 }
               }}
             />
@@ -821,17 +843,14 @@ export default function App() {
           {showHome && (
             <div className="home-hero">
               <h1 className="home-title">
-                Scan any <em>CS2 player</em>
+                {t.titleLead} <em>{t.titleEm}</em>
               </h1>
-              <p className="home-sub">
-                ELO, stats and match history for any FACEIT player — plus a trust
-                score that tells you who you're really up against.
-              </p>
+              <p className="home-sub">{t.sub}</p>
 
               {cs2Online && (
                 <div className="home-live">
                   <span className="home-live-dot" />
-                  <b>{cs2Online.toLocaleString()}</b> players in CS2 right now
+                  <b>{cs2Online.toLocaleString()}</b> {t.live}
                 </div>
               )}
 
@@ -845,10 +864,10 @@ export default function App() {
                     onChange={setNickname}
                     onPick={go}
                     onEnter={searchHome}
-                    placeholder="FACEIT nickname, Steam ID or profile link"
+                    placeholder={t.placeholder}
                   />
                   <button onClick={searchHome} disabled={loading}>
-                    {loading ? "..." : "Search"}
+                    {loading ? "..." : t.search}
                   </button>
                 </div>
               </div>
@@ -978,7 +997,7 @@ export default function App() {
               // Clicking a country drops into the ladder it was counted in,
               // already filtered — the map answers "who", the list answers
               // "which players".
-              onCountry={(c) => navigate(`/leaderboard/${c.region}?country=${c.country}`)}
+              onCountry={(c) => nav(`/leaderboard/${c.region}?country=${c.country}`)}
             />
           )}
           {mode === "faceitstatus" && <FaceitStatus />}
@@ -1020,7 +1039,7 @@ export default function App() {
               handle={routeHandle}
               currentUser={user}
               onPick={go}
-              onEdit={() => { setMode("settings"); navigate("/settings"); }}
+              onEdit={() => { setMode("settings"); nav("/settings"); }}
             />
           )}
 
@@ -1164,7 +1183,7 @@ export default function App() {
             </>
           )}
 
-          <SiteFooter onNav={pickNav} />
+          <SiteFooter onNav={pickNav} lang={lang} />
         </div>
       </div>
 
