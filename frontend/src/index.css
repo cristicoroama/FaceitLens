@@ -4826,3 +4826,70 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   line-height: 1.6;
   color: #9a9aa4;
 }
+
+/* ---------------------------------------------------------------------------
+   Language picker (TopNav)
+
+   Reuses .tn-item / .tn-trigger / .tn-menu so it inherits the dropdown look
+   already defined for the nav menus; only what differs is set here.
+--------------------------------------------------------------------------- */
+.tn-lang {
+  margin-left: 4px;
+  flex: 0 0 auto;
+}
+
+.tn-lang .tn-trigger {
+  gap: 6px;
+  padding-inline: 10px;
+}
+
+.tn-lang-code {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* Anchored to the right edge: this menu sits near the end of the bar, and a
+   left-anchored dropdown would run off the viewport. */
+.tn-menu-right {
+  left: auto;
+  right: 0;
+}
+
+.tn-menu-right .tn-menu-ic {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 22px;
+}
+
+/* Mobile drawer: a row of chips reads faster than five more stacked rows in a
+   list that is already long. */
+.tn-drawer-langs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 16px 12px;
+}
+
+.tn-drawer-lang {
+  padding: 7px 12px;
+  border: 1px solid #26262e;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #c9c9d2;
+  text-decoration: none;
+}
+
+.tn-drawer-lang.active {
+  border-color: #ff5500;
+  color: #ff7a26;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .tn-lang { display: none; }
+}

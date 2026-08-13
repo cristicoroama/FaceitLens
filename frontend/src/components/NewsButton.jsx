@@ -2,7 +2,7 @@
 // /api/incidents/ feed (fetched once in App):
 //   - active incident  -> amber ⚠️ that blinks
 //   - all operational  -> calm green dot
-export default function NewsButton({ onClick, active }) {
+export default function NewsButton({ onClick, active, label = "Status" }) {
   return (
     <button
       className="tb-btn news-btn"
@@ -14,7 +14,7 @@ export default function NewsButton({ onClick, active }) {
       ) : (
         <span className="news-dot" aria-hidden="true" />
       )}
-      <span className="news-btn-label">Status</span>
+      <span className="news-btn-label">{label}</span>
     </button>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { PAGE_META, DEFAULT_TITLE, DEFAULT_DESC, SITE_URL, TOOL_PAGES } from "./page-meta.js";
-import { DEFAULT_LOCALE, HERO, HOME_META, localePath, metaFor } from "./i18n.js";
+import { DEFAULT_LOCALE, HERO, localePath, makeT, metaFor } from "./i18n.js";
 import PlayerHeader from "./components/PlayerHeader.jsx";
 import MatchHistory from "./components/MatchHistory.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
@@ -125,64 +125,64 @@ function eloData(player) {
 
    Six sidebar groups collapse to four menus: Developers and About held one
    and two entries, which never justified their own heading. */
-const NAV = [
+function buildNav(t, lang) { return [
   // Flat link in the bar (no icon needed next to the dropdown triggers), but
   // the mobile drawer lists it beside iconed entries, so it carries one.
-  { label: "Leaderboards", items: [
-    { id: "leaderboard", label: "Europe", href: "/leaderboard/EU", icon: Icon.trophy,
-      hint: "The biggest ladder on FACEIT" },
-    { id: "leaderboard:NA", label: "North America", href: "/leaderboard/NA", icon: Icon.trophy },
-    { id: "leaderboard:SA", label: "South America", href: "/leaderboard/SA", icon: Icon.trophy },
-    { id: "leaderboard:SEA", label: "Southeast Asia", href: "/leaderboard/SEA", icon: Icon.trophy },
-    { id: "leaderboard:OCE", label: "Oceania", href: "/leaderboard/OCE", icon: Icon.trophy },
-    { id: "leaderboard:map", label: "World Map", href: "/leaderboard/map", icon: Icon.globe,
-      hint: "Which countries the top players come from" },
+  { label: t("nav.leaderboards"), items: [
+    { id: "leaderboard", label: t("nav.europe"), href: localePath(lang, "/leaderboard/EU"), icon: Icon.trophy,
+      hint: t("hint.europe") },
+    { id: "leaderboard:NA", label: t("nav.northAmerica"), href: localePath(lang, "/leaderboard/NA"), icon: Icon.trophy },
+    { id: "leaderboard:SA", label: t("nav.southAmerica"), href: localePath(lang, "/leaderboard/SA"), icon: Icon.trophy },
+    { id: "leaderboard:SEA", label: t("nav.southeastAsia"), href: localePath(lang, "/leaderboard/SEA"), icon: Icon.trophy },
+    { id: "leaderboard:OCE", label: t("nav.oceania"), href: localePath(lang, "/leaderboard/OCE"), icon: Icon.trophy },
+    { id: "leaderboard:map", label: t("nav.worldMap"), href: localePath(lang, "/leaderboard/map"), icon: Icon.globe,
+      hint: t("hint.worldMap") },
   ]},
-  { label: "Tools", items: [
-    { id: "matchroom", label: "Match Room", href: "/matchroom", icon: Icon.binoculars,
-      hint: "Scout all 10 players in a lobby" },
-    { id: "compare", label: "Compare", href: "/compare", icon: Icon.arrowLeftRight,
-      hint: "Up to 5 players, head to head" },
-    { id: "squad", label: "Squad", href: "/squad", icon: Icon.people,
-      hint: "Look up your whole team at once" },
-    { id: "hubs", label: "Hubs", href: "/hubs", icon: Icon.diagram3,
-      hint: "Find a community and see who plays there" },
-    { id: "teams", label: "Teams", href: "/teams", icon: Icon.people,
-      hint: "Rosters and records — NAVI, FaZe, anyone" },
-    { id: "competitions", label: "Competitions", href: "/competitions", icon: Icon.trophy,
-      hint: "Championships, tournaments and brackets" },
-    { id: "watchlist", label: "Watchlist", href: "/watchlist", icon: Icon.star,
-      hint: "Track players you care about" },
+  { label: t("nav.tools"), items: [
+    { id: "matchroom", label: t("nav.matchRoom"), href: localePath(lang, "/matchroom"), icon: Icon.binoculars,
+      hint: t("hint.matchRoom") },
+    { id: "compare", label: t("nav.compare"), href: localePath(lang, "/compare"), icon: Icon.arrowLeftRight,
+      hint: t("hint.compare") },
+    { id: "squad", label: t("nav.squad"), href: localePath(lang, "/squad"), icon: Icon.people,
+      hint: t("hint.squad") },
+    { id: "hubs", label: t("nav.hubs"), href: localePath(lang, "/hubs"), icon: Icon.diagram3,
+      hint: t("hint.hubs") },
+    { id: "teams", label: t("nav.teams"), href: localePath(lang, "/teams"), icon: Icon.people,
+      hint: t("hint.teams") },
+    { id: "competitions", label: t("nav.competitions"), href: localePath(lang, "/competitions"), icon: Icon.trophy,
+      hint: t("hint.competitions") },
+    { id: "watchlist", label: t("nav.watchlist"), href: localePath(lang, "/watchlist"), icon: Icon.star,
+      hint: t("hint.watchlist") },
   ]},
-  { label: "Live", items: [
-    { id: "faceitstatus", label: "FACEIT Status", href: "/faceitstatus", icon: Icon.activity,
-      hint: "Is FACEIT down right now?" },
-    { id: "steamstatus", label: "Steam / CS2 Status", href: "/steamstatus", icon: Icon.activity,
-      hint: "Steam and CS2 servers, live" },
-    { id: "bans", label: "Recent Bans", href: "/bans", icon: Icon.slashCircle,
-      hint: "Who just got banned" },
+  { label: t("nav.live"), items: [
+    { id: "faceitstatus", label: t("nav.faceitStatus"), href: localePath(lang, "/faceitstatus"), icon: Icon.activity,
+      hint: t("hint.faceitStatus") },
+    { id: "steamstatus", label: t("nav.steamStatus"), href: localePath(lang, "/steamstatus"), icon: Icon.activity,
+      hint: t("hint.steamStatus") },
+    { id: "bans", label: t("nav.recentBans"), href: localePath(lang, "/bans"), icon: Icon.slashCircle,
+      hint: t("hint.recentBans") },
   ]},
-  { label: "Pros", items: [
-    { id: "prosettings", label: "Pro Settings", href: "/prosettings", icon: Icon.crosshair,
-      hint: "Crosshairs, sens and gear for 180+ pros" },
-    { id: "proguesser", label: "ProGuesser", href: "/proguesser", icon: Icon.star,
-      hint: "Daily guess-the-pro game" },
-    { id: "games", label: "Minigames", href: "/games", icon: Icon.controller,
-      hint: "CS2 quizzes and trivia" },
+  { label: t("nav.pros"), items: [
+    { id: "prosettings", label: t("nav.proSettings"), href: localePath(lang, "/prosettings"), icon: Icon.crosshair,
+      hint: t("hint.proSettings") },
+    { id: "proguesser", label: t("nav.proGuesser"), href: localePath(lang, "/proguesser"), icon: Icon.star,
+      hint: t("hint.proGuesser") },
+    { id: "games", label: t("nav.minigames"), href: localePath(lang, "/games"), icon: Icon.controller,
+      hint: t("hint.minigames") },
   ]},
-  { label: "More", items: [
-    { id: "docs", label: "API Docs", href: "/docs", icon: Icon.codeSlash,
-      hint: "Free REST API" },
-    { id: "whatsnew", label: "What's New", href: "/whatsnew", icon: Icon.star,
-      hint: "Changelog" },
-    { id: "faq", label: "FAQ", href: "/faq", icon: Icon.patchCheckFill,
-      hint: "How the numbers actually work" },
-    { id: "feedback", label: "Feedback", href: "/feedback", icon: Icon.chatDots,
-      hint: "Report a bug, request a feature" },
+  { label: t("nav.more"), items: [
+    { id: "docs", label: t("nav.apiDocs"), href: localePath(lang, "/docs"), icon: Icon.codeSlash,
+      hint: t("hint.apiDocs") },
+    { id: "whatsnew", label: t("nav.whatsNew"), href: localePath(lang, "/whatsnew"), icon: Icon.star,
+      hint: t("hint.whatsNew") },
+    { id: "faq", label: t("nav.faq"), href: localePath(lang, "/faq"), icon: Icon.patchCheckFill,
+      hint: t("hint.faq") },
+    { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
+      hint: t("hint.feedback") },
   ],
     /* Actions, not reference links — in the footer nobody would press them. */
     tail: [
-      { label: "Join our Discord", href: DISCORD_INVITE, cls: "tn-discord",
+      { label: t("chrome.joinDiscord"), href: DISCORD_INVITE, cls: "tn-discord",
         icon: (
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
             <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.6 1.25a18.3 18.3 0 0 0-5.5 0 12.6 12.6 0 0 0-.61-1.25.08.08 0 0 0-.08-.04c-1.7.3-3.33.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.78 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6.01-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.09 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.22 0 2.18 1.09 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z" />
@@ -197,7 +197,7 @@ const NAV = [
         ) },
     ],
   },
-];
+]; }
 
 
 /* popular pros shown on the home page when there's no search history */
@@ -291,17 +291,17 @@ function applyMeta(title, desc, robots = "index, follow") {
   setProp("og:description", desc);
 }
 
-const PROFILE_TABS = [
-  ["overview", "Overview", Icon.grid1x2],
-  ["account", "Trust", Icon.shieldCheck],
-  ["leetify", "Leetify", Icon.graphUpArrow],
-  ["clips", "Clips", Icon.playBtn],
-  ["hltv", "HLTV Stats", Icon.barChartLine],
-  ["teammates", "Teammates", Icon.people],
-  ["steam", "Steam", Icon.steam],
-  ["met", "Have We Met?", Icon.personCheck],
-  ["nicknames", "Nicknames", Icon.tags],
-];
+function buildProfileTabs(t) { return [
+  ["overview", t("tab.overview"), Icon.grid1x2],
+  ["account", t("tab.trust"), Icon.shieldCheck],
+  ["leetify", t("tab.leetify"), Icon.graphUpArrow],
+  ["clips", t("tab.clips"), Icon.playBtn],
+  ["hltv", t("tab.hltv"), Icon.barChartLine],
+  ["teammates", t("tab.teammates"), Icon.people],
+  ["steam", t("tab.steam"), Icon.steam],
+  ["met", t("tab.met"), Icon.personCheck],
+  ["nicknames", t("tab.nicknames"), Icon.tags],
+]; }
 
 export default function App({ lang = DEFAULT_LOCALE }) {
   const {
@@ -318,7 +318,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   const nav = (to, opts) =>
     navigate(typeof to === "string" ? localePath(lang, to) : to, opts);
 
-  const t = HERO[lang] || HERO[DEFAULT_LOCALE];
+  const t = makeT(lang);
+  const hero = HERO[lang] || HERO[DEFAULT_LOCALE];
 
   const [nickname, setNickname] = useState(routeNick || "");
   const [mode, setMode] = useState("single");
@@ -781,10 +782,11 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   return (
     <div className="shell">
       <TopNav
-        groups={NAV}
+        lang={lang}
+        groups={buildNav(t, lang)}
         mode={mode}
         onNav={pickNav}
-        brandHref="/"
+        brandHref={localePath(lang, "/")}
         onBrand={() => { setMode("single"); nav("/"); }}
         search={
           <>
@@ -794,7 +796,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               onChange={setNickname}
               onPick={go}
               onEnter={() => smartSearch(nickname)}
-              placeholder="Search player…"
+              placeholder={t("chrome.searchPlayer")}
             />
           </>
         }
@@ -813,8 +815,10 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         }
         actions={
           <>
-            <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")} />
-            <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active} />
+            <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")}
+                            label={t("chrome.news")} />
+            <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active}
+                        label={t("chrome.status")} />
             <AccountMenu
               user={user}
               onLogout={logout}
@@ -843,14 +847,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {showHome && (
             <div className="home-hero">
               <h1 className="home-title">
-                {t.titleLead} <em>{t.titleEm}</em>
+                {hero.titleLead} <em>{hero.titleEm}</em>
               </h1>
-              <p className="home-sub">{t.sub}</p>
+              <p className="home-sub">{hero.sub}</p>
 
               {cs2Online && (
                 <div className="home-live">
                   <span className="home-live-dot" />
-                  <b>{cs2Online.toLocaleString()}</b> {t.live}
+                  <b>{cs2Online.toLocaleString()}</b> {hero.live}
                 </div>
               )}
 
@@ -864,10 +868,10 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                     onChange={setNickname}
                     onPick={go}
                     onEnter={searchHome}
-                    placeholder={t.placeholder}
+                    placeholder={hero.placeholder}
                   />
                   <button onClick={searchHome} disabled={loading}>
-                    {loading ? "..." : t.search}
+                    {loading ? "..." : hero.search}
                   </button>
                 </div>
               </div>
@@ -1117,7 +1121,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               )}
 
               <div className="ptabs">
-                {PROFILE_TABS.filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label, icon]) => (
+                {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label, icon]) => (
                   <button
                     key={key}
                     className={`ptab ${profileTab === key ? "active" : ""}`}

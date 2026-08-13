@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from "react";
 
 import { DISCORD_INVITE } from "../links.js";
 import { Icon } from "../icons.jsx";
+import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
+
+/* Short codes for the bar — the full names would push the nav off a laptop
+   screen, and every one of these is recognisable to the people who need it. */
+const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
+
+/** The current path with any locale prefix removed, so switching language
+    keeps you on the page you were reading instead of dumping you home. */
+function stripLocale(pathname) {
+  return pathname.replace(/^\/(ru|pl|uk)(?=\/|$)/, "") || "/";
+}
 
 /**
  * Top navigation bar. Replaces the old left sidebar, which had outgrown
@@ -14,10 +25,24 @@ import { Icon } from "../icons.jsx";
  */
 export default function TopNav({
   groups, mode, onNav, brandHref, onBrand, search, actions, extras,
+  lang = DEFAULT_LOCALE,
 }) {
   const [open, setOpen] = useState(null);      // id of the open dropdown
   const [drawer, setDrawer] = useState(false); // mobile
   const navRef = useRef(null);
+  const t = makeT(lang);
+
+  /* Real <a href> links rather than a JS-driven select. Two reasons: a crawler
+     walks them, which is how the translated pages get discovered from each
+     other; and switching language reloads the document, which is what makes
+     the server hand back the prerendered page in the new language instead of
+     re-rendering the old one client-side. */
+  const langLinks = ALL_LOCALES.map((l) => ({
+    code: l,
+    href: localePath(l, stripLocale(
+      typeof window === "undefined" ? "/" : window.location.pathname,
+    )),
+  }));
 
   // Close on outside click and on Escape.
   useEffect(() => {
@@ -152,12 +177,48 @@ export default function TopNav({
         </nav>
 
         <div className="tn-search">{search}</div>
+
+        <div className="tn-item tn-lang" ref={null}>
+          <button
+            className={`tn-trigger ${open === "__lang" ? "open" : ""}`}
+            aria-expanded={open === "__lang"}
+            aria-haspopup="true"
+            aria-label={t("chrome.language")}
+            onClick={() => setOpen((o) => (o === "__lang" ? null : "__lang"))}
+          >
+            {Icon.globe}
+            <span className="tn-lang-code">{LOCALE_SHORT[lang] || lang.toUpperCase()}</span>
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
+                 stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {open === "__lang" && (
+            <div className="tn-menu tn-menu-right">
+              {langLinks.map((l) => (
+                <a
+                  key={l.code}
+                  className={`tn-menu-item ${l.code === lang ? "active" : ""}`}
+                  href={l.href}
+                  hrefLang={l.code}
+                  lang={l.code}
+                  aria-current={l.code === lang ? "true" : undefined}
+                >
+                  <span className="tn-menu-ic">{LOCALE_SHORT[l.code]}</span>
+                  <span className="tn-menu-text">{LOCALE_NAMES[l.code]}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="tn-actions">{actions}</div>
 
         <button
           className="tn-burger"
           onClick={() => setDrawer(true)}
-          aria-label="Open menu"
+          aria-label={t("chrome.openMenu")}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
                stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -172,8 +233,8 @@ export default function TopNav({
           <div className="tn-scrim" onClick={() => setDrawer(false)} />
           <div className="tn-drawer" role="dialog" aria-label="Menu">
             <div className="tn-drawer-head">
-              <span>Menu</span>
-              <button onClick={() => setDrawer(false)} aria-label="Close menu">{Icon.xLg}</button>
+              <span>{t("chrome.menu")}</span>
+              <button onClick={() => setDrawer(false)} aria-label={t("chrome.closeMenu")}>{Icon.xLg}</button>
             </div>
 
             {groups.map((g) => (
@@ -204,9 +265,24 @@ export default function TopNav({
               </div>
             ))}
 
-            <div className="tn-drawer-group">Community</div>
+            <div className="tn-drawer-group">{t("chrome.language")}</div>
+            <div className="tn-drawer-langs">
+              {langLinks.map((l) => (
+                <a
+                  key={l.code}
+                  className={`tn-drawer-lang ${l.code === lang ? "active" : ""}`}
+                  href={l.href}
+                  hrefLang={l.code}
+                  lang={l.code}
+                >
+                  {LOCALE_NAMES[l.code]}
+                </a>
+              ))}
+            </div>
+
+            <div className="tn-drawer-group">{t("chrome.community")}</div>
             <a className="tn-drawer-item tn-discord" href={DISCORD_INVITE}
-               target="_blank" rel="noopener noreferrer">Join our Discord</a>
+               target="_blank" rel="noopener noreferrer">{t("chrome.joinDiscord")}</a>
             {extras}
           </div>
         </>

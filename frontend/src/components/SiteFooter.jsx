@@ -1,5 +1,5 @@
 import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
-import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath } from "../i18n.js";
+import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
 /**
  * Site-wide footer. Carries the "not affiliated" notice that keeps our use of
@@ -7,6 +7,7 @@ import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath } from "../i18n.j
  * Liquipedia's CC BY-SA licence requires.
  */
 export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
+  const t = makeT(lang);
   const link = (page, label) => (
     <a
       href={localePath(lang, `/${page}`)}
@@ -44,15 +45,15 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
           Discord and Buy-me-a-coffee stay in the nav's More menu instead,
           because those are actions and down here nobody would press them. */}
       <div className="site-foot-links">
-        {link("faq", "FAQ")}
+        {link("faq", t("foot.faq"))}
         <span className="site-foot-sep">·</span>
-        {link("privacy", "Privacy")}
+        {link("privacy", t("foot.privacy"))}
         <span className="site-foot-sep">·</span>
-        {link("terms", "Terms")}
+        {link("terms", t("foot.terms"))}
         <span className="site-foot-sep">·</span>
-        {link("docs", "API")}
+        {link("docs", t("foot.api"))}
         <span className="site-foot-sep">·</span>
-        {link("feedback", "Feedback")}
+        {link("feedback", t("foot.feedback"))}
         <span className="site-foot-sep">·</span>
         <a href={GITHUB_REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
         <span className="site-foot-sep">·</span>

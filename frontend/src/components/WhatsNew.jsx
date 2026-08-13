@@ -188,7 +188,7 @@ export function WhatsNewPopup({ unread, entries, markSeen, onOpenPage, suppresse
 }
 
 /** Topbar bell with an unread count. */
-export function WhatsNewButton({ unread, onClick }) {
+export function WhatsNewButton({ unread, onClick, label = "News" }) {
   return (
     <button
       className="tb-btn wn-bell"
@@ -200,7 +200,7 @@ export function WhatsNewButton({ unread, onClick }) {
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
-      <span className="wn-bell-label">News</span>
+      <span className="wn-bell-label">{label}</span>
       {unread > 0 && <span className="wn-bell-dot">{unread > 9 ? "9+" : unread}</span>}
     </button>
   );

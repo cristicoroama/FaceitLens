@@ -210,7 +210,11 @@ await run("backend answers", { backend: answers }, (res, name) => {
   if (!t.includes("s1mple")) return bad(`${name}: title is ${t}`);
   if (r !== "index, follow") return bad(`${name}: robots is ${r}`);
   if (!/og:type" content="profile"/.test(res.body)) return bad(`${name}: og:type not profile`);
-  if (!/assets\/index-/.test(res.body)) return bad(`${name}: lost the app bundle`);
+  // Assert the page still boots, without depending on Vite's chunk naming —
+  // that filename is a build detail and pinning it makes the check brittle.
+  if (!/<script type="module"[^>]*src="\/assets\//.test(res.body)) {
+    return bad(`${name}: lost the app bundle`);
+  }
   ok(`${name} — canonical, title and stats all present`);
 });
 

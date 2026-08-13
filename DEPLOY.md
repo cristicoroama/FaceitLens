@@ -136,11 +136,20 @@ nobody ranking well for it. That is why those three and not, say, German.
 English stays unprefixed (`/faq`); the others live under a prefix (`/ru/faq`).
 Existing links and rankings are untouched.
 
-All the translated copy is in `frontend/src/i18n.js` — page titles,
-descriptions, landing copy and the player-page templates. Nothing else is
-translated: **the interface stays English on purpose.** These communities read
-English UIs without trouble, they just *search* in their own language, so the
-return is in the `<head>` and the landing copy, not in the buttons.
+All the translated copy is in `frontend/src/i18n.js`: page titles and
+descriptions, landing copy, player-page templates, and the `UI` dictionary
+holding the interface chrome — navigation, dropdown hints, profile tabs,
+footer, the search box and the header buttons.
+
+**Page bodies are still English.** The FAQ text, the legal pages and the copy
+inside each tool have not been extracted; they are long-form prose rather than
+labels, and translating them is a separate job. What is translated is
+everything that frames a page, which is what makes the site read as
+translated while you move around it.
+
+`makeT(locale)` returns the lookup function. It falls back to English and then
+to the key itself, so a missing string shows an English word rather than a
+blank space or `nav.hubs`.
 
 What makes the translations actually rank, and what to not break:
 
