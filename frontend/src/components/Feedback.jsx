@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 import { DISCORD_INVITE } from "../links.js";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -383,7 +384,7 @@ export default function Feedback({ user }) {
       ) : items.length === 0 ? (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-ico">✦</div>
+            <div className="empty-ico">{Icon.lightbulb}</div>
             <h3>Nothing here yet</h3>
             <p>
               {status !== "active" || kind

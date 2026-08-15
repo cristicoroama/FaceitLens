@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { COUNTRY_NAMES } from "../country-names.js";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -147,14 +148,14 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
       ) : error ? (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-ico">◌</div>
+            <div className="empty-ico">{Icon.exclamationTriangle}</div>
             <h3>{error}</h3>
           </div>
         </div>
       ) : items.length === 0 ? (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-ico">◌</div>
+            <div className="empty-ico">{Icon.trophy}</div>
             <h3>Nothing ranked here</h3>
             <p>FACEIT doesn't publish a ranking for that combination.</p>
           </div>

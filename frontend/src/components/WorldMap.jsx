@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Flag } from "./RankIcons.jsx";
 import { COUNTRY_NAMES } from "../country-names.js";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -103,7 +104,7 @@ export default function WorldMap({ onPick, onCountry }) {
     return (
       <div className="panel">
         <div className="empty-state">
-          <div className="empty-ico">◌</div>
+          <div className="empty-ico">{Icon.exclamationTriangle}</div>
           <h3>{error}</h3>
         </div>
       </div>

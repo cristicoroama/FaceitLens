@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const SEEN_KEY = "faceitlens_news_seen";
@@ -100,7 +101,7 @@ export default function WhatsNew() {
       ) : entries.length === 0 ? (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-ico">✦</div>
+            <div className="empty-ico">{Icon.stars}</div>
             <h3>Nothing here yet</h3>
             <p>New features will show up on this page as they land.</p>
           </div>

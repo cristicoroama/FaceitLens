@@ -5120,3 +5120,37 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 @media (max-width: 560px) {
   .ovl-seg-row { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---- "New" flag in the nav -------------------------------------------------
+   Two pieces: a dot on the closed dropdown trigger, and a pill on the entry
+   itself once the menu is open. The dot is what earns the click; the pill is
+   what tells you which of seven tools it was. */
+.tn-new {
+  display: inline-block; margin-left: 7px; vertical-align: 1px;
+  padding: 1px 6px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  color: #0a0a0c; background: var(--accent);
+}
+
+.tn-new-dot {
+  display: inline-block; width: 6px; height: 6px; margin-left: 5px;
+  border-radius: 50%; background: var(--accent);
+  /* Own stacking context so the halo can't nudge the label's layout. */
+  position: relative;
+}
+.tn-new-dot::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: var(--accent);
+  animation: tnNewPulse 2.4s ease-out infinite;
+}
+@keyframes tnNewPulse {
+  0%   { transform: scale(1);   opacity: 0.65; }
+  70%  { transform: scale(3.2); opacity: 0; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+/* A ring that never stops moving in the corner of the eye is a tax on anyone
+   reading the rest of the page. */
+@media (prefers-reduced-motion: reduce) {
+  .tn-new-dot::after { animation: none; }
+}

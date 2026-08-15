@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import EloProgress from "./EloProgress.jsx";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -42,7 +43,7 @@ function ReportDialog({ handle, onClose }) {
       <div className="panel pp-modal" onClick={(e) => e.stopPropagation()}>
         {sent ? (
           <div className="pp-report-done">
-            <div className="empty-ico">✓</div>
+            <div className="empty-ico">{Icon.patchCheckFill}</div>
             <h3>Thanks — we'll take a look.</h3>
           </div>
         ) : (
@@ -130,7 +131,7 @@ export default function PublicProfile({ handle, onPick, onEdit, currentUser }) {
     return (
       <div className="panel">
         <div className="empty-state">
-          <div className="empty-ico">◌</div>
+          <div className="empty-ico">{Icon.exclamationTriangle}</div>
           <h3>{error}</h3>
           <p>This profile doesn't exist, or its owner has made it private.</p>
         </div>
@@ -239,17 +240,19 @@ export default function PublicProfile({ handle, onPick, onEdit, currentUser }) {
       ) : (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-ico">◈</div>
+            <div className="empty-ico">{Icon.link45deg}</div>
             <h3>No FACEIT account linked yet</h3>
             {isOwner ? (
               <>
                 <p>
-                  Sign in with FACEIT to link your account — stats only appear once
-                  ownership is proven, so nobody can put someone else's name here.
+                  We look for the FACEIT account registered to your Steam ID, so
+                  there is nothing to type and nobody can put someone else's name
+                  here. If you have connected Steam on FACEIT since you signed in,
+                  check again from Settings.
                 </p>
-                <a className="btn faceit-login" href={`${API_BASE}/api/auth/faceit/login/`}>
-                  Sign in with FACEIT
-                </a>
+                <button type="button" className="btn primary" onClick={onEdit}>
+                  Check in Settings
+                </button>
               </>
             ) : (
               <p>This player hasn't linked a FACEIT account.</p>

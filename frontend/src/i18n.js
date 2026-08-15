@@ -97,7 +97,7 @@ export const HERO = {
 export const UI = {
   en: {
     "nav.leaderboards": "Leaderboards", "nav.tools": "Tools", "nav.live": "Live",
-    "nav.pros": "Pros", "nav.more": "More",
+    "nav.pros": "Pros", "nav.more": "More", "nav.new": "New",
     "nav.europe": "Europe", "nav.northAmerica": "North America",
     "nav.southAmerica": "South America", "nav.southeastAsia": "Southeast Asia",
     "nav.oceania": "Oceania", "nav.worldMap": "World Map",
@@ -140,7 +140,7 @@ export const UI = {
 
   ru: {
     "nav.leaderboards": "Рейтинги", "nav.tools": "Инструменты", "nav.live": "Онлайн",
-    "nav.pros": "Про", "nav.more": "Ещё",
+    "nav.pros": "Про", "nav.more": "Ещё", "nav.new": "Новое",
     "nav.europe": "Европа", "nav.northAmerica": "Северная Америка",
     "nav.southAmerica": "Южная Америка", "nav.southeastAsia": "Юго-Восточная Азия",
     "nav.oceania": "Океания", "nav.worldMap": "Карта мира",
@@ -183,7 +183,7 @@ export const UI = {
 
   pl: {
     "nav.leaderboards": "Rankingi", "nav.tools": "Narzędzia", "nav.live": "Na żywo",
-    "nav.pros": "Pro", "nav.more": "Więcej",
+    "nav.pros": "Pro", "nav.more": "Więcej", "nav.new": "Nowość",
     "nav.europe": "Europa", "nav.northAmerica": "Ameryka Północna",
     "nav.southAmerica": "Ameryka Południowa", "nav.southeastAsia": "Azja Południowo-Wschodnia",
     "nav.oceania": "Oceania", "nav.worldMap": "Mapa świata",
@@ -226,7 +226,7 @@ export const UI = {
 
   uk: {
     "nav.leaderboards": "Рейтинги", "nav.tools": "Інструменти", "nav.live": "Онлайн",
-    "nav.pros": "Про", "nav.more": "Ще",
+    "nav.pros": "Про", "nav.more": "Ще", "nav.new": "Нове",
     "nav.europe": "Європа", "nav.northAmerica": "Північна Америка",
     "nav.southAmerica": "Південна Америка", "nav.southeastAsia": "Південно-Східна Азія",
     "nav.oceania": "Океанія", "nav.worldMap": "Карта світу",

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -27,15 +28,6 @@ function shrinkToDataUrl(file, size = 512) {
     };
     reader.readAsDataURL(file);
   });
-}
-
-/** FACEIT's arrow mark, drawn rather than using their logo file. */
-function FaceitIcon({ size = 16 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
-      <path d="M21.6 3.2 9.1 10.7h12.5v10.1L2.4 10.7c-.6-.4-.5-1.3.2-1.5L21.6 3.2Z" />
-    </svg>
-  );
 }
 
 function VerifiedBadge() {
@@ -255,7 +247,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
     return (
       <div className="panel ps-wrap">
         <div className="empty-state">
-          <div className="empty-ico">◈</div>
+          <div className="empty-ico">{Icon.personCheck}</div>
           <h3>Sign in to set up your profile</h3>
           <p>Signing in with Steam links your FACEIT account automatically — no codes to paste.</p>
           <a className="btn primary" href={`${API_BASE}/api/auth/steam/login/`}>
@@ -434,17 +426,10 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
               </button>
             </div>
 
-            <div className="ps-alt">
-              <span className="ps-alt-line">or</span>
-            </div>
-
-            <a className="btn faceit-login" href={`${API_BASE}/api/auth/faceit/login/`}>
-              <FaceitIcon />
-              Sign in with FACEIT instead
-            </a>
             <p className="ps-hint dim">
-              Either way we only ever read your nickname and account id. We never see
-              your password and we can't act on your behalf.
+              We only ever read your nickname and account id, and only for the
+              account FACEIT says owns your Steam ID. We never see your password
+              and we can't act on your behalf.
             </p>
           </div>
         )}

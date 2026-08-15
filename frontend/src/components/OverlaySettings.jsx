@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import OverlayCard, { LOOK_DEFAULTS, lookToQuery, readLook } from "./OverlayCard.jsx";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -180,7 +181,7 @@ export default function OverlaySettings({ user }) {
     return (
       <div className="panel">
         <div className="empty-state">
-          <div className="empty-ico">▶</div>
+          <div className="empty-ico">{Icon.broadcastPin}</div>
           <h3>Sign in to get your overlay</h3>
           <p>Your FACEIT account has to be linked before the overlay has anything to show.</p>
         </div>
@@ -194,7 +195,7 @@ export default function OverlaySettings({ user }) {
     return (
       <div className="panel">
         <div className="empty-state">
-          <div className="empty-ico">◈</div>
+          <div className="empty-ico">{Icon.link45deg}</div>
           <h3>Link your FACEIT account first</h3>
           <p>The overlay reads your live ELO, so it needs to know which account is yours.</p>
         </div>
@@ -206,7 +207,7 @@ export default function OverlaySettings({ user }) {
     return (
       <div className="panel">
         <div className="empty-state">
-          <div className="empty-ico">◌</div>
+          <div className="empty-ico">{Icon.exclamationTriangle}</div>
           <h3>{error || "Couldn't load your overlay."}</h3>
         </div>
       </div>

@@ -144,6 +144,10 @@ export default function TopNav({
                   onClick={() => setOpen((o) => (o === g.label ? null : g.label))}
                 >
                   {g.label}
+                  {/* Derived from the items rather than set on the group, so
+                      the dot disappears by itself when the badge comes off the
+                      last new entry. */}
+                  {g.items.some((it) => it.badge) && <span className="tn-new-dot" aria-hidden="true" />}
                   <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
                        stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                     <path d="m6 9 6 6 6-6" />
@@ -162,6 +166,7 @@ export default function TopNav({
                         <span className="tn-menu-ic">{it.icon}</span>
                         <span className="tn-menu-text">
                           {it.label}
+                          {it.badge && <span className="tn-new">{it.badge}</span>}
                           {it.hint && <small>{it.hint}</small>}
                         </span>
                       </a>
