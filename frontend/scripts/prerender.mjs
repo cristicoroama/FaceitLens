@@ -79,7 +79,11 @@ for (const [path, key] of routes) {
     );
 
     // Sub-pages carry the brand, the homepage already has it in its title.
-    const title = key ? `${rawTitle} | Faceit-Lens` : rawTitle;
+    // Some entries spell it out themselves ("FAQ — как работает Faceit-Lens"),
+    // and appending blindly gave those "… Faceit-Lens | Faceit-Lens", which
+    // eats the pixels a SERP title has before Google truncates it.
+    const title =
+      key && !/faceit-lens/i.test(rawTitle) ? `${rawTitle} | Faceit-Lens` : rawTitle;
 
     let html = injectMeta(shell, {
       title,
