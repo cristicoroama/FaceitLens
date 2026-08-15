@@ -165,8 +165,14 @@ export default function TopNav({
                       >
                         <span className="tn-menu-ic">{it.icon}</span>
                         <span className="tn-menu-text">
-                          {it.label}
-                          {it.badge && <span className="tn-new">{it.badge}</span>}
+                          {/* Label and badge share a row of their own. Dropping
+                              the badge straight into .tn-menu-text made it a
+                              flex-column child, which stretches — it rendered as
+                              a full-width orange bar under the label. */}
+                          <span className="tn-menu-label">
+                            {it.label}
+                            {it.badge && <span className="badge rounded-pill">{it.badge}</span>}
+                          </span>
                           {it.hint && <small>{it.hint}</small>}
                         </span>
                       </a>
