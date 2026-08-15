@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App.jsx";
+import OverlayRoute from "./components/OverlayRoute.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE } from "./i18n.js";
 import "./index.css";
 import "./effects.js";
@@ -50,7 +51,12 @@ const routes = ALL_LOCALES.flatMap((locale) =>
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>{routes}</Routes>
+      <Routes>
+        {/* Outside the localised set on purpose: the overlay is a bare page for
+            OBS, with no nav, no footer and no analytics chrome around it. */}
+        <Route path="/overlay/:token" element={<OverlayRoute />} />
+        {routes}
+      </Routes>
       <Analytics />
       <SpeedInsights />
     </BrowserRouter>

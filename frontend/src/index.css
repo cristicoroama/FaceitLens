@@ -4912,3 +4912,104 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   align-items: center;
   gap: 7px;
 }
+
+/* ==========================================================================
+   STREAM OVERLAY — the OBS browser source at /overlay/<token>
+   Rendered over live gameplay, so every value needs its own dark scrim.
+   White text alone is unreadable against a bright wall on Mirage.
+   ========================================================================== */
+.ovl {
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding: 12px;
+  font-family: var(--font-display), sans-serif;
+  /* The page behind this is transparent so OBS composites it onto the stream. */
+  background: transparent;
+}
+
+.ovl-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 12px;
+  /* Opaque enough to read over anything, not so opaque it hides the game. */
+  background: rgba(10, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.ovl-av {
+  width: 40px; height: 40px; border-radius: 9px; object-fit: cover; flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ovl-main { display: flex; flex-direction: column; gap: 2px; }
+.ovl-top { display: flex; align-items: center; gap: 7px; }
+.ovl-nick {
+  font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.ovl-level {
+  display: grid; place-items: center;
+  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 5px;
+  font-family: var(--font-mono), monospace; font-size: 11px; font-weight: 800;
+  color: #0a0a0c; background: #b8b8c0;
+}
+.ovl-level.lvl-1 { background: #eee; }
+.ovl-level.lvl-2, .ovl-level.lvl-3 { background: #1ce400; }
+.ovl-level.lvl-4, .ovl-level.lvl-5,
+.ovl-level.lvl-6, .ovl-level.lvl-7 { background: #ffc800; }
+.ovl-level.lvl-8, .ovl-level.lvl-9 { background: #ff6309; color: #fff; }
+.ovl-level.lvl-10 { background: #fe1f00; color: #fff; }
+
+.ovl-row { display: flex; align-items: baseline; gap: 10px; }
+.ovl-elo {
+  font-family: var(--font-mono), monospace; font-size: 21px; font-weight: 800;
+  color: #fff; line-height: 1; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+.ovl-delta {
+  font-family: var(--font-mono), monospace; font-size: 14px; font-weight: 800;
+  line-height: 1;
+}
+.ovl-delta.up { color: #3dd67f; }
+.ovl-delta.down { color: #ff5a5a; }
+
+.ovl-wl {
+  display: inline-flex; align-items: baseline; gap: 3px;
+  font-family: var(--font-mono), monospace; font-size: 14px; font-weight: 800;
+}
+.ovl-wl .w { color: #3dd67f; }
+.ovl-wl .l { color: #ff5a5a; }
+.ovl-wl .sep { color: rgba(255, 255, 255, 0.35); }
+
+.ovl-match { padding: 6px 12px; gap: 8px; }
+.ovl-live {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
+  color: #fff; background: #e2342f;
+  padding: 2px 6px; border-radius: 4px;
+  animation: ovlPulse 2s ease-in-out infinite;
+}
+@keyframes ovlPulse { 50% { opacity: 0.55; } }
+.ovl-map {
+  font-size: 12.5px; font-weight: 700; color: #fff; text-transform: capitalize;
+}
+.ovl-comp { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+
+.ovl-brand {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.7px;
+  color: rgba(255, 255, 255, 0.4);
+  padding-left: 4px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.ovl-msg {
+  padding: 14px 18px; border-radius: 10px;
+  background: rgba(10, 10, 12, 0.85);
+  color: #ff9c9c; font-size: 13px; font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-live { animation: none; }
+}
+
+/* Overlay settings page: the toggles read better with room to breathe. */
+.ovl-opt { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.ovl-opt:last-child { border-bottom: none; }

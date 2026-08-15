@@ -304,3 +304,20 @@ class AllstarClipAdmin(admin.ModelAdmin):
     list_filter = ("status", "on_demand")
     search_fields = ("steamid", "clip_id", "request_id", "match_id", "title")
     ordering = ("-created_at",)
+
+
+# --- Stream overlay --------------------------------------------------------
+
+from .models import StreamOverlay  # noqa: E402
+
+
+@admin.register(StreamOverlay)
+class StreamOverlayAdmin(admin.ModelAdmin):
+    list_display = ("profile", "show_elo", "show_session", "show_match",
+                    "show_brand", "last_seen", "created_at")
+    list_filter = ("show_brand", "last_seen")
+    search_fields = ("profile__handle", "profile__faceit_nickname")
+    # The token is the only thing protecting a streamer's live ELO; it has no
+    # business being editable, and it doesn't belong in a list view either.
+    readonly_fields = ("profile", "token", "created_at", "last_seen")
+    ordering = ("-last_seen",)

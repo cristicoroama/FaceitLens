@@ -558,3 +558,51 @@ class PathDay(models.Model):
 
     def __str__(self):
         return f"{self.day} · {self.route} · {self.hits}"
+
+
+class StreamOverlay(models.Model):
+    """A streamer's OBS overlay: what it shows, and the secret that opens it.
+
+    The overlay is a page a stranger's browser loads — OBS is just a browser —
+    so it can't sit behind a login. A random token in the URL is what keeps it
+    private: the handle alone won't open it, and regenerating the token
+    instantly kills every old link.
+
+    There is no background worker behind this. The overlay page polls our API,
+    and our API polls FACEIT only when someone actually asks — so a streamer
+    who isn't live costs nothing at all.
+    """
+
+    profile = models.OneToOneField(
+        "UserProfile", on_delete=models.CASCADE, related_name="overlay"
+    )
+    token = models.CharField(max_length=32, unique=True, db_index=True)
+
+    show_elo = models.BooleanField(default=True)
+    show_session = models.BooleanField(
+        default=True, help_text="Wins/losses and ELO change since the stream started."
+    )
+    show_match = models.BooleanField(
+        default=True, help_text="The map and score of the match in progress."
+    )
+    show_brand = models.BooleanField(
+        default=True, help_text="The small faceit-lens.com credit."
+    )
+
+    # Set when the streamer presses "start session" — or on the first poll of
+    # the day if they never do. Everything session-scoped counts from here.
+    session_started = models.DateTimeField(null=True, blank=True)
+    session_start_elo = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(
+        null=True, blank=True, help_text="Last time the overlay actually polled."
+    )
+
+    def __str__(self):
+        return f"overlay for {self.profile.handle}"
+
+    @staticmethod
+    def new_token():
+        import secrets
+        return secrets.token_urlsafe(18)[:24]

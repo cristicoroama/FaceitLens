@@ -4,4 +4,7 @@ Allow: /
 # Account-only pages: nothing here is useful in search results.
 Disallow: /settings
 
+# Individual overlay links carry a private token.
+Disallow: /overlay/
+
 Sitemap: https://faceit-lens.com/sitemap.xml

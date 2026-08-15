@@ -1,5 +1,5 @@
 from django.urls import path
-from . import auth, faceit_oauth, feedback, profiles, views
+from . import auth, faceit_oauth, feedback, overlay, profiles, views
 
 urlpatterns = [
     # --- Sign in with Steam + account ---
@@ -42,6 +42,12 @@ urlpatterns = [
     path("status/", views.status, name="status"),
     path("incidents/", views.incidents, name="incidents"),
     path("changelog/", views.changelog, name="changelog"),
+
+    # --- Stream overlay (OBS browser source) ---
+    # The state endpoint is public: OBS has no session, the token is the key.
+    path("overlay/settings/", overlay.overlay_settings, name="overlay-settings"),
+    path("overlay/session/", overlay.overlay_session, name="overlay-session"),
+    path("overlay/<str:token>/", overlay.overlay_state, name="overlay-state"),
 
     # --- Feedback board (read public, write requires a Steam sign-in) ---
     path("feedback/", feedback.feedback_list, name="feedback-list"),

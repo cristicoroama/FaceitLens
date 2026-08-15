@@ -51,6 +51,7 @@ import Wrapped from "./components/Wrapped.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
 import PublicProfile from "./components/PublicProfile.jsx";
 import Feedback from "./components/Feedback.jsx";
+import OverlaySettings from "./components/OverlaySettings.jsx";
 import { AdBanner, AdInline } from "./components/AdSlot.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
@@ -179,6 +180,8 @@ function buildNav(t, lang) { return [
       hint: t("hint.faq") },
     { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
       hint: t("hint.feedback") },
+    { id: "overlay", label: t("nav.overlay"), href: localePath(lang, "/overlay"), icon: Icon.broadcastPin,
+      hint: t("hint.overlay") },
   ],
     /* Actions, not reference links — in the footer nobody would press them. */
     tail: [
@@ -1019,6 +1022,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {mode === "news" && <NewsPage data={incidentStatus} />}
           {mode === "whatsnew" && <WhatsNew />}
           {mode === "feedback" && <Feedback user={user} />}
+          {mode === "overlay" && <OverlaySettings user={user} />}
           {mode === "notfound" && (
             <NotFound
               nickname={nickname}

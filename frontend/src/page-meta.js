@@ -61,6 +61,8 @@ export const PAGE_META = {
   whatsnew: ["What's New — Faceit-Lens Changelog", "Latest features, fixes and improvements shipped to Faceit-Lens."],
   feedback: ["Feedback — Faceit-Lens", "Report a bug, request a feature or tell us what to improve on Faceit-Lens."],
   settings: ["Settings — Faceit-Lens", DEFAULT_DESC],
+  overlay: ["Free FACEIT Stream Overlay for OBS — Faceit-Lens",
+    "A live ELO, session record and current-match card for your stream. Free, no install, works in any OBS Browser Source."],
   faq: ["FAQ — How Faceit-Lens Works",
     "How the trust score and skill ratings are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
   privacy: ["Privacy Policy",
@@ -81,7 +83,7 @@ export const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
   "squad", "hubs", "teams", "competitions", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
-  "settings", "whatsnew", "feedback", "privacy", "terms", "faq",
+  "settings", "whatsnew", "feedback", "privacy", "terms", "faq", "overlay",
 ]);
 
 /**
