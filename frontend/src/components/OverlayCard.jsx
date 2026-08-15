@@ -20,7 +20,6 @@ import { FaceitLevel, Flag } from "./RankIcons.jsx";
 
 export const LOOK_DEFAULTS = {
   a: "ff6a21",   // accent
-  s: 100,        // scale, percent
   r: 12,         // corner radius, px
   av: 1,         // show avatar
 };
@@ -37,7 +36,6 @@ export function readLook(search) {
   const a = (q.get("a") || "").replace(/^#/, "");
   return {
     a: HEX.test(a) ? a.toLowerCase() : LOOK_DEFAULTS.a,
-    s: num("s", 50, 200),
     r: num("r", 0, 28),
     av: q.get("av") === "0" ? 0 : 1,
   };
@@ -56,7 +54,6 @@ export function lookToQuery(look) {
 export function lookToStyle(look) {
   return {
     "--ovl-accent": `#${look.a}`,
-    "--ovl-scale": look.s / 100,
     "--ovl-radius": `${look.r}px`,
   };
 }
@@ -99,13 +96,13 @@ export default function OverlayCard({ state, look = LOOK_DEFAULTS }) {
           <div className="ovl-id">
             <span className="ovl-nick">{state.nickname}</span>
             <span className="ovl-ranks">
-              {state.country && state.rank_country != null && (
+              {state.country && state.rank_country > 0 && (
                 <span className="ovl-rank">
                   <Flag country={state.country} size={14} />
                   #{nf(state.rank_country)}
                 </span>
               )}
-              {state.region && state.rank != null && (
+              {state.region && state.rank > 0 && (
                 <span className="ovl-rank">
                   <span className="ovl-region">{state.region}</span>
                   #{nf(state.rank)}

@@ -8,9 +8,8 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
  * The streamer-facing half of the overlay: style it, watch it change, copy the
  * link into OBS.
  *
- * The preview renders the real OverlayCard against a few backdrops rather than
- * a mock-up, because the only question a streamer actually has is "can I read
- * this over the game" — and a mock-up can't answer that honestly.
+ * The preview renders the real OverlayCard rather than a mock-up of it, so what
+ * is shown here and what OBS draws cannot drift apart.
  *
  * The URL carries a secret token rather than the public handle, because OBS
  * loads the page with no session — the token is the only thing standing
@@ -32,12 +31,6 @@ const ACCENTS = [
   ["4aa8ff", "Blue"],
   ["b46bff", "Purple"],
   ["ffffff", "White"],
-];
-
-const STAGES = [
-  ["dark", "Dark scene"],
-  ["bright", "Bright scene"],
-  ["checker", "Transparent"],
 ];
 
 /* Shown only where the live account has nothing to show — you can't style a
@@ -68,7 +61,6 @@ export default function OverlaySettings({ user }) {
   const [ov, setOv] = useState(null);
   const [live, setLive] = useState(null);
   const [look, setLook] = useState(LOOK_DEFAULTS);
-  const [stage, setStage] = useState("dark");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -164,38 +156,23 @@ export default function OverlaySettings({ user }) {
     return () => clearTimeout(id);
   }, [look]);
 
-  /* What the preview draws: the streamer's real state where it exists, sample
-     values only for the gaps, and the toggles applied live. */
-  const previewState = useMemo(() => {
-    const base = live || {};
-    const has = (v) => v !== null && v !== undefined;
-    // Real values wherever FACEIT gave us one, sample only for the gaps — you
-    // cannot style a cell you cannot see, and most people set this up before
-    // they are live.
-    return {
-      nickname: base.nickname || SAMPLE.nickname,
-      level: base.level || SAMPLE.level,
-      elo: base.elo || SAMPLE.elo,
-      avatar: base.avatar || SAMPLE.avatar,
-      country: base.country || SAMPLE.country,
-      region: base.region || SAMPLE.region,
-      rank: has(base.rank) ? base.rank : SAMPLE.rank,
-      rank_country: has(base.rank_country) ? base.rank_country : SAMPLE.rank_country,
-      session:
-        base.session && (base.session.wins || base.session.losses || base.session.elo_delta)
-          ? base.session
-          : SAMPLE.session,
-      recent: base.recent && base.recent.matches ? base.recent : SAMPLE.recent,
-      form: base.form && base.form.length ? base.form : SAMPLE.form,
-      match: base.match || SAMPLE.match,
-      show: {
-        elo: !!ov?.show_elo,
-        session: !!ov?.show_session,
-        match: !!ov?.show_match,
-        brand: !!ov?.show_brand,
-      },
-    };
-  }, [live, ov]);
+  /* All real, or all sample — never a blend.
+     Filling the gaps field by field looked reasonable until an account with no
+     matches rendered its owner's real nickname and real (zero) ranks beside a
+     borrowed 2,418 ELO and a 66% win rate. A card that mixes the two is worse
+     than one that is openly fake, because nothing tells you which numbers are
+     actually yours. */
+  const hasRealData = !!(live && live.elo && live.recent?.matches);
+
+  const previewState = useMemo(() => ({
+    ...(hasRealData ? live : SAMPLE),
+    show: {
+      elo: !!ov?.show_elo,
+      session: !!ov?.show_session,
+      match: !!ov?.show_match,
+      brand: !!ov?.show_brand,
+    },
+  }), [hasRealData, live, ov]);
 
   if (!user) {
     return (
@@ -236,9 +213,9 @@ export default function OverlaySettings({ user }) {
 
   const path = `${ov.url.split("?")[0]}${lookToQuery(look)}`;
   const fullUrl = `${window.location.origin}${path}`;
-  const w = Math.ceil(BASE_W * look.s / 100);
-  const h = Math.ceil(BASE_H * look.s / 100);
-  const usingSample = !live;
+  const w = BASE_W;
+  const h = BASE_H;
+  const usingSample = !hasRealData;
 
   return (
     <>
@@ -254,30 +231,16 @@ export default function OverlaySettings({ user }) {
       <div className="panel ps-card">
         <div className="panel-head">
           <h2 className="panel-title">Preview</h2>
-          <div className="ovl-stage-pick">
-            {STAGES.map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                className={`chip ${stage === id ? "on" : ""}`}
-                onClick={() => setStage(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
 
-        <div className={`ovl-stage ${stage}`}>
+        <div className="ovl-stage">
           <OverlayCard state={previewState} look={look} />
         </div>
 
         <p className="ps-hint">
           {usingSample
-            ? "Showing sample numbers — your real ELO appears once FACEIT has something to report."
-            : "These are your real numbers, updating every 10 seconds."}{" "}
-          Check it against a bright scene too; that's where overlays usually
-          stop being readable.
+            ? "Sample data — every number here is invented, the name included. Yours replaces all of it once FACEIT has a match to report."
+            : "These are your real numbers, updating every 10 seconds."}
         </p>
       </div>
 
@@ -318,8 +281,6 @@ export default function OverlaySettings({ user }) {
           </div>
         </div>
 
-        <Slider label="Size" suffix="%" min={50} max={200} step={5}
-                value={look.s} onChange={set("s")} />
         <Slider label="Corners" suffix="px" min={0} max={28} step={1}
                 value={look.r} onChange={set("r")} />
 
@@ -412,9 +373,8 @@ export default function OverlaySettings({ user }) {
           <li>Press OK and drag it wherever you want on your layout.</li>
         </ol>
         <p className="ps-hint">
-          Those dimensions already account for the size you picked. It updates
-          every 10 seconds on its own — leave the source in your scene and
-          forget about it.
+          It updates every 10 seconds on its own — leave the source in your
+          scene and forget about it. Scale it in OBS if you want it bigger.
         </p>
       </div>
     </>

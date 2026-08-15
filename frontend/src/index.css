@@ -4933,7 +4933,6 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   /* Set by the customiser through the query string; these are the fallbacks
      for a bare /overlay/<token> with nothing after it. */
   --ovl-accent: #ff6a21;
-  --ovl-scale: 1;
   --ovl-radius: 12px;
 
   display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px;
@@ -4941,8 +4940,6 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   font-family: var(--font-display), sans-serif;
   /* The page behind this is transparent so OBS composites it onto the stream. */
   background: transparent;
-  transform: scale(var(--ovl-scale));
-  transform-origin: top left;
 }
 /* One solid box. Translucency was a knob that only ever made the card harder
    to read over a bright wall, which is the one thing it has to survive. */
@@ -5062,41 +5059,14 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .ovl-opt:last-child { border-bottom: none; }
 .ovl-opt > b { display: block; font-size: 13px; margin-bottom: 8px; }
 
-/* The stage the preview sits on. Three backdrops because "is it readable"
-   has a different answer on a night Inferno and a white Overpass wall. */
+/* The stage the preview sits on. Deliberately plain: the card is opaque, so
+   what is behind it no longer changes whether it can be read. */
 .ovl-stage {
-  position: relative; overflow: hidden;
-  min-height: 190px; padding: 14px;
+  overflow: hidden;
+  min-height: 150px; padding: 18px;
   border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg-elev);
   display: flex; align-items: flex-start;
-}
-.ovl-stage.dark {
-  background: linear-gradient(135deg, #16171c 0%, #232733 45%, #10131a 100%);
-}
-.ovl-stage.bright {
-  background: linear-gradient(135deg, #d8cfbd 0%, #f2ede2 45%, #bfae92 100%);
-}
-/* Checkerboard = "this part is transparent", the same convention every image
-   editor uses, so nobody has to be told what it means. */
-.ovl-stage.checker {
-  background-color: #2a2a30;
-  background-image:
-    linear-gradient(45deg, #3a3a42 25%, transparent 25%, transparent 75%, #3a3a42 75%),
-    linear-gradient(45deg, #3a3a42 25%, transparent 25%, transparent 75%, #3a3a42 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 10px 10px;
-}
-
-.ovl-stage-pick { display: flex; gap: 6px; flex-wrap: wrap; }
-.ovl-stage-pick .chip {
-  padding: 5px 11px; border-radius: 999px; cursor: pointer;
-  font-size: 12px; font-weight: 600;
-  background: var(--bg-elev); color: var(--text-dim);
-  border: 1px solid var(--border);
-}
-.ovl-stage-pick .chip:hover { color: var(--text); }
-.ovl-stage-pick .chip.on {
-  background: var(--accent); border-color: var(--accent); color: #0a0a0c;
 }
 
 .ovl-swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
