@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import OverlayCard, { LOOK_DEFAULTS, lookToQuery, readLook } from "./OverlayCard.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 /**
- * The streamer-facing half of the overlay: generate the link, choose what it
- * shows, drop it into OBS.
+ * The streamer-facing half of the overlay: style it, watch it change, copy the
+ * link into OBS.
+ *
+ * The preview renders the real OverlayCard against a few backdrops rather than
+ * a mock-up, because the only question a streamer actually has is "can I read
+ * this over the game" — and a mock-up can't answer that honestly.
  *
  * The URL carries a secret token rather than the public handle, because OBS
  * loads the page with no session — the token is the only thing standing
@@ -19,12 +24,53 @@ const TOGGLES = [
   ["show_brand", "faceit-lens.com credit", "A small line under the card. Keeping it helps other people find this."],
 ];
 
+const ACCENTS = [
+  ["ff6a21", "Signal"],
+  ["ff5500", "FACEIT"],
+  ["3dd67f", "Green"],
+  ["4aa8ff", "Blue"],
+  ["b46bff", "Purple"],
+  ["ffffff", "White"],
+];
+
+const STAGES = [
+  ["dark", "Dark scene"],
+  ["bright", "Bright scene"],
+  ["checker", "Transparent"],
+];
+
+/* Shown only where the live account has nothing to show — you can't style a
+   match card you can't see, and most people set this up before going live. */
+const SAMPLE = {
+  nickname: "your_nickname",
+  level: 9,
+  elo: 2418,
+  avatar: null,
+  session: { wins: 3, losses: 1, elo_delta: 62 },
+  match: { map: "de_mirage", competition: "5v5 Ranked" },
+};
+
+const BASE_W = 420;
+const BASE_H = 200;
+
 export default function OverlaySettings({ user }) {
   const [ov, setOv] = useState(null);
+  const [live, setLive] = useState(null);
+  const [look, setLook] = useState(LOOK_DEFAULTS);
+  const [stage, setStage] = useState("dark");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [copied, setCopied] = useState(false);
+  /* The look the server currently has. null until the first load, which is
+     also what stops the debounce below from POSTing the defaults back on
+     mount and overwriting whatever was saved. */
+  const savedLook = useRef(null);
+
+  const flash = useCallback((msg) => {
+    setStatus(msg);
+    setTimeout(() => setStatus(""), 2500);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -34,7 +80,18 @@ export default function OverlaySettings({ user }) {
         if (!r.ok) throw new Error(j.error === "no_faceit" ? "no_faceit" : (j.error || "Couldn't load."));
         return j;
       })
-      .then((j) => setOv(j.overlay))
+      .then((j) => {
+        setOv(j.overlay);
+        // Seed the sliders from the saved look, so coming back next week
+        // doesn't silently reset someone's styling to stock.
+        savedLook.current = j.overlay?.look || "";
+        if (savedLook.current) setLook(readLook(savedLook.current));
+        // Real numbers make a far better preview than invented ones.
+        return fetch(`${API_BASE}/api/overlay/${j.overlay.token}/`)
+          .then((r) => r.json())
+          .then((s) => { if (s?.ok) setLive(s); })
+          .catch(() => {});
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -42,6 +99,9 @@ export default function OverlaySettings({ user }) {
   useEffect(() => { if (user) load(); }, [user, load]);
 
   async function patch(body, msg) {
+    const prev = ov;
+    // Optimistic: the preview should react on the click, not after the network.
+    setOv((o) => ({ ...o, ...body }));
     try {
       const r = await fetch(`${API_BASE}/api/overlay/settings/`, {
         method: "POST",
@@ -50,11 +110,13 @@ export default function OverlaySettings({ user }) {
         body: JSON.stringify(body),
       });
       const j = await r.json();
-      if (r.ok) {
-        setOv(j.overlay);
-        if (msg) { setStatus(msg); setTimeout(() => setStatus(""), 2500); }
-      }
-    } catch { setStatus("Couldn't save."); }
+      if (!r.ok) throw new Error();
+      setOv(j.overlay);
+      if (msg) flash(msg);
+    } catch {
+      setOv(prev);
+      flash("Couldn't save.");
+    }
   }
 
   async function resetSession() {
@@ -63,13 +125,56 @@ export default function OverlaySettings({ user }) {
         method: "POST", credentials: "include",
       });
       const j = await r.json();
-      if (r.ok) {
-        setOv(j.overlay);
-        setStatus("Session reset — counting from now");
-        setTimeout(() => setStatus(""), 2500);
-      }
-    } catch { setStatus("Couldn't reset."); }
+      if (r.ok) { setOv(j.overlay); flash("Session reset — counting from now"); }
+    } catch { flash("Couldn't reset."); }
   }
+
+  const set = (k) => (v) => setLook((l) => ({ ...l, [k]: v }));
+
+  /* Appearance saves itself, quietly, a beat after you stop dragging. Making
+     people press Save after every slider nudge is how a customiser stops
+     being fun to use. */
+  useEffect(() => {
+    if (savedLook.current === null) return;
+    const q = lookToQuery(look);
+    if (q === savedLook.current) return;
+    const id = setTimeout(() => {
+      savedLook.current = q;
+      fetch(`${API_BASE}/api/overlay/settings/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ look: q }),
+      })
+        .then((r) => r.json())
+        .then((j) => { if (j?.overlay) setOv(j.overlay); })
+        .catch(() => {});
+    }, 700);
+    return () => clearTimeout(id);
+  }, [look]);
+
+  /* What the preview draws: the streamer's real state where it exists, sample
+     values only for the gaps, and the toggles applied live. */
+  const previewState = useMemo(() => {
+    const base = live || {};
+    return {
+      nickname: base.nickname || SAMPLE.nickname,
+      level: base.level || SAMPLE.level,
+      elo: base.elo != null ? base.elo : SAMPLE.elo,
+      avatar: base.avatar || SAMPLE.avatar,
+      session:
+        base.session && (base.session.wins || base.session.losses || base.session.elo_delta)
+          ? base.session
+          : SAMPLE.session,
+      match: base.match || SAMPLE.match,
+      show: {
+        elo: !!ov?.show_elo,
+        session: !!ov?.show_session,
+        match: !!ov?.show_match,
+        brand: !!ov?.show_brand,
+      },
+    };
+  }, [live, ov]);
 
   if (!user) {
     return (
@@ -108,23 +213,141 @@ export default function OverlaySettings({ user }) {
     );
   }
 
-  const fullUrl = `${window.location.origin}${ov.url}`;
+  const path = `${ov.url.split("?")[0]}${lookToQuery(look)}`;
+  const fullUrl = `${window.location.origin}${path}`;
+  const w = Math.ceil(BASE_W * look.s / 100);
+  const h = Math.ceil(BASE_H * look.s / 100);
+  const usingSample = !live;
 
   return (
     <>
       <div className="page-hero">
         <h1 className="page-title">Stream overlay</h1>
         <p className="page-sub">
-          A live ELO card for your stream. Free, no account needed by your
-          viewers, and nothing to install.
+          A live ELO card for your stream. Style it here, copy the link, paste
+          it into OBS. Free, nothing to install.
         </p>
       </div>
 
+      {/* ---------- live preview ---------- */}
       <div className="panel ps-card">
         <div className="panel-head">
-          <h2 className="panel-title">Your overlay link</h2>
+          <h2 className="panel-title">Preview</h2>
+          <div className="ovl-stage-pick">
+            {STAGES.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`chip ${stage === id ? "on" : ""}`}
+                onClick={() => setStage(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={`ovl-stage ${stage}`}>
+          <OverlayCard state={previewState} look={look} />
+        </div>
+
+        <p className="ps-hint">
+          {usingSample
+            ? "Showing sample numbers — your real ELO appears once FACEIT has something to report."
+            : "These are your real numbers, updating every 10 seconds."}{" "}
+          Check it against a bright scene too; that's where overlays usually
+          stop being readable.
+        </p>
+      </div>
+
+      {/* ---------- appearance ---------- */}
+      <div className="panel ps-card">
+        <div className="panel-head">
+          <h2 className="panel-title">Appearance</h2>
+          <button
+            type="button"
+            className="btn ghost sm"
+            onClick={() => setLook(LOOK_DEFAULTS)}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="ovl-opt">
+          <b>Accent</b>
+          <div className="ovl-swatches">
+            {ACCENTS.map(([hex, name]) => (
+              <button
+                key={hex}
+                type="button"
+                title={name}
+                aria-label={name}
+                className={`ovl-swatch ${look.a === hex ? "on" : ""}`}
+                style={{ background: `#${hex}` }}
+                onClick={() => set("a")(hex)}
+              />
+            ))}
+            <input
+              type="color"
+              className="ovl-swatch custom"
+              value={`#${look.a}`}
+              onChange={(e) => set("a")(e.target.value.replace("#", "").toLowerCase())}
+              aria-label="Custom colour"
+            />
+          </div>
+        </div>
+
+        <Slider label="Size" suffix="%" min={50} max={200} step={5}
+                value={look.s} onChange={set("s")} />
+        <Slider label="Background" suffix="%" min={0} max={100} step={2}
+                value={look.bg} onChange={set("bg")}
+                hint="Drop it to 0 for text only, no box." />
+        <Slider label="Corners" suffix="px" min={0} max={28} step={1}
+                value={look.r} onChange={set("r")} />
+
+        <div className="ovl-opt ovl-seg-row">
+          <b>Layout</b>
+          <div className="ovl-seg">
+            <button type="button" className={look.lay === "stack" ? "on" : ""}
+                    onClick={() => set("lay")("stack")}>Stacked</button>
+            <button type="button" className={look.lay === "row" ? "on" : ""}
+                    onClick={() => set("lay")("row")}>Side by side</button>
+          </div>
+        </div>
+
+        <label className="ps-toggle ovl-opt">
+          <input type="checkbox" checked={!!look.av}
+                 onChange={(e) => set("av")(e.target.checked ? 1 : 0)} />
+          <span className="ps-toggle-track"><span className="ps-toggle-thumb" /></span>
+          <span><b>Avatar</b><span className="ps-hint">Your FACEIT profile picture.</span></span>
+        </label>
+      </div>
+
+      {/* ---------- content ---------- */}
+      <div className="panel ps-card">
+        <div className="panel-head">
+          <h2 className="panel-title">What it shows</h2>
           {status && <span className="ps-status">{status}</span>}
         </div>
+        {TOGGLES.map(([key, label, hint]) => (
+          <label className="ps-toggle ovl-opt" key={key}>
+            <input
+              type="checkbox"
+              checked={!!ov[key]}
+              onChange={(e) => patch({ [key]: e.target.checked }, "Saved")}
+            />
+            <span className="ps-toggle-track"><span className="ps-toggle-thumb" /></span>
+            <span>
+              <b>{label}</b>
+              <span className="ps-hint">{hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {/* ---------- the link ---------- */}
+      <div className="panel ps-card">
+        <div className="panel-head"><h2 className="panel-title">Your OBS link</h2></div>
 
         <div className="ps-share">
           <code className="ps-url">{fullUrl}</code>
@@ -139,14 +362,15 @@ export default function OverlaySettings({ user }) {
           >
             {copied ? "Copied!" : "Copy"}
           </button>
-          <a className="btn ghost" href={ov.url} target="_blank" rel="noopener noreferrer">
-            Preview
+          <a className="btn ghost" href={path} target="_blank" rel="noopener noreferrer">
+            Open
           </a>
         </div>
 
         <p className="ps-hint">
-          Treat this like a password — anyone with the link can watch your ELO
-          live. If it ends up on stream, regenerate it.
+          The styling above is part of this link, so copy it again after you
+          change anything. Treat it like a password — anyone who has it can
+          watch your ELO live. If it ends up on stream, regenerate it.
         </p>
 
         <div className="ps-btn-row">
@@ -166,30 +390,13 @@ export default function OverlaySettings({ user }) {
         </div>
       </div>
 
-      <div className="panel ps-card">
-        <div className="panel-head"><h2 className="panel-title">What it shows</h2></div>
-        {TOGGLES.map(([key, label, hint]) => (
-          <label className="ps-toggle ovl-opt" key={key}>
-            <input
-              type="checkbox"
-              checked={!!ov[key]}
-              onChange={(e) => patch({ [key]: e.target.checked }, "Saved")}
-            />
-            <span className="ps-toggle-track"><span className="ps-toggle-thumb" /></span>
-            <span>
-              <b>{label}</b>
-              <span className="ps-hint">{hint}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-
+      {/* ---------- OBS ---------- */}
       <div className="panel ps-card">
         <div className="panel-head"><h2 className="panel-title">Adding it to OBS</h2></div>
         <ol className="ps-steps">
           <li>In OBS, under Sources, press <b>+</b> and choose <b>Browser</b>.</li>
           <li>Paste the link above into the <b>URL</b> field.</li>
-          <li>Set width to <b>420</b> and height to <b>200</b>.</li>
+          <li>Set width to <b>{w}</b> and height to <b>{h}</b>.</li>
           <li>
             Tick <b>Shutdown source when not visible</b> — that stops it polling
             while the scene is hidden.
@@ -197,10 +404,29 @@ export default function OverlaySettings({ user }) {
           <li>Press OK and drag it wherever you want on your layout.</li>
         </ol>
         <p className="ps-hint">
-          It updates every 10 seconds on its own. Nothing to start or stop —
-          leave the source in your scene and forget about it.
+          Those dimensions already account for the size you picked. It updates
+          every 10 seconds on its own — leave the source in your scene and
+          forget about it.
         </p>
       </div>
     </>
+  );
+}
+
+function Slider({ label, value, onChange, min, max, step, suffix = "", hint }) {
+  return (
+    <div className="ovl-opt ovl-slider">
+      <div className="ovl-slider-head">
+        <b>{label}</b>
+        <span className="ovl-slider-val">{value}{suffix}</span>
+      </div>
+      <input
+        type="range"
+        min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        aria-label={label}
+      />
+      {hint && <span className="ps-hint">{hint}</span>}
+    </div>
   );
 }

@@ -591,6 +591,12 @@ class StreamOverlay(models.Model):
 
     # Set when the streamer presses "start session" — or on the first poll of
     # the day if they never do. Everything session-scoped counts from here.
+    look = models.CharField(
+        max_length=120, blank=True, default="",
+        help_text="Saved appearance as a query string, e.g. ?a=4aa8ff&s=120. "
+                  "The overlay reads its look from the URL, so this is only "
+                  "the default the customiser reopens with.",
+    )
     session_started = models.DateTimeField(null=True, blank=True)
     session_start_elo = models.IntegerField(null=True, blank=True)
 

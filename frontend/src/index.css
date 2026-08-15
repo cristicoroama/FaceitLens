@@ -2445,16 +2445,23 @@ body, .topnav, .card, .squad-row, .rank-card,
     radial-gradient(380px 130px at 92% 0%, rgba(var(--accent-2-rgb), 0.1), transparent 70%);
   pointer-events: none;
 }
-.page-hero-title {
+/* .page-title / .page-sub are the same thing under a shorter name. Feedback,
+   Leaderboard, What's New and the overlay page were all written against those,
+   and without this they render as unstyled browser defaults. */
+.page-hero-title, .page-title {
   position: relative;
   font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.3px;
   display: flex; align-items: center; gap: 12px;
+  margin: 0;
 }
-.page-hero-title em {
+.page-hero-title em, .page-title em {
   font-style: normal;
   color: var(--accent);
 }
-.page-hero-sub { position: relative; color: var(--text-dim); font-size: 13px; margin-top: 6px; line-height: 1.5; }
+.page-hero-sub, .page-sub {
+  position: relative; color: var(--text-dim); font-size: 13px;
+  margin: 6px 0 0; line-height: 1.5;
+}
 
 /* ---- Steam tab v2 ---- */
 .steam-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
@@ -4919,21 +4926,42 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
    White text alone is unreadable against a bright wall on Mirage.
    ========================================================================== */
 .ovl {
+  /* Set by the customiser through the query string; these are the fallbacks
+     for a bare /overlay/<token> with nothing after it. */
+  --ovl-accent: #ff6a21;
+  --ovl-scale: 1;
+  --ovl-bg-a: 0.82;
+  --ovl-radius: 12px;
+
   display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px;
   padding: 12px;
   font-family: var(--font-display), sans-serif;
   /* The page behind this is transparent so OBS composites it onto the stream. */
   background: transparent;
+  transform: scale(var(--ovl-scale));
+  transform-origin: top left;
+}
+
+/* Stacked is what .ovl already does; spelled out so changing the base later
+   can't silently redefine what "stacked" means. */
+.ovl.ovl-lay-stack { flex-direction: column; align-items: flex-start; }
+
+/* Side by side puts the match card next to the ELO card instead of under it,
+   for people who want a single thin strip along the top of their layout. */
+.ovl.ovl-lay-row {
+  flex-direction: row; align-items: flex-start; flex-wrap: wrap;
 }
 
 .ovl-card {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 14px 8px 8px;
-  border-radius: 12px;
-  /* Opaque enough to read over anything, not so opaque it hides the game. */
-  background: rgba(10, 10, 12, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border-radius: var(--ovl-radius);
+  /* Opaque enough to read over anything, not so opaque it hides the game.
+     At 0 the box disappears entirely and the text shadows carry it alone. */
+  background: rgba(10, 10, 12, var(--ovl-bg-a));
+  border: 1px solid rgba(255, 255, 255, calc(0.09 * var(--ovl-bg-a)));
+  border-left: 3px solid var(--ovl-accent);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, calc(0.5 * var(--ovl-bg-a)));
 }
 
 .ovl-av {
@@ -4996,7 +5024,7 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 
 .ovl-brand {
   font-size: 9.5px; font-weight: 600; letter-spacing: 0.7px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--ovl-accent); opacity: 0.6;
   padding-left: 4px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
@@ -5010,6 +5038,85 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   .ovl-live { animation: none; }
 }
 
-/* Overlay settings page: the toggles read better with room to breathe. */
+/* ==========================================================================
+   OVERLAY CUSTOMISER — the /overlay settings page
+   ========================================================================== */
 .ovl-opt { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .ovl-opt:last-child { border-bottom: none; }
+.ovl-opt > b { display: block; font-size: 13px; margin-bottom: 8px; }
+
+/* The stage the preview sits on. Three backdrops because "is it readable"
+   has a different answer on a night Inferno and a white Overpass wall. */
+.ovl-stage {
+  position: relative; overflow: hidden;
+  min-height: 190px; padding: 14px;
+  border-radius: 12px; border: 1px solid var(--border);
+  display: flex; align-items: flex-start;
+}
+.ovl-stage.dark {
+  background: linear-gradient(135deg, #16171c 0%, #232733 45%, #10131a 100%);
+}
+.ovl-stage.bright {
+  background: linear-gradient(135deg, #d8cfbd 0%, #f2ede2 45%, #bfae92 100%);
+}
+/* Checkerboard = "this part is transparent", the same convention every image
+   editor uses, so nobody has to be told what it means. */
+.ovl-stage.checker {
+  background-color: #2a2a30;
+  background-image:
+    linear-gradient(45deg, #3a3a42 25%, transparent 25%, transparent 75%, #3a3a42 75%),
+    linear-gradient(45deg, #3a3a42 25%, transparent 25%, transparent 75%, #3a3a42 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+
+.ovl-stage-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+.ovl-stage-pick .chip {
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  background: var(--bg-elev); color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.ovl-stage-pick .chip:hover { color: var(--text); }
+.ovl-stage-pick .chip.on {
+  background: var(--accent); border-color: var(--accent); color: #0a0a0c;
+}
+
+.ovl-swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ovl-swatch {
+  width: 30px; height: 30px; padding: 0; cursor: pointer;
+  border-radius: 8px; border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.ovl-swatch:hover { box-shadow: 0 0 0 1px var(--text-dim); }
+.ovl-swatch.on { border-color: var(--text); }
+.ovl-swatch.custom { background: none; overflow: hidden; }
+.ovl-swatch.custom::-webkit-color-swatch-wrapper { padding: 0; }
+.ovl-swatch.custom::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+.ovl-slider-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ovl-slider-head > b { font-size: 13px; }
+.ovl-slider-val {
+  font-family: var(--font-mono), monospace; font-size: 12px; color: var(--accent);
+}
+.ovl-slider input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.ovl-seg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ovl-seg-row > b { margin-bottom: 0; }
+.ovl-seg {
+  display: inline-flex; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.ovl-seg button {
+  padding: 7px 14px; cursor: pointer; font-size: 12px; font-weight: 600;
+  background: var(--bg-elev); color: var(--text-dim); border: none;
+}
+.ovl-seg button:hover { color: var(--text); }
+.ovl-seg button.on { background: var(--accent); color: #0a0a0c; }
+
+@media (max-width: 560px) {
+  .ovl-seg-row { flex-direction: column; align-items: flex-start; }
+}

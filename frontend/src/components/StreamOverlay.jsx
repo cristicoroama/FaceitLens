@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import OverlayCard, { readLook } from "./OverlayCard.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -14,19 +15,18 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
  *   or leave an error on someone's stream — the last good state stays up.
  * - No WebSocket. Polling every 10s is imperceptible for ELO, and it means no
  *   always-on server behind it.
+ *
+ * The look comes from the query string (see OverlayCard) so this page needs no
+ * extra request before it can draw, and the customiser can preview it exactly.
  */
 
 const POLL_MS = 10000;
-
-function Level({ level }) {
-  if (!level) return null;
-  return <span className={`ovl-level lvl-${level}`}>{level}</span>;
-}
 
 export default function StreamOverlay({ token }) {
   const [state, setState] = useState(null);
   const [ready, setReady] = useState(false);
   const timer = useRef(null);
+  const look = readLook(window.location.search);
 
   useEffect(() => {
     // OBS composites onto the page background; anything opaque here shows up
@@ -70,56 +70,5 @@ export default function StreamOverlay({ token }) {
     );
   }
 
-  const show = state.show || {};
-  const s = state.session || {};
-  const delta = s.elo_delta;
-
-  return (
-    <div className="ovl">
-      <div className="ovl-card">
-        {state.avatar && <img className="ovl-av" src={state.avatar} alt="" />}
-
-        <div className="ovl-main">
-          <div className="ovl-top">
-            <span className="ovl-nick">{state.nickname}</span>
-            <Level level={state.level} />
-          </div>
-
-          <div className="ovl-row">
-            {show.elo && state.elo != null && (
-              <span className="ovl-elo">{state.elo.toLocaleString()}</span>
-            )}
-            {show.session && delta != null && delta !== 0 && (
-              <span className={`ovl-delta ${delta > 0 ? "up" : "down"}`}>
-                {delta > 0 ? "+" : ""}{delta}
-              </span>
-            )}
-            {show.session && (s.wins > 0 || s.losses > 0) && (
-              <span className="ovl-wl">
-                <b className="w">{s.wins}</b>
-                <span className="sep">–</span>
-                <b className="l">{s.losses}</b>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {show.match && state.match && (
-        <div className="ovl-card ovl-match">
-          <span className="ovl-live">LIVE</span>
-          {state.match.map && (
-            <span className="ovl-map">
-              {state.match.map.replace(/^de_/, "")}
-            </span>
-          )}
-          {state.match.competition && (
-            <span className="ovl-comp">{state.match.competition}</span>
-          )}
-        </div>
-      )}
-
-      {show.brand && <div className="ovl-brand">faceit-lens.com</div>}
-    </div>
-  );
+  return <OverlayCard state={state} look={look} />;
 }

@@ -20,7 +20,9 @@ Endpoints:
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone as dt_timezone
+from urllib.parse import parse_qsl, urlencode
 
 from django.core.cache import cache
 from django.http import JsonResponse
@@ -42,10 +44,49 @@ def _get_overlay(profile: UserProfile) -> StreamOverlay:
     return ov
 
 
+# Appearance keys the customiser can set, with what counts as a legal value.
+# Rebuilt from this whitelist rather than stored as sent, so nothing arbitrary
+# ever ends up in a URL we hand back and render.
+_LOOK_KEYS = {
+    "a":   lambda v: v.lower() if re.fullmatch(r"[0-9a-fA-F]{6}", v) else None,
+    "s":   lambda v: _clamp(v, 50, 200),
+    "bg":  lambda v: _clamp(v, 0, 100),
+    "r":   lambda v: _clamp(v, 0, 28),
+    "lay": lambda v: v if v in ("stack", "row") else None,
+    "av":  lambda v: v if v in ("0", "1") else None,
+}
+
+
+def _clamp(v: str, lo: int, hi: int):
+    try:
+        return str(min(hi, max(lo, int(v))))
+    except (TypeError, ValueError):
+        return None
+
+
+def _clean_look(raw: str) -> str:
+    """Keep only recognised keys with in-range values; drop everything else."""
+    if not isinstance(raw, str) or not raw:
+        return ""
+    parsed = parse_qsl(raw.lstrip("?"), keep_blank_values=False)
+    out = []
+    for key, value in parsed:
+        check = _LOOK_KEYS.get(key)
+        if check is None:
+            continue
+        ok = check(value)
+        if ok is not None:
+            out.append((key, ok))
+    if not out:
+        return ""
+    return "?" + urlencode(out[: len(_LOOK_KEYS)])
+
+
 def _settings_payload(ov: StreamOverlay) -> dict:
     return {
         "token": ov.token,
-        "url": f"/overlay/{ov.token}",
+        "look": ov.look,
+        "url": f"/overlay/{ov.token}{ov.look}",
         "show_elo": ov.show_elo,
         "show_session": ov.show_session,
         "show_match": ov.show_match,
@@ -210,6 +251,12 @@ def overlay_settings(request):
     for field in ("show_elo", "show_session", "show_match", "show_brand"):
         if field in body:
             setattr(ov, field, bool(body[field]))
+
+    # Appearance. Only the default the customiser reopens with — the overlay
+    # itself reads its look from whatever query string OBS was given, so two
+    # scenes can point at one token and still look different.
+    if "look" in body:
+        ov.look = _clean_look(body["look"])
 
     # Regenerating is how a streamer revokes a link they leaked on stream.
     if body.get("regenerate"):
