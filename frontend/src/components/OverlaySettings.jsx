@@ -20,7 +20,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const TOGGLES = [
   ["show_elo", "ELO and level", "Your current rating and skill level."],
-  ["show_session", "Session record", "Wins, losses and ELO gained since you started."],
+  ["show_session", "Stats row", "Wins, losses, today\u2019s ELO, K/D, ADR, HS%, win rate and your last five results."],
   ["show_match", "Live match", "The map you're on right now."],
   ["show_brand", "faceit-lens.com credit", "A small line under the card. Keeping it helps other people find this."],
 ];
@@ -47,12 +47,22 @@ const SAMPLE = {
   level: 9,
   elo: 2418,
   avatar: null,
-  session: { wins: 3, losses: 1, elo_delta: 62 },
+  country: "ro",
+  region: "EU",
+  rank: 64553,
+  rank_country: 1234,
+  session: { wins: 4, losses: 2, elo_delta: 34 },
+  recent: { kd: 1.46, kr: 0.93, adr: 97.7, hs: 51, winrate: 66, matches: 20 },
+  form: [
+    { win: true, map: "mirage" }, { win: true, map: "inferno" },
+    { win: false, map: "nuke" }, { win: true, map: "ancient" },
+    { win: false, map: "dust2" },
+  ],
   match: { map: "de_mirage", competition: "5v5 Ranked" },
 };
 
 const BASE_W = 420;
-const BASE_H = 200;
+const BASE_H = 220;
 
 export default function OverlaySettings({ user }) {
   const [ov, setOv] = useState(null);
@@ -158,15 +168,25 @@ export default function OverlaySettings({ user }) {
      values only for the gaps, and the toggles applied live. */
   const previewState = useMemo(() => {
     const base = live || {};
+    const has = (v) => v !== null && v !== undefined;
+    // Real values wherever FACEIT gave us one, sample only for the gaps — you
+    // cannot style a cell you cannot see, and most people set this up before
+    // they are live.
     return {
       nickname: base.nickname || SAMPLE.nickname,
       level: base.level || SAMPLE.level,
-      elo: base.elo != null ? base.elo : SAMPLE.elo,
+      elo: base.elo || SAMPLE.elo,
       avatar: base.avatar || SAMPLE.avatar,
+      country: base.country || SAMPLE.country,
+      region: base.region || SAMPLE.region,
+      rank: has(base.rank) ? base.rank : SAMPLE.rank,
+      rank_country: has(base.rank_country) ? base.rank_country : SAMPLE.rank_country,
       session:
         base.session && (base.session.wins || base.session.losses || base.session.elo_delta)
           ? base.session
           : SAMPLE.session,
+      recent: base.recent && base.recent.matches ? base.recent : SAMPLE.recent,
+      form: base.form && base.form.length ? base.form : SAMPLE.form,
       match: base.match || SAMPLE.match,
       show: {
         elo: !!ov?.show_elo,
@@ -300,21 +320,8 @@ export default function OverlaySettings({ user }) {
 
         <Slider label="Size" suffix="%" min={50} max={200} step={5}
                 value={look.s} onChange={set("s")} />
-        <Slider label="Background" suffix="%" min={0} max={100} step={2}
-                value={look.bg} onChange={set("bg")}
-                hint="Drop it to 0 for text only, no box." />
         <Slider label="Corners" suffix="px" min={0} max={28} step={1}
                 value={look.r} onChange={set("r")} />
-
-        <div className="ovl-opt ovl-seg-row">
-          <b>Layout</b>
-          <div className="ovl-seg">
-            <button type="button" className={look.lay === "stack" ? "on" : ""}
-                    onClick={() => set("lay")("stack")}>Stacked</button>
-            <button type="button" className={look.lay === "row" ? "on" : ""}
-                    onClick={() => set("lay")("row")}>Side by side</button>
-          </div>
-        </div>
 
         <label className="ps-toggle ovl-opt">
           <input type="checkbox" checked={!!look.av}

@@ -4922,15 +4922,18 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 
 /* ==========================================================================
    STREAM OVERLAY — the OBS browser source at /overlay/<token>
-   Rendered over live gameplay, so every value needs its own dark scrim.
-   White text alone is unreadable against a bright wall on Mirage.
+   Rendered over live gameplay, so the card carries its own scrim and every
+   number has a shadow under it. White text alone is unreadable against a
+   bright wall on Mirage.
+
+   Sizes are deliberately generous: this is read at 720p from across a room,
+   not from 40cm away like the rest of the site.
    ========================================================================== */
 .ovl {
   /* Set by the customiser through the query string; these are the fallbacks
      for a bare /overlay/<token> with nothing after it. */
   --ovl-accent: #ff6a21;
   --ovl-scale: 1;
-  --ovl-bg-a: 0.82;
   --ovl-radius: 12px;
 
   display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px;
@@ -4941,75 +4944,89 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   transform: scale(var(--ovl-scale));
   transform-origin: top left;
 }
-
-/* Stacked is what .ovl already does; spelled out so changing the base later
-   can't silently redefine what "stacked" means. */
-.ovl.ovl-lay-stack { flex-direction: column; align-items: flex-start; }
-
-/* Side by side puts the match card next to the ELO card instead of under it,
-   for people who want a single thin strip along the top of their layout. */
-.ovl.ovl-lay-row {
-  flex-direction: row; align-items: flex-start; flex-wrap: wrap;
-}
-
+/* One solid box. Translucency was a knob that only ever made the card harder
+   to read over a bright wall, which is the one thing it has to survive. */
 .ovl-card {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px 8px 8px;
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 11px 14px;
   border-radius: var(--ovl-radius);
-  /* Opaque enough to read over anything, not so opaque it hides the game.
-     At 0 the box disappears entirely and the text shadows carry it alone. */
-  background: rgba(10, 10, 12, var(--ovl-bg-a));
-  border: 1px solid rgba(255, 255, 255, calc(0.09 * var(--ovl-bg-a)));
+  background: #0e0e12;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3px solid var(--ovl-accent);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, calc(0.5 * var(--ovl-bg-a)));
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
 }
+
+/* ---- top: who, and the one big number ---- */
+.ovl-top { display: flex; align-items: center; gap: 11px; }
 
 .ovl-av {
-  width: 40px; height: 40px; border-radius: 9px; object-fit: cover; flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 42px; height: 42px; border-radius: 10px; object-fit: cover; flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.ovl-main { display: flex; flex-direction: column; gap: 2px; }
-.ovl-top { display: flex; align-items: center; gap: 7px; }
+.ovl-id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ovl-nick {
-  font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -0.2px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.3px;
+  line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+.ovl-ranks { display: flex; align-items: center; gap: 10px; }
+.ovl-rank {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono), monospace; font-size: 11px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.62);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.ovl-rank .flag-icon { border-radius: 2px; }
+.ovl-region {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.6px;
+  padding: 1px 4px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75);
 }
 
-.ovl-level {
-  display: grid; place-items: center;
-  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 5px;
-  font-family: var(--font-mono), monospace; font-size: 11px; font-weight: 800;
-  color: #0a0a0c; background: #b8b8c0;
+/* Pushed right so the ELO always lands in the same place regardless of how
+   long the nickname is — a number that moves is a number you re-read. */
+.ovl-elo-box {
+  display: flex; align-items: center; gap: 9px; margin-left: auto; padding-left: 14px;
 }
-.ovl-level.lvl-1 { background: #eee; }
-.ovl-level.lvl-2, .ovl-level.lvl-3 { background: #1ce400; }
-.ovl-level.lvl-4, .ovl-level.lvl-5,
-.ovl-level.lvl-6, .ovl-level.lvl-7 { background: #ffc800; }
-.ovl-level.lvl-8, .ovl-level.lvl-9 { background: #ff6309; color: #fff; }
-.ovl-level.lvl-10 { background: #fe1f00; color: #fff; }
-
-.ovl-row { display: flex; align-items: baseline; gap: 10px; }
 .ovl-elo {
-  font-family: var(--font-mono), monospace; font-size: 21px; font-weight: 800;
-  color: #fff; line-height: 1; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  font-family: var(--font-mono), monospace; font-size: 24px; font-weight: 800;
+  color: #fff; line-height: 1; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
 }
-.ovl-delta {
-  font-family: var(--font-mono), monospace; font-size: 14px; font-weight: 800;
-  line-height: 1;
-}
-.ovl-delta.up { color: #3dd67f; }
-.ovl-delta.down { color: #ff5a5a; }
+.ovl-elo-box .fl-icon { flex-shrink: 0; }
 
-.ovl-wl {
-  display: inline-flex; align-items: baseline; gap: 3px;
-  font-family: var(--font-mono), monospace; font-size: 14px; font-weight: 800;
+/* ---- bottom: labelled cells ---- */
+.ovl-bottom {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
-.ovl-wl .w { color: #3dd67f; }
-.ovl-wl .l { color: #ff5a5a; }
-.ovl-wl .sep { color: rgba(255, 255, 255, 0.35); }
+.ovl-cell { display: flex; flex-direction: column; gap: 3px; }
+.ovl-cell-k {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42); line-height: 1;
+}
+.ovl-cell-v {
+  font-family: var(--font-mono), monospace; font-size: 14px; font-weight: 800;
+  color: #fff; line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.ovl-cell-v.up { color: #3dd67f; }
+.ovl-cell-v.down { color: #ff5a5a; }
 
-.ovl-match { padding: 6px 12px; gap: 8px; }
+.ovl-form-cell { margin-left: auto; padding-left: 6px; }
+.ovl-form { display: inline-flex; gap: 3px; align-items: center; }
+.ovl-pip {
+  width: 8px; height: 14px; border-radius: 2px; display: inline-block;
+}
+.ovl-pip.w { background: #3dd67f; }
+.ovl-pip.l { background: #ff5a5a; }
+
+/* ---- the live-match strip, now a row inside the same box ---- */
+.ovl-match {
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
+  padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+.ovl-credit-only { justify-content: flex-end; }
 .ovl-live {
   font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
   color: #fff; background: #e2342f;
@@ -5018,14 +5035,14 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 @keyframes ovlPulse { 50% { opacity: 0.55; } }
 .ovl-map {
-  font-size: 12.5px; font-weight: 700; color: #fff; text-transform: capitalize;
+  font-size: 13px; font-weight: 700; color: #fff; text-transform: capitalize;
 }
 .ovl-comp { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
 
 .ovl-brand {
+  margin-left: auto;
   font-size: 9.5px; font-weight: 600; letter-spacing: 0.7px;
   color: var(--ovl-accent); opacity: 0.6;
-  padding-left: 4px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .ovl-msg {

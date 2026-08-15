@@ -128,26 +128,71 @@ def _live_state(ov: StreamOverlay) -> dict:
         hour=0, minute=0, second=0, microsecond=0
     )
     wins = losses = 0
+
+    # One call, three jobs: the session counters, the recent-form strip and the
+    # averaged stats row. Asking FACEIT three times for the same 30 matches
+    # would triple the cost of every poll for nothing.
+    items = []
     try:
-        for m in faceit.get_match_stats(player_id, limit=30):
-            stats = m.get("stats") or {}
-            ts = m.get("stats", {}).get("Match Finished At") or m.get("started_at")
-            when = None
-            if ts:
-                try:
-                    when = datetime.fromtimestamp(
-                        int(ts) / (1000 if int(ts) > 10**11 else 1),
-                        tz=dt_timezone.utc,
-                    )
-                except (TypeError, ValueError):
-                    when = None
-            if when and when < since:
-                break
-            result = stats.get("Result")
+        items = faceit.get_match_stats(player_id, limit=30) or []
+    except Exception:
+        pass
+
+    form = []
+    wins_recent = 0
+
+    for m in items:
+        stats = m.get("stats") or {}
+        ts = stats.get("Match Finished At") or m.get("started_at")
+        when = None
+        if ts:
+            try:
+                when = datetime.fromtimestamp(
+                    int(ts) / (1000 if int(ts) > 10**11 else 1),
+                    tz=dt_timezone.utc,
+                )
+            except (TypeError, ValueError):
+                when = None
+
+        result = stats.get("Result")
+
+        # Session counters only cover matches inside the window; the form strip
+        # and the stats row deliberately look further back, or a stream that
+        # just started would show an empty card.
+        if when is None or when >= since:
             if result == "1":
                 wins += 1
             elif result == "0":
                 losses += 1
+
+        if result == "1":
+            wins_recent += 1
+        if len(form) < 5 and result in ("0", "1"):
+            form.append({
+                "win": result == "1",
+                "map": (stats.get("Map") or "").replace("de_", "") or None,
+                "kd": stats.get("K/D Ratio"),
+            })
+
+    # The site already averages these for every profile page — same helper, so
+    # the overlay can never quietly disagree with the profile it links to. It
+    # also handles the ADR key FACEIT renamed, which a fresh loop would miss.
+    recent = faceit.build_recent_averages(items, n=20)
+    recent["winrate"] = (
+        round(100 * wins_recent / recent["matches"]) if recent["matches"] else None
+    )
+
+    # Where they sit on the regional ladder, and on their country's slice of
+    # it. The country number is the one worth showing: #1,234 in Romania reads
+    # as an achievement where #64,553 in Europe reads as a phone number.
+    region = cs2.get("region")
+    country = player.get("country")
+    rank = rank_country = None
+    try:
+        if region:
+            rank = faceit.get_player_ranking(player_id, region)
+            if country:
+                rank_country = faceit.get_player_ranking(player_id, region, country)
     except Exception:
         pass
 
@@ -175,10 +220,15 @@ def _live_state(ov: StreamOverlay) -> dict:
         "ok": True,
         "nickname": profile.faceit_nickname,
         "avatar": player.get("avatar") or None,
-        "country": player.get("country") or None,
+        "country": country or None,
+        "region": region or None,
+        "rank": rank,
+        "rank_country": rank_country,
         "elo": elo,
         "level": level,
         "session": {"wins": wins, "losses": losses, "elo_delta": elo_delta},
+        "form": form,
+        "recent": recent,
         "match": match,
         "show": {
             "elo": ov.show_elo,

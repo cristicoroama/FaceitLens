@@ -363,12 +363,17 @@ def get_country_stats():
     return result
 
 
-def get_player_ranking(player_id, region):
-    """Player's global position in a region. Returns the position or None."""
+def get_player_ranking(player_id, region, country=None):
+    """Player's position on a region's ladder, or on their country's slice of
+    it when `country` is given. Returns the position or None."""
     if not region:
         return None
+    params = {"country": country} if country else None
     try:
-        data = _get(f"/rankings/games/{GAME}/regions/{region}/players/{player_id}")
+        data = _get(
+            f"/rankings/games/{GAME}/regions/{region}/players/{player_id}",
+            params=params,
+        )
     except FaceitError:
         return None
     return data.get("position")
