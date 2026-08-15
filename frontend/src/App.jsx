@@ -140,6 +140,8 @@ function buildNav(t, lang) { return [
       hint: t("hint.worldMap") },
   ]},
   { label: t("nav.tools"), items: [
+    { id: "overlay", label: t("nav.overlay"), href: localePath(lang, "/overlay"), icon: Icon.broadcastPin,
+      hint: t("hint.overlay") },
     { id: "matchroom", label: t("nav.matchRoom"), href: localePath(lang, "/matchroom"), icon: Icon.binoculars,
       hint: t("hint.matchRoom") },
     { id: "compare", label: t("nav.compare"), href: localePath(lang, "/compare"), icon: Icon.arrowLeftRight,
@@ -180,8 +182,6 @@ function buildNav(t, lang) { return [
       hint: t("hint.faq") },
     { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
       hint: t("hint.feedback") },
-    { id: "overlay", label: t("nav.overlay"), href: localePath(lang, "/overlay"), icon: Icon.broadcastPin,
-      hint: t("hint.overlay") },
   ],
     /* Actions, not reference links — in the footer nobody would press them. */
     tail: [
