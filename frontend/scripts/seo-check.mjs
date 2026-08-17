@@ -196,8 +196,13 @@ async function run(name, { shellOk = true, backend, query = {}, env = {} }, chec
 }
 
 const PLAYER = {
-  nickname: "s1mple", skill_level: 10, elo: 3247,
-  stats: { win_rate: 62, avg_kd: 1.34, avg_hs: 51, matches: 1820 },
+  nickname: "s1mple", skill_level: 10, elo: 3247, country: "ua", region: "EU",
+  ranking: 12, form: "7-3", elo_extremes: { high: 3390, low: 2400, avg: 3100 },
+  stats: { win_rate: 62, avg_kd: 1.34, avg_hs: 51, adr: 88.2, matches: 1820 },
+  map_stats: [
+    { map: "Mirage", matches: 210, win_rate: 66, avg_kd: 1.41 },
+    { map: "Inferno", matches: 180, win_rate: 61, avg_kd: 1.30 },
+  ],
 };
 
 const answers = async () => ({ ok: true, status: 200, json: async () => PLAYER });
@@ -218,6 +223,82 @@ await run("backend answers", { backend: answers }, (res, name) => {
   ok(`${name} — canonical, title and stats all present`);
 });
 
+/* The numbers themselves, not just the tags around them.
+ *
+ * The handler fetches the whole profile in order to write four figures into the
+ * meta description. For a long time it then threw the rest away, and what a
+ * crawler received was a heading and one sentence — so the page could not rank
+ * for "<nick> elo" (the ELO was not in the document) and nothing parsing the
+ * HTML had a figure to quote. This is the check that keeps that from silently
+ * coming back: it passes in a browser either way. */
+await run("stats are in the body", { backend: answers }, (res, name) => {
+  const body = tag(res.body, /<div class="seo-data">([\s\S]*?)<\/div>\s*<!-- \/SEO:BODY -->/)
+    || tag(res.body, /<div class="seo-data">([\s\S]*?)<!-- \/SEO:BODY -->/);
+  if (!body) return bad(`${name}: no stat block was rendered at all`);
+
+  for (const [what, needle] of [
+    ["ELO", "3247"], ["win rate", "62%"], ["K/D", "1.34"],
+    ["headshots", "51%"], ["matches", "1820"], ["peak ELO", "3390"],
+    ["country name", "Ukraine"], ["map block", "Mirage"],
+  ]) {
+    if (!body.includes(needle)) return bad(`${name}: ${what} (${needle}) missing`);
+  }
+  ok(`${name} — ELO, form, maps and country all readable without JavaScript`);
+});
+
+await run("structured data", { backend: answers }, (res, name) => {
+  // The shell carries a WebSite node of its own; the per-page one is the
+  // ProfilePage, so pick it out rather than assuming a position.
+  const blocks = [...res.body.matchAll(
+    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+  )];
+  let profile = null;
+  for (const [, raw] of blocks) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      return bad(`${name}: a JSON-LD block does not parse — ${e.message}`);
+    }
+    if (parsed["@type"] === "ProfilePage") profile = parsed;
+  }
+  if (!profile) return bad(`${name}: no ProfilePage node`);
+  if (profile.mainEntity?.name !== "s1mple") return bad(`${name}: wrong subject`);
+
+  const props = profile.mainEntity.additionalProperty || [];
+  if (!props.some((p) => p.value === "3247")) {
+    return bad(`${name}: ELO is not exposed as a PropertyValue`);
+  }
+  ok(`${name} — ProfilePage parses and carries the stats as PropertyValues`);
+});
+
+/* A nickname is arbitrary user input that ends up inside a <script> block. A
+ * literal "</script>" in one would close the tag early and drop whatever
+ * followed into the document as markup. */
+await run("hostile nickname", {
+  backend: async () => ({
+    ok: true, status: 200,
+    json: async () => ({ ...PLAYER, nickname: '</script><img src=x onerror=alert(1)>' }),
+  }),
+}, (res, name) => {
+  if (/<\/script><img/.test(res.body)) {
+    return bad(`${name}: nickname broke out of the JSON-LD script tag`);
+  }
+  ok(`${name} — escaped, no break-out`);
+});
+
+/* A stat block built from a profile that never arrived would be a grid of empty
+ * rows: worse than nothing for a person, and a page full of blanks for a
+ * crawler. The tags still have to be right, which the "backend asleep" case
+ * below covers. */
+await run("no stat block without data", {
+  backend: () => { throw new Error("ETIMEDOUT"); },
+}, (res, name) => {
+  if (/seo-facts/.test(res.body)) return bad(`${name}: rendered an empty stat grid`);
+  if (/ProfilePage/.test(res.body)) return bad(`${name}: claimed structured data it doesn't have`);
+  ok(`${name} — degrades to the intro alone`);
+});
+
 await run("russian player page", { backend: answers, query: { lang: "ru" } }, (res, name) => {
   const c = tag(res.body, /<link rel="canonical" href="([^"]+)"/);
   const t = tag(res.body, /<title>([^<]*)<\/title>/);
@@ -229,7 +310,16 @@ await run("russian player page", { backend: answers, query: { lang: "ru" } }, (r
   if (!CYRILLIC.test(tag(res.body, /<div class="seo-intro">([\s\S]*?)<\/div>/) || "")) {
     return bad(`${name}: body copy isn't Russian, so Google files it as English`);
   }
-  ok(`${name} — Russian canonical, title, body and full cluster`);
+  // The field names beside the numbers are content too. English labels on a
+  // Russian page are the same "filed as English" problem the intro check
+  // exists to catch, just further down the document.
+  if (!/<dt>Эло<\/dt>/.test(res.body)) {
+    return bad(`${name}: stat labels are still English`);
+  }
+  if (!res.body.includes("3247")) {
+    return bad(`${name}: the Russian page lost the numbers`);
+  }
+  ok(`${name} — Russian canonical, title, body, stat labels and full cluster`);
 });
 
 await run("unknown lang falls back", { backend: answers, query: { lang: "de" } }, (res, name) => {

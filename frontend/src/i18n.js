@@ -495,6 +495,46 @@ export const STAT_LABELS = {
   uk: { wr: (v) => `${v}% вінрейт`, kd: (v) => `${v} K/D`, hs: (v) => `${v}% HS`, m: (v) => `${v} матчів` },
 };
 
+/* Field names for the server-rendered stat block on /player/:nick.
+ *
+ * STAT_LABELS above formats numbers into a sentence for the meta description.
+ * These are the standalone column headings for the same numbers rendered as
+ * data in the body — a crawler that only reads text needs "ELO: 4449", not a
+ * prose sentence it has to parse.
+ *
+ * Every key here corresponds to something the React page already shows, which
+ * is what keeps the pre-hydration HTML and the hydrated page equivalent. */
+export const FACT_LABELS = {
+  en: {
+    elo: "ELO", level: "Level", winRate: "Win rate", kd: "K/D", hs: "Headshots",
+    adr: "ADR", matches: "Matches", kr: "K/R", country: "Country",
+    region: "Region", ranking: "Regional rank", bestMaps: "Best maps",
+    form: "Recent form", peakElo: "Peak ELO", statsHeading: "Lifetime stats",
+    mapsHeading: "Map performance", updated: "Stats from the FACEIT API",
+  },
+  ru: {
+    elo: "Эло", level: "Уровень", winRate: "Винрейт", kd: "K/D", hs: "Хедшоты",
+    adr: "ADR", matches: "Матчей", kr: "K/R", country: "Страна",
+    region: "Регион", ranking: "Место в регионе", bestMaps: "Лучшие карты",
+    form: "Форма", peakElo: "Пик Эло", statsHeading: "Статистика за всё время",
+    mapsHeading: "Статистика по картам", updated: "Данные из FACEIT API",
+  },
+  pl: {
+    elo: "ELO", level: "Poziom", winRate: "Winrate", kd: "K/D", hs: "Headshoty",
+    adr: "ADR", matches: "Mecze", kr: "K/R", country: "Kraj",
+    region: "Region", ranking: "Miejsce w regionie", bestMaps: "Najlepsze mapy",
+    form: "Forma", peakElo: "Szczytowe ELO", statsHeading: "Statystyki ogólne",
+    mapsHeading: "Statystyki map", updated: "Dane z FACEIT API",
+  },
+  uk: {
+    elo: "Ело", level: "Рівень", winRate: "Вінрейт", kd: "K/D", hs: "Хедшоти",
+    adr: "ADR", matches: "Матчів", kr: "K/R", country: "Країна",
+    region: "Регіон", ranking: "Місце в регіоні", bestMaps: "Найкращі карти",
+    form: "Форма", peakElo: "Пік Ело", statsHeading: "Статистика за весь час",
+    mapsHeading: "Статистика по картах", updated: "Дані з FACEIT API",
+  },
+};
+
 /**
  * Title and description for a page in a locale, falling back to English so a
  * missing translation degrades to a working page rather than an empty one.

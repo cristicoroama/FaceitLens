@@ -4835,6 +4835,67 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 }
 
 /* ---------------------------------------------------------------------------
+   Server-rendered stat block on /player/:nick (api/render.js)
+
+   Same rule as the intro above: styled, never hidden. `display:none` would make
+   these numbers crawler-only, which is cloaking — and they are precisely the
+   figures the React page prints a moment later, so anyone who catches this
+   frame sees a plainer version of the page they asked for, not a different one.
+
+   It exists because the intro alone gave a crawler a heading and one sentence.
+   A page cannot rank for "<nick> elo" when the ELO is not in the document.
+--------------------------------------------------------------------------- */
+.seo-data {
+  max-width: 720px;
+  margin: 28px auto 0;
+  padding: 0 24px 96px;
+}
+
+.seo-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 20px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.seo-facts dt {
+  color: #9a9aa4;
+  font-weight: 500;
+}
+
+.seo-facts dd {
+  margin: 0;
+  color: #f2f2f4;
+  font-weight: 600;
+  /* Lining figures so the values line up as a column rather than jittering. */
+  font-variant-numeric: tabular-nums;
+}
+
+.seo-section {
+  margin-top: 28px;
+}
+
+.seo-section h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a9aa4;
+}
+
+.seo-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #f2f2f4;
+}
+
+/* ---------------------------------------------------------------------------
    Language picker (TopNav)
 
    Reuses .tn-item / .tn-trigger / .tn-menu so it inherits the dropdown look

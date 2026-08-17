@@ -560,6 +560,16 @@ class PathDay(models.Model):
         return f"{self.day} · {self.route} · {self.hits}"
 
 
+def new_overlay_token():
+    """A URL-safe secret for a stream overlay.
+
+    Top level rather than a method so Django can serialise it as a field
+    default — migrations refuse lambdas and bound methods.
+    """
+    import secrets
+    return secrets.token_urlsafe(18)[:24]
+
+
 class StreamOverlay(models.Model):
     """A streamer's OBS overlay: what it shows, and the secret that opens it.
 
@@ -576,7 +586,14 @@ class StreamOverlay(models.Model):
     profile = models.OneToOneField(
         "UserProfile", on_delete=models.CASCADE, related_name="overlay"
     )
-    token = models.CharField(max_length=32, unique=True, db_index=True)
+    # The default matters: without it, creating an overlay from the Django
+    # admin saved an empty token, and every row after the first collided on
+    # the unique index. The view path always passed one explicitly, so this
+    # only ever broke the admin — quietly, and only on the second attempt.
+    # Module-level function, not a lambda: migrations have to serialise it.
+    token = models.CharField(
+        max_length=32, unique=True, db_index=True, default=new_overlay_token,
+    )
 
     show_elo = models.BooleanField(default=True)
     show_session = models.BooleanField(

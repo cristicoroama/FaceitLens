@@ -60,6 +60,16 @@ export function buildMetaBlock({
      cluster is discarded and the translations compete with each other. */
   alternates = null,
   locale = "en",
+  /* Optional schema.org object for this specific page, emitted as JSON-LD
+     inside the per-page block so it is replaced wholesale along with the rest
+     of the tags. The shell's own WebSite node stays where it is — a page may
+     carry several JSON-LD scripts and consumers read them all.
+
+     This exists for the same reason the body block does: it is the one part of
+     the page an extractor can consume without guessing at layout. Google reads
+     it for rich results, and it is the densest, least ambiguous form the stats
+     can take for anything else parsing the HTML. */
+  jsonLd = null,
 }) {
   const t = escapeHtml(title);
   const d = escapeHtml(description);
@@ -114,10 +124,32 @@ export function buildMetaBlock({
     `    <meta name="twitter:title" content="${t}" />`,
     `    <meta name="twitter:description" content="${d}" />`,
     `    <meta name="twitter:image" content="${img}" />`,
-    `    ${END}`,
   );
 
+  if (jsonLd) {
+    lines.push(
+      `    <script type="application/ld+json">${jsonLdScript(jsonLd)}</script>`,
+    );
+  }
+
+  lines.push(`    ${END}`);
+
   return lines.join("\n");
+}
+
+/**
+ * Serialise a JSON-LD object for inline embedding.
+ *
+ * JSON.stringify alone is not safe inside <script>: a "</script>" appearing in
+ * any string value — a nickname can contain anything — closes the tag early and
+ * the rest of the object is parsed as HTML. Escaping "<" sidesteps that without
+ * changing what a JSON parser sees, since < decodes back to "<".
+ */
+export function jsonLdScript(obj) {
+  return JSON.stringify(obj)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
 }
 
 /**
@@ -157,16 +189,65 @@ const BODY_END = "<!-- /SEO:BODY -->";
  * Silently does nothing if the markers are absent, because a missing intro
  * costs some ranking signal while a thrown error costs the whole page.
  */
-export function injectBody(html, { heading, body } = {}) {
+export function injectBody(html, { heading, body, facts, sections } = {}) {
   const start = html.indexOf(BODY_START);
   const end = html.indexOf(BODY_END);
   if (start === -1 || end === -1 || end < start || !heading) return html;
 
-  const content =
+  let content =
     `${BODY_START}<div class="seo-intro"><h1>${escapeHtml(heading)}</h1>` +
     `<p>${escapeHtml(body || "")}</p></div>`;
 
+  if ((facts && facts.length) || (sections && sections.length)) {
+    content += `<div class="seo-data">`;
+    if (facts && facts.length) content += renderFacts(facts);
+    for (const section of sections || []) content += renderSection(section);
+    content += `</div>`;
+  }
+
   return html.slice(0, start) + content + html.slice(end);
+}
+
+/**
+ * A definition list of label/value pairs.
+ *
+ * <dl> rather than a table because these are attributes of one subject, not
+ * rows of a dataset — and it is the shape an extractor is most likely to read
+ * back as pairs rather than as a run-on sentence.
+ *
+ * Entries with a null or empty value are dropped rather than rendered blank:
+ * FACEIT simply has no ADR for accounts that stopped playing before it started
+ * recording one, and "ADR: —" reads as a broken page to a person and as a zero
+ * to a machine.
+ */
+function renderFacts(facts) {
+  const rows = facts
+    .filter((f) => f && f.value !== null && f.value !== undefined && f.value !== "")
+    .map(
+      (f) =>
+        `<dt>${escapeHtml(f.label)}</dt><dd>${escapeHtml(String(f.value))}</dd>`,
+    )
+    .join("");
+
+  return rows ? `<dl class="seo-facts">${rows}</dl>` : "";
+}
+
+/**
+ * A subheading plus either a list of strings or its own label/value pairs.
+ * Used for the per-map block, which is a second subject rather than more
+ * attributes of the first.
+ */
+function renderSection({ heading, items, facts } = {}) {
+  if (!heading) return "";
+  let out = `<section class="seo-section"><h2>${escapeHtml(heading)}</h2>`;
+  if (facts && facts.length) out += renderFacts(facts);
+  if (items && items.length) {
+    out +=
+      `<ul>` +
+      items.map((i) => `<li>${escapeHtml(String(i))}</li>`).join("") +
+      `</ul>`;
+  }
+  return out + `</section>`;
 }
 
 /**

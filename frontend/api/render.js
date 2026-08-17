@@ -18,7 +18,20 @@
  */
 
 import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL } from "../lib/seo.js";
-import { ALL_LOCALES, DEFAULT_LOCALE, PLAYER_META, STAT_LABELS, localePath } from "../src/i18n.js";
+import { ALL_LOCALES, DEFAULT_LOCALE, PLAYER_META, STAT_LABELS, FACT_LABELS, localePath } from "../src/i18n.js";
+import { COUNTRY_NAMES } from "../src/country-names.js";
+
+/* How many maps to write into the body.
+ *
+ * A player with 40 maps played would otherwise push a wall of numbers above the
+ * app's own content for the second it takes React to mount, and the tail of
+ * that list is single-digit sample sizes nobody should draw a conclusion from.
+ * The five most-played are the ones the page is actually about. */
+const MAPS_IN_BODY = 5;
+
+/* Percent-valued fields arrive from FACEIT as bare numbers ("62"), and a lone
+ * 62 in a definition list is ambiguous to anything reading it back. */
+const pct = (v) => (v === null || v === undefined || v === "" ? null : `${v}%`);
 
 /* The backend is on Render's free tier, which sleeps after 15 minutes idle and
  * then takes ~a minute to wake. Waiting on that would hold up the page for a
@@ -145,11 +158,94 @@ export default async function handler(req, res) {
    * letting one dead URL through. */
   const robots = answered && !found ? "noindex, follow" : "index, follow";
 
+  /* The body content.
+   *
+   * `player` is already in hand — it was fetched above to build the description
+   * — so everything here is free apart from the string building. Before this,
+   * all of it was discarded after four numbers were formatted into a sentence,
+   * and the HTML a crawler received was a heading and one line of prose. A
+   * search engine cannot rank a page for "<nick> elo" when the ELO is not in
+   * the document, and anything else parsing the page has nothing to quote.
+   *
+   * Every field below is one the React page renders too, so the pre-hydration
+   * HTML and the hydrated page say the same thing. That equivalence is not
+   * optional: different content for crawlers is cloaking. */
+  const F = FACT_LABELS[lang] || FACT_LABELS[DEFAULT_LOCALE];
+  let facts = null;
+  let sections = null;
+  let jsonLd = null;
+
+  if (found) {
+    facts = [
+      { label: F.elo, value: player.elo },
+      { label: F.level, value: player.skill_level },
+      { label: F.winRate, value: pct(s.win_rate) },
+      { label: F.kd, value: s.avg_kd },
+      { label: F.hs, value: pct(s.avg_hs) },
+      { label: F.adr, value: s.adr },
+      { label: F.matches, value: s.matches },
+      { label: F.form, value: player.form },
+      { label: F.peakElo, value: player.elo_extremes?.high },
+      { label: F.ranking, value: player.ranking },
+      { label: F.region, value: player.region },
+      {
+        label: F.country,
+        value: player.country
+          ? COUNTRY_NAMES[player.country.toLowerCase()] || player.country.toUpperCase()
+          : null,
+      },
+    ];
+
+    const maps = (player.map_stats || []).slice(0, MAPS_IN_BODY);
+    if (maps.length) {
+      sections = [{
+        heading: F.mapsHeading,
+        items: maps.map((m) => {
+          const bits = [
+            m.win_rate ? `${m.win_rate}% ${F.winRate.toLowerCase()}` : null,
+            m.avg_kd ? `${m.avg_kd} ${F.kd}` : null,
+            `${m.matches} ${F.matches.toLowerCase()}`,
+          ].filter(Boolean);
+          return `${m.map} — ${bits.join(", ")}`;
+        }),
+      }];
+    }
+
+    /* schema.org has no vocabulary for a Counter-Strike ELO, so the stats go in
+     * as PropertyValue pairs. That is the documented way to express attributes
+     * the vocabulary doesn't name, and it survives being read by something that
+     * knows nothing about this site's HTML. */
+    jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      dateModified: new Date().toISOString(),
+      mainEntity: {
+        "@type": "Person",
+        name: player.nickname || nick,
+        alternateName: nick,
+        url: canonicalUrl(localised),
+        ...(player.avatar ? { image: player.avatar } : {}),
+        ...(player.country
+          ? { nationality: COUNTRY_NAMES[player.country.toLowerCase()] || player.country.toUpperCase() }
+          : {}),
+        ...(player.faceit_url ? { sameAs: [player.faceit_url] } : {}),
+        additionalProperty: facts
+          .filter((f) => f.value !== null && f.value !== undefined && f.value !== "")
+          .map((f) => ({
+            "@type": "PropertyValue",
+            name: f.label,
+            value: String(f.value),
+          })),
+      },
+    };
+  }
+
   let html;
   try {
     html = injectMeta(shell, {
       title,
       description,
+      jsonLd,
       canonical: canonicalUrl(localised),
       // The same player exists in all four languages, so the cluster is
       // complete by construction — no page here is ever missing a sibling.
@@ -162,7 +258,7 @@ export default async function handler(req, res) {
       imageHeight,
       twitterCard,
     });
-    html = injectBody(html, { heading: bareTitle, body: description });
+    html = injectBody(html, { heading: bareTitle, body: description, facts, sections });
   } catch {
     html = shell; // markers missing: still serve a working page
   }
