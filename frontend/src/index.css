@@ -3585,10 +3585,93 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   font-size: 11.5px; color: var(--text-dim);
 }
 
+/* ---- finished match: scoreboard ----
+   Teams stack full-width here rather than sitting side by side. A scoreboard
+   is eleven numeric columns; split into two halves of the viewport they either
+   wrap or shrink past reading size, and FACEIT stacks them for the same
+   reason. The scout view above keeps its two columns because a five-row card
+   list is narrow enough to pair. */
+.mr-chip.status.s-finished { color: var(--text-dim); }
+.mr-chip.score { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+
+.mr-sb {
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  margin-bottom: 14px; overflow: hidden;
+}
+.mr-sb.a { border-top: 2px solid var(--accent); }
+.mr-sb.b { border-top: 2px solid var(--accent-2); }
+.mr-sb-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.mr-sb-score {
+  font-family: var(--font-mono); font-weight: 800; font-size: 22px;
+  color: var(--text-dim); line-height: 1; min-width: 32px;
+}
+.mr-sb-score.win { color: var(--win); }
+.mr-sb-name {
+  font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw;
+}
+.mr-sb-win {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--win); border: 1px solid var(--win);
+}
+.mr-sb-halves { font-size: 11.5px; color: var(--text-dim); }
+.mr-sb-halves b { font-family: var(--font-mono); color: var(--text); }
+.mr-sb-avg {
+  margin-left: auto; font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+}
+.mr-sb-avg small {
+  color: var(--text-dim); font-size: 9px; text-transform: uppercase;
+  letter-spacing: 1px; font-weight: 700; margin-left: 4px;
+}
+
+/* Horizontal scroll rather than a squeeze: eleven columns will not fit a
+   phone, and a table that fits by truncating its numbers is worse than one
+   you swipe. */
+.mr-sb-scroll { overflow-x: auto; }
+.mr-sb-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mr-sb-table th {
+  padding: 8px 10px; text-align: right; white-space: nowrap;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); border-bottom: 1px solid var(--border);
+}
+.mr-sb-table th.l, .mr-sb-table td.l { text-align: left; }
+.mr-sb-table td {
+  padding: 8px 10px; text-align: right; white-space: nowrap;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--border);
+}
+.mr-sb-table tbody tr { cursor: pointer; transition: background 0.14s; }
+.mr-sb-table tbody tr:hover { background: var(--bg-elev-2); }
+.mr-sb-table tbody tr:last-child td { border-bottom: none; }
+/* One rule marks where the match ends and the comparison begins. */
+.mr-sb-table .sep { border-left: 1px solid var(--border); }
+.mr-sb-p { display: inline-flex; align-items: center; gap: 7px; }
+.mr-sb-ava { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
+.mr-sb-ava.ph {
+  display: grid; place-items: center; background: var(--bg-elev-3);
+  color: var(--accent); font-family: var(--font-display); font-weight: 700; font-size: 10px;
+}
+.mr-sb-nick {
+  font-family: var(--font-body); font-weight: 600; font-size: 13px;
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-sb-rating { font-size: 13.5px; }
+
+.mr-d { color: var(--text-dim); }
+.mr-d.up { color: var(--win); }
+.mr-d.down { color: var(--loss); }
+
 @media (max-width: 720px) {
   .mr-grid { grid-template-columns: 1fr; }
   .mr-vs { justify-self: center; }
   .mr-banner { flex-direction: column; align-items: flex-start; }
+  .mr-sb-name { max-width: 60vw; }
 }
 
 /* ============================================================

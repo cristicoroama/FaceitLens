@@ -795,15 +795,77 @@ def get_match_room(raw):
     if isinstance(mp, list) and mp:
         picked_map = mp[0]
 
+    finished = str(status or "").upper() in {"FINISHED", "COMPLETED", "CANCELLED", "ABORTED"}
+
+    # A finished room is a different page from an upcoming one.
+    #
+    # Before the match there is nothing to report but form, so the scout view is
+    # all there is. Afterwards the scoreboard exists, and the interesting number
+    # stops being "how good is this player" — FACEIT shows that — and becomes
+    # "did they play like themselves tonight". That comparison needs both
+    # halves, which is the one thing FACEIT's own scoreboard cannot show,
+    # because it only knows about this match.
+    #
+    # get_match_detail already parses the scoreboard and caches it for 6h, so
+    # this is a merge, not a second implementation.
+    if finished:
+        try:
+            detail = get_match_detail(match_id)
+        except FaceitError:
+            detail = None
+
+        if detail and detail.get("teams"):
+            by_id = {}
+            for dteam in detail["teams"]:
+                for dp in dteam.get("players", []):
+                    if dp.get("player_id"):
+                        by_id[dp["player_id"]] = dp
+
+            # Team rows are matched on name; the two endpoints agree on it in
+            # practice, and a wrong pairing would silently swap the scores, so
+            # a missed match leaves the team without a score rather than
+            # guessing by position.
+            by_name = {(d.get("name") or "").lower(): d for d in detail["teams"]}
+
+            for team in (t1, t2):
+                dteam = by_name.get((team["name"] or "").lower())
+                if dteam:
+                    team["score"] = dteam.get("score")
+                    team["win"] = dteam.get("win")
+                    team["half1"] = dteam.get("half1")
+                    team["half2"] = dteam.get("half2")
+                    team["overtime"] = dteam.get("overtime")
+
+                for p in team["players"]:
+                    p["match"] = by_id.get(p["player_id"])
+
+                # Scoreboard order once the match is played: what happened beats
+                # what was expected, so rating leads and ELO stops deciding.
+                team["players"].sort(
+                    key=lambda x: float((x.get("match") or {}).get("rating") or 0),
+                    reverse=True,
+                )
+
+            if not picked_map:
+                picked_map = detail.get("map")
+
     return {
         "match_id": match_id,
         "status": status,
+        "finished": finished,
         "competition": meta.get("competition_name"),
+        "competition_type": meta.get("competition_type"),
         "region": meta.get("region"),
         "map": picked_map,
+        "best_of": meta.get("best_of"),
+        "started_at": _ts_seconds(meta.get("started_at")),
+        "finished_at": _ts_seconds(meta.get("finished_at")),
         "faceit_url": (meta.get("faceit_url") or "").replace("{lang}", "en") or None,
         "team1": t1,
         "team2": t2,
+        # An ELO forecast for a match that has already been played is a
+        # curiosity, not a prediction — the UI hides it, but it stays in the
+        # payload so "was the favourite right" is still answerable.
         "prob1": prob1,
         "prob2": (100 - prob1) if prob1 is not None else None,
     }

@@ -136,6 +136,90 @@ function PlayerRow({ p, onPick, top }) {
   );
 }
 
+/* How far this match sat from the player's own 30-match baseline.
+ *
+ * This is the column FACEIT's scoreboard structurally cannot have: it knows
+ * what happened tonight, not what usually happens. A 1.10 K/D means nothing on
+ * its own — from a 0.80 player it's a great night, from a 1.40 player it's a
+ * bad one, and that difference is the entire reason to look someone up. */
+function Delta({ now, base, digits = 2 }) {
+  const a = Number(now), b = Number(base);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || !b) return <span className="mr-d">—</span>;
+  const d = a - b;
+  // Under a twentieth of a K/D is inside the noise of a 30-match sample;
+  // marking it up or down would invent a signal that isn't there.
+  const flat = Math.abs(d) < (digits === 0 ? 5 : 0.05);
+  return (
+    <span className={`mr-d${flat ? "" : d > 0 ? " up" : " down"}`}
+      title={`Career-recent baseline: ${b}`}>
+      {d > 0 ? "+" : d < 0 ? "−" : ""}{Math.abs(d).toFixed(digits)}
+    </span>
+  );
+}
+
+function Scoreboard({ team, side, onPick }) {
+  return (
+    <div className={`mr-sb ${side}`}>
+      <div className="mr-sb-head">
+        <span className={`mr-sb-score${team.win ? " win" : ""}`}>{team.score ?? "—"}</span>
+        <span className="mr-sb-name">{team.name}</span>
+        {team.win && <span className="mr-sb-win">{Icon.trophy} Winner</span>}
+        {(team.half1 != null || team.half2 != null) && (
+          <span className="mr-sb-halves">
+            <b>{team.half1 ?? "—"}</b> first · <b>{team.half2 ?? "—"}</b> second
+            {team.overtime ? <> · <b>{team.overtime}</b> OT</> : null}
+          </span>
+        )}
+        <span className="mr-sb-avg">{team.avg_elo ?? "—"} <small>avg elo</small></span>
+      </div>
+
+      <div className="mr-sb-scroll">
+        <table className="mr-sb-table">
+          <thead>
+            <tr>
+              <th className="l">Player</th>
+              <th>Rating</th><th>K</th><th>D</th><th>A</th>
+              <th>ADR</th><th>K/D</th><th>HS%</th><th>MVP</th>
+              {/* Two columns, one idea: this match against their own last 30. */}
+              <th className="sep">K/D vs 30</th><th>ADR vs 30</th>
+            </tr>
+          </thead>
+          <tbody>
+            {team.players.map((p, i) => {
+              const m = p.match;
+              const r = p.recent;
+              return (
+                <tr key={p.player_id || i} onClick={() => p.nickname && onPick(p.nickname)}>
+                  <td className="l">
+                    <span className="mr-sb-p">
+                      {p.avatar
+                        ? <img className="mr-sb-ava" src={p.avatar} alt="" loading="lazy" />
+                        : <span className="mr-sb-ava ph">{initials(p.nickname)}</span>}
+                      <FaceitLevel level={p.level || 1} size={16} />
+                      {p.country && <Flag country={p.country} size={13} />}
+                      <span className="mr-sb-nick">{p.nickname || "—"}</span>
+                    </span>
+                  </td>
+                  <td><b className="mr-sb-rating">{m?.rating ?? "—"}</b></td>
+                  <td>{m?.kills ?? "—"}</td>
+                  <td>{m?.deaths ?? "—"}</td>
+                  <td>{m?.assists ?? "—"}</td>
+                  <td>{m?.adr ?? "—"}</td>
+                  <td>{m?.kd ?? "—"}</td>
+                  <td>{m?.hs != null ? `${m.hs}%` : "—"}</td>
+                  <td>{m?.mvps ?? "—"}</td>
+                  <td className="sep"><Delta now={m?.kd} base={r?.kd} /></td>
+                  <td><Delta now={m?.adr} base={r?.adr} digits={0} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function TeamAgg({ team }) {
   const bits = [
     team.avg_kd != null && ["K/D", team.avg_kd],
@@ -200,9 +284,16 @@ function MapBanner({ data }) {
             <span className="mr-chip">{Icon.trophy} {data.competition}</span>
           )}
           {data.region && <span className="mr-chip">{Icon.globe} {data.region}</span>}
+          {/* Said in words, not just colour: "ONGOING" and "FINISHED" are the
+              first thing you need and the last thing the old header showed. */}
           {data.status && (
-            <span className={`mr-chip status s-${String(data.status).toLowerCase()}`}>
-              {data.status}
+            <span className={`mr-chip status s-${data.finished ? "finished" : String(data.status).toLowerCase()}`}>
+              {data.finished ? "Finished" : String(data.status).toLowerCase() === "ongoing" ? "Live" : data.status}
+            </span>
+          )}
+          {data.finished && data.team1?.score != null && data.team2?.score != null && (
+            <span className="mr-chip score">
+              {data.team1.score} – {data.team2.score}
             </span>
           )}
         </div>
@@ -291,7 +382,9 @@ export default function MatchRoom({ onPick }) {
         <>
           <MapBanner data={data} />
 
-          {p1 != null && (
+          {/* A win probability for a match that has already been played is
+              trivia. It stays in the payload; it comes off the page. */}
+          {!data.finished && p1 != null && (
             <div className="mr-predict">
               <div className="mr-predict-bar">
                 <div className="mr-predict-1" style={{ width: `${p1}%` }}>
@@ -307,18 +400,33 @@ export default function MatchRoom({ onPick }) {
             </div>
           )}
 
-          <div className="mr-grid">
-            <Team team={data.team1} onPick={onPick} side="a" topElo={topElo} />
-            <div className="mr-vs">VS</div>
-            <Team team={data.team2} onPick={onPick} side="b" topElo={topElo} />
-          </div>
-
-          <div className="hltv-note">
-            Averages cover each player's last 30 matches; the chips are their last
-            10 results, newest first. The prediction is a logistic estimate from
-            average team ELO alone — it doesn't know the map, the roles or who is
-            playing on a stand-in. Treat it as a scout, not a lock.
-          </div>
+          {data.finished ? (
+            <>
+              <Scoreboard team={data.team1} side="a" onPick={onPick} />
+              <Scoreboard team={data.team2} side="b" onPick={onPick} />
+              <div className="hltv-note">
+                The last two columns are what this site is for: each player's
+                result in this match against their own average over their last 30.
+                A 1.10 K/D is a good night for some of these players and a bad one
+                for others — the scoreboard alone can't tell you which.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mr-grid">
+                <Team team={data.team1} onPick={onPick} side="a" topElo={topElo} />
+                <div className="mr-vs">VS</div>
+                <Team team={data.team2} onPick={onPick} side="b" topElo={topElo} />
+              </div>
+              <div className="hltv-note">
+                Averages cover each player's last 30 matches; the chips are their
+                last 10 results, newest first. The prediction is a logistic
+                estimate from average team ELO alone — it doesn't know the map,
+                the roles or who is playing on a stand-in. Treat it as a scout,
+                not a lock.
+              </div>
+            </>
+          )}
         </>
       )}
     </>
