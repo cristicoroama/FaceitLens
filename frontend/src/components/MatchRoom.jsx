@@ -1,46 +1,222 @@
 import { useState } from "react";
 import { FaceitLevel, Flag } from "./RankIcons.jsx";
+import { ResultChip } from "./FormStrip.jsx";
+import { mapKey, mapLabel } from "../map-art.jsx";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+/* Maps we ship art for, mirrored from map-art.jsx.
+ *
+ * MapThumb is a 54px chip — the right size in a match list, far too small for
+ * a banner. This uses the same files at full width, so the set has to agree
+ * with that one or the banner silently falls back on a map the thumb can draw. */
+const HAS_ART = new Set([
+  "agency", "ancient", "anubis", "baggage", "basalt", "cache", "dust2",
+  "edin", "grail", "inferno", "italy", "jura", "mills", "mirage", "nuke",
+  "office", "overpass", "palais", "pool_day", "shoots", "thera", "train",
+  "vertigo", "whistle",
+]);
 
 function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
-function PlayerRow({ p, onPick, side }) {
+/* One number with its label. `mono` because these sit in columns that only
+   line up with tabular figures. */
+function Stat({ icon, value, label, tone }) {
   return (
-    <div className={`mr-p ${side}`} onClick={() => p.nickname && onPick(p.nickname)}>
-      {p.avatar ? (
-        <img className="mr-p-ava" src={p.avatar} alt="" loading="lazy" />
-      ) : (
-        <span className="mr-p-ava ph">{initials(p.nickname)}</span>
-      )}
-      <div className="mr-p-main">
-        <div className="mr-p-name">
-          {p.country && <Flag country={p.country} size={15} />}
-          {p.nickname || "—"}
-        </div>
-      </div>
-      <FaceitLevel level={p.level || 1} size={22} />
-      <span className="mr-p-elo">{p.elo ?? "—"}</span>
+    <div className={`mr-stat${tone ? ` t-${tone}` : ""}`} title={label}>
+      <span className="mr-stat-ic">{icon}</span>
+      <span className="mr-stat-v">{value ?? "—"}</span>
+      <span className="mr-stat-l">{label}</span>
     </div>
   );
 }
 
-function Team({ team, onPick, side }) {
+/* K/D over 30 matches, read against the 1.00 break-even that every CS2 player
+   already has in their head. Deliberately only three buckets: a per-hundredth
+   gradient would imply a precision a 30-match sample doesn't have. */
+function kdTone(kd) {
+  if (kd == null) return null;
+  if (kd >= 1.15) return "good";
+  if (kd < 0.95) return "bad";
+  return null;
+}
+
+function PlayerRow({ p, onPick, top }) {
+  const r = p.recent;
+  const trend = r?.kd_trend;
+
+  return (
+    <div
+      className="mr-p"
+      onClick={() => p.nickname && onPick(p.nickname)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          p.nickname && onPick(p.nickname);
+        }
+      }}
+    >
+      <div className="mr-p-top">
+        {p.avatar ? (
+          <img className="mr-p-ava" src={p.avatar} alt="" loading="lazy" />
+        ) : (
+          <span className="mr-p-ava ph">{initials(p.nickname)}</span>
+        )}
+
+        <div className="mr-p-main">
+          <div className="mr-p-name">
+            {p.country && <Flag country={p.country} size={15} />}
+            <span className="mr-p-nick">{p.nickname || "—"}</span>
+            {/* The highest ELO in the room, not just on this team — the one
+                player whose day decides the match more than anyone else's. */}
+            {top && (
+              <span className="mr-p-top-badge" title="Highest ELO in the room">
+                {Icon.starFill}
+              </span>
+            )}
+          </div>
+          <div className="mr-p-sub">
+            <FaceitLevel level={p.level || 1} size={18} />
+            {r?.form && <span className="mr-p-form">{r.form} last 10</span>}
+          </div>
+        </div>
+
+        <div className="mr-p-elo">
+          {p.elo ?? "—"}
+          <small>elo</small>
+        </div>
+      </div>
+
+      {r ? (
+        <>
+          <div className="mr-p-stats">
+            <Stat icon={Icon.crosshair} value={r.kd} label="K/D" tone={kdTone(r.kd)} />
+            <Stat icon={Icon.barChartLine} value={r.adr} label="ADR" />
+            <Stat icon={Icon.activity} value={r.hs != null ? `${r.hs}%` : null} label="HS" />
+            <Stat
+              icon={Icon.trophy}
+              value={r.win_rate != null ? `${r.win_rate}%` : null}
+              label="Win"
+              tone={r.win_rate == null ? null : r.win_rate >= 55 ? "good" : r.win_rate < 45 ? "bad" : null}
+            />
+            {trend && trend !== "flat" && (
+              <span className={`mr-p-trend ${trend}`} title={`K/D trending ${trend}`}>
+                {Icon.graphUpArrow}
+              </span>
+            )}
+          </div>
+
+          {r.results?.length > 0 && (
+            <div className="mr-p-chips">
+              {r.results.map((m, i) => (
+                <ResultChip
+                  key={m.match_id || i}
+                  won={m.won}
+                  title={[
+                    m.won === true ? "Win" : m.won === false ? "Loss" : "Unknown",
+                    m.map ? mapLabel(m.map) : null,
+                  ].filter(Boolean).join(" · ")}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        /* Said plainly rather than shown as zeros. A new account and an account
+           the API had no history for look identical in a stat grid, and only
+           one of them is interesting when you're checking for a smurf. */
+        <div className="mr-p-nodata">{Icon.incognito} No recent matches on record</div>
+      )}
+    </div>
+  );
+}
+
+function TeamAgg({ team }) {
+  const bits = [
+    team.avg_kd != null && ["K/D", team.avg_kd],
+    team.avg_adr != null && ["ADR", team.avg_adr],
+    team.avg_win_rate != null && ["Win", `${team.avg_win_rate}%`],
+  ].filter(Boolean);
+
+  if (!bits.length) return null;
+  return (
+    <div className="mr-team-agg">
+      <span className="mr-team-agg-label">last 30</span>
+      {bits.map(([l, v]) => (
+        <span className="mr-team-agg-i" key={l}>
+          <b>{v}</b> {l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Team({ team, onPick, side, topElo }) {
   return (
     <div className={`mr-team ${side}`}>
       <div className="mr-team-head">
-        <span className="mr-team-name">{team.name}</span>
+        <div className="mr-team-id">
+          <span className="mr-team-name">{team.name}</span>
+          <TeamAgg team={team} />
+        </div>
         <span className="mr-team-avg">
-          {team.avg_elo ?? "—"} <small>avg ELO</small>
+          {team.avg_elo ?? "—"} <small>avg elo</small>
         </span>
       </div>
       <div className="mr-team-players">
         {team.players.map((p, i) => (
-          <PlayerRow p={p} onPick={onPick} side={side} key={p.player_id || i} />
+          <PlayerRow
+            p={p}
+            onPick={onPick}
+            top={topElo != null && p.elo === topElo}
+            key={p.player_id || i}
+          />
         ))}
       </div>
+    </div>
+  );
+}
+
+function MapBanner({ data }) {
+  const key = mapKey(data.map);
+  const art = key && HAS_ART.has(key) ? `/maps/${key}.webp` : null;
+
+  return (
+    <div className={`mr-banner${art ? " has-art" : ""}`}>
+      {art && (
+        <img className="mr-banner-art" src={art} alt="" aria-hidden="true" loading="lazy" />
+      )}
+      <div className="mr-banner-body">
+        <div className="mr-banner-map">
+          {data.map ? mapLabel(data.map) : "Map not picked yet"}
+        </div>
+        <div className="mr-banner-meta">
+          {data.competition && (
+            <span className="mr-chip">{Icon.trophy} {data.competition}</span>
+          )}
+          {data.region && <span className="mr-chip">{Icon.globe} {data.region}</span>}
+          {data.status && (
+            <span className={`mr-chip status s-${String(data.status).toLowerCase()}`}>
+              {data.status}
+            </span>
+          )}
+        </div>
+      </div>
+      {data.faceit_url && (
+        <a
+          className="mr-banner-link"
+          href={data.faceit_url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {Icon.link45deg} FACEIT
+        </a>
+      )}
     </div>
   );
 }
@@ -72,20 +248,28 @@ export default function MatchRoom({ onPick }) {
   const p1 = data?.prob1;
   const favored = p1 != null ? (p1 >= 50 ? 1 : 2) : null;
 
+  /* Across both teams, so the star marks the best player in the room rather
+     than the best on each side — five stars would mark nothing. */
+  const topElo = data
+    ? Math.max(
+        0,
+        ...[...data.team1.players, ...data.team2.players].map((p) => p.elo || 0),
+      ) || null
+    : null;
+
   return (
     <>
       <div className="page-hero">
         <div className="page-hero-title">
           <div className="panel-ic" style={{ width: 38, height: 38 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ width: 18, height: 18 }}>
-              <path d="M16 3h5v5M8 21H3v-5M21 3l-7.5 7.5M3 21l7.5-7.5" />
-            </svg>
+            <span style={{ fontSize: 18, display: "grid" }}>{Icon.binoculars}</span>
           </div>
           Match Room <em>Analyzer</em>
         </div>
         <div className="page-hero-sub">
-          Paste a FACEIT match room link to scout both teams — every player's live
-          ELO &amp; level, team averages and an ELO-based win prediction.
+          Paste a FACEIT match room link to scout both teams — live ELO and level,
+          each player's form over their last 30 matches, and an ELO-based win
+          prediction.
         </div>
       </div>
 
@@ -105,18 +289,7 @@ export default function MatchRoom({ onPick }) {
 
       {data && (
         <>
-          {(data.map || data.competition || data.status) && (
-            <div className="mr-meta">
-              {data.competition && <span>{data.competition}</span>}
-              {data.map && <span className="mr-meta-map">{data.map.replace(/^de_/, "")}</span>}
-              {data.status && <span className="mr-meta-status">{data.status}</span>}
-              {data.faceit_url && (
-                <a href={data.faceit_url} target="_blank" rel="noopener noreferrer" className="mr-meta-link">
-                  open on FACEIT →
-                </a>
-              )}
-            </div>
-          )}
+          <MapBanner data={data} />
 
           {p1 != null && (
             <div className="mr-predict">
@@ -135,14 +308,16 @@ export default function MatchRoom({ onPick }) {
           )}
 
           <div className="mr-grid">
-            <Team team={data.team1} onPick={onPick} side="a" />
+            <Team team={data.team1} onPick={onPick} side="a" topElo={topElo} />
             <div className="mr-vs">VS</div>
-            <Team team={data.team2} onPick={onPick} side="b" />
+            <Team team={data.team2} onPick={onPick} side="b" topElo={topElo} />
           </div>
 
           <div className="hltv-note">
-            Prediction is a simple logistic estimate from average team ELO — it
-            doesn't know map, form or roles. Treat it as a rough scout, not a lock.
+            Averages cover each player's last 30 matches; the chips are their last
+            10 results, newest first. The prediction is a logistic estimate from
+            average team ELO alone — it doesn't know the map, the roles or who is
+            playing on a stand-in. Treat it as a scout, not a lock.
           </div>
         </>
       )}

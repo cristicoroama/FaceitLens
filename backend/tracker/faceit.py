@@ -635,11 +635,70 @@ def _player_elo_level(player_id):
     return out
 
 
+def _player_recent(player_id, n=30):
+    """
+    How this player has actually been playing lately: averages over their last
+    `n` matches, plus the last 10 results for a form strip.
+
+    Separate from _player_elo_level because it costs a different request and is
+    worth a different cache life — ELO moves every match, a 30-match average
+    barely moves at all, so this is held four times as long.
+
+    Never raises: a scout with nine players and one gap is still useful, and the
+    room view is not the place to fail on one API hiccup.
+    """
+    ck = f"prec:{player_id}:{n}"
+    hit = cache.get(ck)
+    if hit is not None:
+        return hit
+
+    try:
+        items = get_match_stats(player_id, limit=n)
+    except FaceitError:
+        return None
+    if not items:
+        return None
+
+    avg = build_recent_averages(items, n=n)
+    form = build_form_and_trend(items)
+
+    results = []
+    for it in items[:10]:
+        s = it.get("stats", {}) or {}
+        r = _to_int(s.get("Result"))
+        results.append({
+            "match_id": s.get("Match Id") or it.get("match_id"),
+            "won": None if r is None else bool(r),
+            "finished_at": _ts_seconds(
+                s.get("Match Finished At") or s.get("Updated At") or s.get("Created At")
+            ),
+            "map": s.get("Map"),
+        })
+
+    wins = sum(1 for it in items if _to_int(it.get("stats", {}).get("Result")) == 1)
+    out = {
+        "matches": avg["matches"],
+        "kd": avg["kd"],
+        "kr": avg["kr"],
+        "adr": avg["adr"],
+        "hs": avg["hs"],
+        "kills": avg["kills"],
+        # Win rate over the same window the averages come from, so the card
+        # never mixes a lifetime figure with a recent one.
+        "win_rate": round(wins / len(items) * 100) if items else None,
+        "form": form["form"],
+        "kd_trend": form["kd_trend"],
+        "results": results,
+    }
+    cache.set(ck, out, 20 * 60)
+    return out
+
+
 def get_match_room(raw):
     """
-    Scout a FACEIT match room: both teams' rosters with current ELO/level, team
-    averages and a simple ELO-based win probability. Works for upcoming, live or
-    finished matches (anything the /matches/<id> endpoint returns).
+    Scout a FACEIT match room: both teams' rosters with current ELO/level and
+    recent form, team averages and a simple ELO-based win probability. Works for
+    upcoming, live or finished matches (anything /matches/<id> returns).
     """
     match_id = _extract_match_id(raw)
     if not match_id:
@@ -648,13 +707,45 @@ def get_match_room(raw):
     meta = _get(f"/matches/{match_id}")
     teams_in = meta.get("teams", {}) or {}
 
+    # Every player id in the room, both factions.
+    rosters = {
+        faction: (teams_in.get(faction, {}) or {}).get("roster", []) or []
+        for faction in ("faction1", "faction2")
+    }
+    ids = [r.get("player_id") for rs in rosters.values() for r in rs if r.get("player_id")]
+
+    # Two lookups for each of ten players, fetched together.
+    #
+    # These used to run one after another inside the team loop: ten round-trips
+    # to FACEIT, in series, before the page could show anything. Adding the
+    # recent-form call would have made it twenty. Both are cached, so a warm
+    # room costs nothing either way — this is about the cold one, which is the
+    # only one anybody waits for.
+    #
+    # max_workers is capped at 10 rather than len(ids)*2 so a malformed room
+    # with a huge roster can't open an unbounded number of sockets.
+    elo_by_id, recent_by_id = {}, {}
+    if ids:
+        with ThreadPoolExecutor(max_workers=min(10, len(ids) * 2)) as pool:
+            elo_futs = {pid: pool.submit(_player_elo_level, pid) for pid in ids}
+            rec_futs = {pid: pool.submit(_player_recent, pid) for pid in ids}
+            for pid, fut in elo_futs.items():
+                try:
+                    elo_by_id[pid] = fut.result()
+                except Exception:
+                    elo_by_id[pid] = {}
+            for pid, fut in rec_futs.items():
+                try:
+                    recent_by_id[pid] = fut.result()
+                except Exception:
+                    recent_by_id[pid] = None
+
     def build_team(faction):
         f = teams_in.get(faction, {}) or {}
-        roster = f.get("roster", []) or []
         players = []
-        for r in roster:
+        for r in rosters[faction]:
             pid = r.get("player_id")
-            info = _player_elo_level(pid) if pid else {}
+            info = elo_by_id.get(pid) or {}
             players.append({
                 "player_id": pid,
                 "nickname": r.get("nickname"),
@@ -662,14 +753,30 @@ def get_match_room(raw):
                 "level": info.get("level") or r.get("game_skill_level"),
                 "country": info.get("country"),
                 "avatar": info.get("avatar") or r.get("avatar") or None,
+                "faceit_url": (r.get("faceit_url") or "").replace("{lang}", "en") or None,
+                "recent": recent_by_id.get(pid),
             })
         players.sort(key=lambda x: (x["elo"] or 0), reverse=True)
+
         elos = [p["elo"] for p in players if p["elo"]]
         avg = round(sum(elos) / len(elos)) if elos else None
+
+        # Team-level recent form, averaged over whoever actually has data —
+        # a roster where two players are unrated still gets a usable number.
+        kds = [p["recent"]["kd"] for p in players if p.get("recent") and p["recent"].get("kd")]
+        adrs = [p["recent"]["adr"] for p in players if p.get("recent") and p["recent"].get("adr")]
+        wrs = [
+            p["recent"]["win_rate"] for p in players
+            if p.get("recent") and p["recent"].get("win_rate") is not None
+        ]
+
         return {
             "name": f.get("name") or faction,
             "players": players,
             "avg_elo": avg,
+            "avg_kd": round(sum(kds) / len(kds), 2) if kds else None,
+            "avg_adr": round(sum(adrs) / len(adrs)) if adrs else None,
+            "avg_win_rate": round(sum(wrs) / len(wrs)) if wrs else None,
             "leader": f.get("leader"),
         }
 
