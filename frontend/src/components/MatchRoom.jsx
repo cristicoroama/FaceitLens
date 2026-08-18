@@ -462,11 +462,11 @@ function MapBanner({ data }) {
           {scored ? (
             <>
               <span className={`mr-num${won === 1 ? " is-win" : ""}`}>{s1}</span>
-              <span className="mr-vs">vs</span>
+              <span className="mr-banner-vs">vs</span>
               <span className={`mr-num${won === 2 ? " is-win" : ""}`}>{s2}</span>
             </>
           ) : (
-            <span className="mr-vs">vs</span>
+            <span className="mr-banner-vs">vs</span>
           )}
         </div>
         <BannerSide team={data.team2} side="right" won={won === 2} />
@@ -501,6 +501,17 @@ export default function MatchRoom({ onPick }) {
 
   const p1 = data?.prob1;
   const favored = p1 != null ? (p1 >= 50 ? 1 : 2) : null;
+
+  /* Who actually won, once there is a result to compare the forecast against.
+     null while the match is unplayed, and on a draw. */
+  const winner =
+    data?.finished && data.team1?.score != null && data.team2?.score != null &&
+    data.team1.score !== data.team2.score
+      ? data.team1.score > data.team2.score ? 1 : 2
+      : null;
+  /* The forecast is worth more after the match, not less: "the favourite lost"
+     is the single most interesting thing a scoreboard can tell you. */
+  const calledIt = winner && favored ? winner === favored : null;
 
   /* Across both teams, so the star marks the best player in the room rather
      than the best on each side — five stars would mark nothing. */
@@ -557,9 +568,10 @@ export default function MatchRoom({ onPick }) {
         <>
           <MapBanner data={data} />
 
-          {/* A win probability for a match that has already been played is
-              trivia. It stays in the payload; it comes off the page. */}
-          {!data.finished && p1 != null && (
+          {/* Shown on finished rooms too. Calling it trivia after the fact was
+              wrong: the forecast is how you tell a comfortable win from an
+              upset, and that reading only exists once the score is in. */}
+          {p1 != null && (
             <div className="mr-predict">
               <div className="mr-predict-bar">
                 <div className="mr-predict-1" style={{ width: `${p1}%` }}>
@@ -571,6 +583,11 @@ export default function MatchRoom({ onPick }) {
               </div>
               <div className="mr-predict-label">
                 {favored === 1 ? data.team1.name : data.team2.name} favored by ELO
+                {calledIt != null && (
+                  <span className={`mr-predict-verdict ${calledIt ? "hit" : "miss"}`}>
+                    {calledIt ? "called it" : "upset"}
+                  </span>
+                )}
               </div>
             </div>
           )}

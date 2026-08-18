@@ -14,6 +14,26 @@
    an unknown one.
    ============================================================ */
 
+/* Tailwind v4, wired in deliberately WITHOUT Preflight.
+   ------------------------------------------------------------
+   Preflight is a reset. It zeroes every margin and padding, strips heading
+   sizes and list bullets, and sets `border: 0 solid` on every element. Dropped
+   on top of the ~5,600 lines below, it would not modernise them — it would
+   flatten them. The documented way to opt out is to import Tailwind's parts
+   individually and leave the preflight line out, which is what this is:
+   https://tailwindcss.com/docs/preflight#disabling-preflight
+
+   One consequence worth knowing before writing any utility class: utilities
+   land in `@layer utilities`, and layered rules lose to unlayered ones. Every
+   rule below is unlayered, so wherever an element already has a rule in this
+   file, that rule wins. Tailwind is additive on new markup here — it is not a
+   lever for overriding the old styles. To restyle something existing, edit its
+   rule below rather than piling `class="..."` on top and wondering why
+   nothing moved. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
   color-scheme: dark;
   /* surfaces — a disciplined 4-step ramp, warm-neutral not blue */
@@ -3500,7 +3520,10 @@ a.mr-banner-link:hover { color: var(--accent); border-color: var(--accent); }
   font-size: clamp(22px, 4vw, 34px); color: var(--text-dim);
 }
 .mr-num.is-win { color: var(--win); }
-.mr-vs {
+/* Deliberately not `.mr-vs` — that name already belongs to the big divider
+   between the two team columns further down, and reusing it made this one
+   inherit an 18px font it has no business having. */
+.mr-banner-vs {
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--text-dim);
 }
@@ -3533,9 +3556,19 @@ a.mr-banner-link:hover { color: var(--accent); border-color: var(--accent); }
   background: var(--accent-2); color: var(--on-accent);
 }
 .mr-predict-label {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: wrap;
   text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 8px;
   text-transform: uppercase; letter-spacing: 1px;
 }
+/* Did the ELO favourite actually win. Green for yes, orange for an upset —
+   the upset is the interesting one, so it gets the accent. */
+.mr-predict-verdict {
+  padding: 2px 8px; border-radius: 999px; letter-spacing: 0.06em;
+  font-size: 10.5px; font-weight: 700; border: 1px solid currentColor;
+}
+.mr-predict-verdict.hit { color: var(--win); }
+.mr-predict-verdict.miss { color: var(--accent); }
 
 /* ---- teams ---- */
 .mr-grid {
