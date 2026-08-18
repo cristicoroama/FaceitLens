@@ -379,48 +379,98 @@ function Team({ team, onPick, side, topElo }) {
   );
 }
 
+/* A day like "17 Aug", from the epoch seconds the API hands back.
+ *
+ * The year is deliberately missing: a match room is something you open hours
+ * after it happened, so the year is noise 364 days out of 365. */
+function matchDay(ts) {
+  if (!ts) return null;
+  const d = new Date(ts * 1000);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function Crest({ name }) {
+  return <span className="mr-crest" aria-hidden="true">{initials(name || "?")}</span>;
+}
+
+/* One side of the scoreline: the winner label sits above the name so the eye
+ * lands on it before the number, the way it does on FACEIT's own room. */
+function BannerSide({ team, side, won }) {
+  return (
+    <div className={`mr-side s-${side}${won ? " is-win" : ""}`}>
+      <span className="mr-side-text">
+        {won && <span className="mr-winner">Winner</span>}
+        <span className="mr-side-name">{team?.name || (side === "left" ? "Team 1" : "Team 2")}</span>
+      </span>
+      <Crest name={team?.name} />
+    </div>
+  );
+}
+
 function MapBanner({ data }) {
   const key = mapKey(data.map);
   const art = key && HAS_ART.has(key) ? `/maps/${key}.webp` : null;
+
+  const s1 = data.team1?.score;
+  const s2 = data.team2?.score;
+  const scored = data.finished && s1 != null && s2 != null;
+  /* 0 = nobody yet (or a draw), 1 = team1, 2 = team2. */
+  const won = !scored || s1 === s2 ? 0 : s1 > s2 ? 1 : 2;
+  const when = matchDay(data.finished_at || data.started_at);
+  const live = String(data.status || "").toLowerCase() === "ongoing";
 
   return (
     <div className={`mr-banner${art ? " has-art" : ""}`}>
       {art && (
         <img className="mr-banner-art" src={art} alt="" aria-hidden="true" loading="lazy" />
       )}
-      <div className="mr-banner-body">
-        <div className="mr-banner-map">
-          {data.map ? mapLabel(data.map) : "Map not picked yet"}
-        </div>
-        <div className="mr-banner-meta">
+
+      <div className="mr-banner-top">
+        <div className="mr-chips">
           {data.competition && (
             <span className="mr-chip">{Icon.trophy} {data.competition}</span>
           )}
           {data.region && <span className="mr-chip">{Icon.globe} {data.region}</span>}
-          {/* Said in words, not just colour: "ONGOING" and "FINISHED" are the
+          {data.best_of ? <span className="mr-chip">Bo{data.best_of}</span> : null}
+          {/* Said in words, not just colour: "Live" and "Finished" are the
               first thing you need and the last thing the old header showed. */}
-          {data.status && (
-            <span className={`mr-chip status s-${data.finished ? "finished" : String(data.status).toLowerCase()}`}>
-              {data.finished ? "Finished" : String(data.status).toLowerCase() === "ongoing" ? "Live" : data.status}
-            </span>
-          )}
-          {data.finished && data.team1?.score != null && data.team2?.score != null && (
-            <span className="mr-chip score">
-              {data.team1.score} – {data.team2.score}
-            </span>
+          {live && <span className="mr-chip is-live"><i className="mr-dot" />Live</span>}
+          {data.finished && <span className="mr-chip">Finished</span>}
+        </div>
+        <div className="mr-chips">
+          <span className="mr-chip">
+            {Icon.grid1x2} {data.map ? mapLabel(data.map) : "No map yet"}
+          </span>
+          {when && <span className="mr-chip">{when}</span>}
+          {data.faceit_url && (
+            <a
+              className="mr-chip mr-banner-link"
+              href={data.faceit_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {Icon.link45deg} FACEIT
+            </a>
           )}
         </div>
       </div>
-      {data.faceit_url && (
-        <a
-          className="mr-banner-link"
-          href={data.faceit_url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {Icon.link45deg} FACEIT
-        </a>
-      )}
+
+      <div className="mr-banner-score">
+        <BannerSide team={data.team1} side="left" won={won === 1} />
+        <div className="mr-nums">
+          {scored ? (
+            <>
+              <span className={`mr-num${won === 1 ? " is-win" : ""}`}>{s1}</span>
+              <span className="mr-vs">vs</span>
+              <span className={`mr-num${won === 2 ? " is-win" : ""}`}>{s2}</span>
+            </>
+          ) : (
+            <span className="mr-vs">vs</span>
+          )}
+        </div>
+        <BannerSide team={data.team2} side="right" won={won === 2} />
+      </div>
     </div>
   );
 }

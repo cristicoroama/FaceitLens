@@ -3414,8 +3414,8 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 /* ---- map banner ---- */
 .mr-banner {
   position: relative; overflow: hidden;
-  display: flex; align-items: flex-end; gap: 12px;
-  min-height: 104px; padding: 14px 16px; margin-bottom: 14px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 16px;
+  min-height: 132px; padding: 12px 16px 18px; margin-bottom: 14px;
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--bg-elev);
 }
@@ -3426,17 +3426,19 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
      white-on-it text clears contrast without a text-shadow crutch. */
   opacity: 0.28; filter: saturate(0.75);
 }
+/* The content sits top and bottom now, so the scrim runs vertically: dark at
+   both edges where the chips and the names are, clearest through the middle
+   where the map art is actually worth seeing. */
 .mr-banner.has-art::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(90deg, var(--bg-elev) 8%, rgba(10, 10, 12, 0.35) 70%, rgba(10, 10, 12, 0.7));
+  background: linear-gradient(180deg, rgba(10, 10, 12, 0.72) 0%, rgba(10, 10, 12, 0.3) 45%, rgba(10, 10, 12, 0.8) 100%);
 }
-.mr-banner-body, .mr-banner-link { position: relative; z-index: 1; }
-.mr-banner-body { flex: 1; min-width: 0; }
-.mr-banner-map {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(20px, 3.4vw, 28px); letter-spacing: -0.01em; line-height: 1.1;
+.mr-banner-top, .mr-banner-score { position: relative; z-index: 1; }
+.mr-banner-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
 }
-.mr-banner-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mr-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .mr-chip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px; border-radius: 999px;
@@ -3448,14 +3450,68 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 .mr-chip.status { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; }
 .mr-chip.status.s-ongoing, .mr-chip.status.s-live { color: var(--win); border-color: var(--win); }
 .mr-chip.status.s-finished { color: var(--text-dim); }
-.mr-banner-link {
-  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
-  padding: 7px 12px; border-radius: var(--radius-sm);
-  background: var(--bg-elev-3); border: 1px solid var(--border-hi);
-  color: var(--text); text-decoration: none; font-size: 12.5px; font-weight: 600;
+.mr-chip.is-live { color: var(--win); border-color: var(--win); }
+.mr-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--win); flex-shrink: 0;
+  animation: mr-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .mr-dot { animation: none; } }
+
+a.mr-banner-link {
+  color: var(--text); text-decoration: none;
   transition: border-color 0.14s, color 0.14s;
 }
-.mr-banner-link:hover { color: var(--accent); border-color: var(--accent); }
+a.mr-banner-link:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---- scoreline ---- */
+.mr-banner-score {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+}
+.mr-side { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mr-side.s-left { justify-content: flex-end; }
+.mr-side.s-right { justify-content: flex-start; flex-direction: row; }
+.mr-side-text { display: flex; flex-direction: column; min-width: 0; }
+.mr-side.s-left .mr-side-text { align-items: flex-end; text-align: right; }
+.mr-side.s-right .mr-side-text { align-items: flex-start; text-align: left; }
+.mr-side-name {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(15px, 2.6vw, 24px); letter-spacing: -0.01em; line-height: 1.15;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-winner {
+  margin-bottom: 4px; line-height: 1;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--win);
+}
+/* Initials, not a logo: FACEIT's faction avatars are frequently missing on
+   matchmaking rooms, and a broken image is worse than two letters. */
+.mr-crest {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--bg-elev-3); border: 1px solid var(--border-hi);
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-dim);
+}
+.mr-side.is-win .mr-crest { border-color: var(--win); color: var(--text); }
+.mr-nums { display: flex; align-items: center; gap: 10px; }
+.mr-num {
+  font-family: var(--font-mono); font-weight: 800; line-height: 1;
+  font-size: clamp(22px, 4vw, 34px); color: var(--text-dim);
+}
+.mr-num.is-win { color: var(--win); }
+.mr-vs {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+
+@media (max-width: 640px) {
+  .mr-banner { min-height: 0; padding: 10px 12px 14px; gap: 12px; }
+  .mr-banner-score { gap: 8px; }
+  .mr-side { gap: 7px; }
+  .mr-crest { width: 34px; height: 34px; font-size: 11px; }
+  .mr-nums { gap: 7px; }
+}
 
 /* ---- prediction ---- */
 .mr-predict { margin-bottom: 18px; }
