@@ -390,8 +390,23 @@ function matchDay(ts) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-function Crest({ name }) {
-  return <span className="mr-crest" aria-hidden="true">{initials(name || "?")}</span>;
+/* The team picture on a matchmaking room is not a club crest — it is the
+ * profile picture of whoever owns the team, the leader. The payload carries
+ * `leader` as a player_id and every player carries an avatar, so the image is
+ * already in the roster we fetched; no extra call. Falls back to initials,
+ * because a leader who never set an avatar is common. */
+function teamAvatar(team) {
+  if (!team?.leader) return null;
+  const lead = team.players?.find((p) => p.player_id === team.leader);
+  return lead?.avatar || null;
+}
+
+function Crest({ team }) {
+  const src = teamAvatar(team);
+  if (src) {
+    return <img className="mr-crest" src={src} alt="" aria-hidden="true" loading="lazy" />;
+  }
+  return <span className="mr-crest ph" aria-hidden="true">{initials(team?.name || "?")}</span>;
 }
 
 /* One side of the scoreline: the winner label sits above the name so the eye
@@ -403,7 +418,7 @@ function BannerSide({ team, side, won }) {
         {won && <span className="mr-winner">Winner</span>}
         <span className="mr-side-name">{team?.name || (side === "left" ? "Team 1" : "Team 2")}</span>
       </span>
-      <Crest name={team?.name} />
+      <Crest team={team} />
     </div>
   );
 }
