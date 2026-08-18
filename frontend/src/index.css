@@ -5405,3 +5405,172 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
 @media (prefers-reduced-motion: reduce) {
   .tn-new-dot::after { animation: none; }
 }
+
+/* ==========================================================================
+   BOOTSTRAP 5 — card + progress, ported rather than pulling in the framework.
+   Their numbers verbatim (getbootstrap.com/docs/5.3/components/{card,progress}):
+   card spacer 1rem, border-width 1px, radius .375rem; progress height 1rem,
+   font-size .75rem, bar transition width .6s ease. Only the colour variables
+   are ours, so these sit in the dark theme without a light-mode flash.
+   ========================================================================== */
+.card {
+  --bs-card-spacer-y: 1rem;
+  --bs-card-spacer-x: 1rem;
+  --bs-card-border-width: 1px;
+  --bs-card-border-color: var(--border);
+  --bs-card-border-radius: 0.375rem;
+  --bs-card-bg: var(--bg-elev);
+  --bs-card-color: var(--text);
+
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  word-wrap: break-word;
+  color: var(--bs-card-color);
+  background-color: var(--bs-card-bg);
+  background-clip: border-box;
+  border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+  border-radius: var(--bs-card-border-radius);
+}
+.card-body {
+  flex: 1 1 auto;
+  padding: var(--bs-card-spacer-y) var(--bs-card-spacer-x);
+}
+.card-title { margin-bottom: 0.5rem; }
+.card-subtitle { margin-top: -0.25rem; margin-bottom: 0; }
+
+.progress {
+  --bs-progress-height: 1rem;
+  --bs-progress-font-size: 0.75rem;
+  --bs-progress-bg: var(--bg-elev-2);
+  --bs-progress-border-radius: 0.375rem;
+  --bs-progress-bar-color: #fff;
+  --bs-progress-bar-bg: var(--accent);
+  --bs-progress-bar-transition: width 0.6s ease;
+
+  display: flex;
+  height: var(--bs-progress-height);
+  overflow: hidden;
+  font-size: var(--bs-progress-font-size);
+  background-color: var(--bs-progress-bg);
+  border-radius: var(--bs-progress-border-radius);
+}
+.progress-bar {
+  display: flex; flex-direction: column; justify-content: center;
+  overflow: hidden;
+  color: var(--bs-progress-bar-color);
+  text-align: center;
+  white-space: nowrap;
+  background-color: var(--bs-progress-bar-bg);
+  transition: var(--bs-progress-bar-transition);
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar { transition: none; }
+}
+.progress-bar.bg-success { background-color: var(--win); }
+.progress-bar.bg-danger { background-color: var(--loss); }
+
+/* ==========================================================================
+   MATCH ROOM — awards row on a finished match
+   Layout only; the boxes are Bootstrap .card and the bars are .progress.
+   ========================================================================== */
+.mr-aw { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+
+/* The one card that gets the accent treatment, because it is the one number
+   everybody looks for first. */
+.mr-aw-mvp {
+  --bs-card-bg: transparent;
+  --bs-card-border-color: rgba(var(--accent-rgb), 0.3);
+  background-image: linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), transparent 60%);
+}
+.mr-aw-mvp .card-body {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.mr-aw-mvp-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--accent);
+}
+.mr-aw-mvp-stats { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+.mr-aw-mvp-stats span { display: flex; flex-direction: column; gap: 2px; }
+.mr-aw-mvp-stats b {
+  font-family: var(--font-mono), monospace; font-size: 18px; font-weight: 800;
+  color: var(--text); line-height: 1;
+}
+.mr-aw-mvp-stats small {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.mr-aw-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.mr-aw-card .card-body {
+  --bs-card-spacer-y: 0.625rem;
+  --bs-card-spacer-x: 0.75rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+/* Only the two baseline cards get a colour. The superlatives are facts; these
+   two are a judgement, and the colour is the judgement. */
+.mr-aw-card.up { --bs-card-border-color: rgba(61, 214, 127, 0.4); }
+.mr-aw-card.down { --bs-card-border-color: rgba(255, 90, 90, 0.4); }
+.mr-aw-card.up .mr-aw-val b { color: var(--win); }
+.mr-aw-card.down .mr-aw-val b { color: var(--loss); }
+.mr-aw-ic { color: var(--text-dim); font-size: 15px; flex-shrink: 0; }
+.mr-aw-card.up .mr-aw-ic { color: var(--win); }
+.mr-aw-card.down .mr-aw-ic { color: var(--loss); }
+
+.mr-aw-face {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+}
+.mr-aw-face:hover .mr-aw-nick { color: var(--accent); }
+.mr-aw-ava {
+  border-radius: 9px; object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.mr-aw-ava.ph {
+  display: grid; place-items: center;
+  background: var(--bg-elev-2); color: var(--text-dim);
+  font-size: 11px; font-weight: 800;
+}
+.mr-aw-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mr-aw-nick {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mr-aw-team {
+  font-size: 10.5px; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+}
+.mr-aw-val { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.mr-aw-val b {
+  font-family: var(--font-mono), monospace; font-size: 16px; font-weight: 800;
+  color: var(--text); line-height: 1;
+}
+.mr-aw-val span {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-dim); white-space: nowrap;
+}
+
+/* Rating cell: a Bootstrap .progress sat behind the number. Reading ten
+   decimals down a column is work; a bar makes the shape of the match visible. */
+.mr-sb-rt { position: relative; }
+.mr-sb-rt .progress {
+  position: absolute; inset-block: 3px; inset-inline: 0;
+  height: auto; background: transparent; border-radius: 3px;
+}
+.mr-sb-rt .progress-bar {
+  background-color: rgba(var(--accent-rgb), 0.16);
+  border-radius: 3px;
+}
+.mr-sb-rt .mr-sb-rating { position: relative; }
+
+/* Multikills read as noise at "0" everywhere, so only hits are drawn. */
+.mr-sb-table td.hit { color: var(--text); font-weight: 700; }
+.mr-sb-table td.ace { color: var(--accent); font-weight: 800; }
+
+@media (max-width: 620px) {
+  .mr-aw-mvp-stats { margin-left: 0; gap: 16px; }
+}

@@ -157,7 +157,93 @@ function Delta({ now, base, digits = 2 }) {
   );
 }
 
-function Scoreboard({ team, side, onPick }) {
+
+/* A player chip used across every award card. */
+function AwardFace({ p, onPick, size = 32 }) {
+  if (!p) return null;
+  return (
+    <button
+      type="button"
+      className="mr-aw-face"
+      onClick={() => p.nickname && onPick(p.nickname)}
+      title={`Open ${p.nickname}`}
+    >
+      {p.avatar
+        ? <img className="mr-aw-ava" src={p.avatar} alt="" loading="lazy"
+               style={{ width: size, height: size }} />
+        : <span className="mr-aw-ava ph" style={{ width: size, height: size }}>
+            {initials(p.nickname)}
+          </span>}
+      <span className="mr-aw-who">
+        <span className="mr-aw-nick">{p.nickname}</span>
+        <span className="mr-aw-team">{p.team}</span>
+      </span>
+    </button>
+  );
+}
+
+function AwardCard({ label, award, format, onPick, tone, icon }) {
+  if (!award?.player) return null;
+  return (
+    <div className={`card mr-aw-card${tone ? ` ${tone}` : ""}`}>
+      <div className="card-body">
+        <span className="mr-aw-ic" aria-hidden="true">{icon}</span>
+        <AwardFace p={award.player} onPick={onPick} />
+        <div className="mr-aw-val">
+          <b>{format(award)}</b>
+          <span>{label}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* The headline row of a finished room.
+ *
+ * MVP and the three superlatives are the same shape FACEIT uses, because it is
+ * the shape that reads instantly. The last two cards are the ones FACEIT can't
+ * build: they compare a player's night to their own 30-match average, which a
+ * match room has no way of knowing. That comparison is the whole reason to
+ * open this page instead of the FACEIT one. */
+function Awards({ awards, onPick }) {
+  if (!awards) return null;
+  const { mvp, kills, damage, kast, overperformer, underperformer } = awards;
+  const swing = (a) => `${a.value > 0 ? "+" : "−"}${Math.abs(a.value).toFixed(2)}`;
+
+  return (
+    <div className="mr-aw">
+      {mvp?.player && (
+        <div className="card mr-aw-mvp">
+          <div className="card-body">
+          <span className="mr-aw-mvp-tag">{Icon.trophy} Player of the match</span>
+          <AwardFace p={mvp.player} onPick={onPick} size={52} />
+          <div className="mr-aw-mvp-stats">
+            <span><b>{mvp.value.toFixed(2)}</b><small>Rating</small></span>
+            <span><b>{mvp.player.match?.kills ?? "—"}/{mvp.player.match?.deaths ?? "—"}/{mvp.player.match?.assists ?? "—"}</b><small>K/D/A</small></span>
+            <span><b>{mvp.player.match?.adr ?? "—"}</b><small>ADR</small></span>
+            <span><b>{mvp.player.match?.hs != null ? `${mvp.player.match.hs}%` : "—"}</b><small>HS</small></span>
+          </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mr-aw-grid">
+        <AwardCard label="Most kills" award={kills} onPick={onPick}
+                   icon={Icon.crosshair} format={(a) => Math.round(a.value)} />
+        <AwardCard label="Most damage" award={damage} onPick={onPick}
+                   icon={Icon.fire} format={(a) => Math.round(a.value).toLocaleString()} />
+        <AwardCard label="Best KAST" award={kast} onPick={onPick}
+                   icon={Icon.shieldCheck} format={(a) => `${Math.round(a.value)}%`} />
+        <AwardCard label="Above their average" award={overperformer} onPick={onPick}
+                   tone="up" icon={Icon.graphUpArrow} format={swing} />
+        <AwardCard label="Below their average" award={underperformer} onPick={onPick}
+                   tone="down" icon={Icon.graphDownArrow} format={swing} />
+      </div>
+    </div>
+  );
+}
+
+function Scoreboard({ team, side, onPick, bestRating }) {
   return (
     <div className={`mr-sb ${side}`}>
       <div className="mr-sb-head">
@@ -179,7 +265,11 @@ function Scoreboard({ team, side, onPick }) {
             <tr>
               <th className="l">Player</th>
               <th>Rating</th><th>K</th><th>D</th><th>A</th>
-              <th>ADR</th><th>K/D</th><th>HS%</th><th>MVP</th>
+              <th>ADR</th><th>K/D</th><th>HS%</th>
+              <th title="Triple kills">3k</th>
+              <th title="Quadro kills">4k</th>
+              <th title="Ace">5k</th>
+              <th>MVP</th>
               {/* Two columns, one idea: this match against their own last 30. */}
               <th className="sep">K/D vs 30</th><th>ADR vs 30</th>
             </tr>
@@ -200,13 +290,36 @@ function Scoreboard({ team, side, onPick }) {
                       <span className="mr-sb-nick">{p.nickname || "—"}</span>
                     </span>
                   </td>
-                  <td><b className="mr-sb-rating">{m?.rating ?? "—"}</b></td>
+                  <td className="mr-sb-rt">
+                    {/* Bar behind the number, scaled to the best rating in the
+                        room. Reading ten decimals down a column is work; a bar
+                        makes the shape of the match visible at a glance. */}
+                    {m?.rating != null && bestRating > 0 && (
+                      <div
+                        className="progress"
+                        role="progressbar"
+                        aria-label={`Rating ${m.rating} of ${bestRating} best in room`}
+                        aria-valuenow={Number(m.rating)}
+                        aria-valuemin="0"
+                        aria-valuemax={bestRating}
+                      >
+                        <div
+                          className="progress-bar"
+                          style={{ width: `${Math.min(100, (Number(m.rating) / bestRating) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                    <b className="mr-sb-rating">{m?.rating ?? "—"}</b>
+                  </td>
                   <td>{m?.kills ?? "—"}</td>
                   <td>{m?.deaths ?? "—"}</td>
                   <td>{m?.assists ?? "—"}</td>
                   <td>{m?.adr ?? "—"}</td>
                   <td>{m?.kd ?? "—"}</td>
                   <td>{m?.hs != null ? `${m.hs}%` : "—"}</td>
+                  <td className={m?.k3 ? "hit" : ""}>{m?.k3 || "—"}</td>
+                  <td className={m?.k4 ? "hit" : ""}>{m?.k4 || "—"}</td>
+                  <td className={m?.k5 ? "ace" : ""}>{m?.k5 || "—"}</td>
                   <td>{m?.mvps ?? "—"}</td>
                   <td className="sep"><Delta now={m?.kd} base={r?.kd} /></td>
                   <td><Delta now={m?.adr} base={r?.adr} digits={0} /></td>
@@ -348,6 +461,18 @@ export default function MatchRoom({ onPick }) {
       ) || null
     : null;
 
+  /* Scale for the rating bars: the best rating in the room, not a fixed 2.00.
+     Anchoring on the room means a low-scoring match still fills the column and
+     stays readable, and the bars always answer the only question they're for —
+     who carried, relative to everyone else on the server. */
+  const bestRating = data
+    ? Math.max(
+        0,
+        ...[...data.team1.players, ...data.team2.players]
+          .map((p) => Number(p.match?.rating) || 0),
+      )
+    : 0;
+
   return (
     <>
       <div className="page-hero">
@@ -402,8 +527,9 @@ export default function MatchRoom({ onPick }) {
 
           {data.finished ? (
             <>
-              <Scoreboard team={data.team1} side="a" onPick={onPick} />
-              <Scoreboard team={data.team2} side="b" onPick={onPick} />
+              <Awards awards={data.awards} onPick={onPick} />
+              <Scoreboard team={data.team1} side="a" onPick={onPick} bestRating={bestRating} />
+              <Scoreboard team={data.team2} side="b" onPick={onPick} bestRating={bestRating} />
               <div className="hltv-note">
                 The last two columns are what this site is for: each player's
                 result in this match against their own average over their last 30.

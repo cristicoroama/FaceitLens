@@ -139,6 +139,20 @@ MULTIKILL_FIELDS = {
 }
 
 
+def _match_damage(ps, rounds):
+    """Total damage in a match, from ADR and the rounds played.
+
+    FACEIT publishes ADR but not the total, and the total is the number people
+    actually compare — "4061 damage" lands where "116 ADR" doesn't. Returns
+    None rather than a guess when either input is missing.
+    """
+    adr = ps.get("ADR") or ps.get("Average Damage per Round")
+    try:
+        return int(round(float(adr) * int(rounds)))
+    except (TypeError, ValueError):
+        return None
+
+
 def build_multikills(items):
     """
     Aggregate multi-kills over recent matches IF the API exposes them.
@@ -577,6 +591,15 @@ def get_match_detail(match_id):
                 "rating": perf["rating"] if perf else None,
                 "firepower": perf["firepower"] if perf else None,
                 "kast": perf["kast"] if perf else None,
+                # Multikills and total damage cost nothing: they are already in
+                # the stats block this loop is reading. FACEIT's own scoreboard
+                # shows them, and "who got the 4k" is the first question anyone
+                # asks about a round.
+                "k2": _to_int(ps.get("Double Kills")),
+                "k3": _to_int(ps.get("Triple Kills")),
+                "k4": _to_int(ps.get("Quadro Kills")),
+                "k5": _to_int(ps.get("Penta Kills")),
+                "damage": _match_damage(ps, map_rounds),
             })
         players.sort(key=lambda x: float(x["kd"] or 0), reverse=True)
         detail["teams"].append({
@@ -694,6 +717,101 @@ def _player_recent(player_id, n=30):
     return out
 
 
+def _match_awards(t1, t2):
+    """Superlatives for a finished room, computed from data already in hand.
+
+    Two kinds of award here, and the difference is the point of this page.
+
+    The first kind — most kills, most damage, best KAST — is what FACEIT's own
+    scoreboard shows. Worth having, but it is a solved problem.
+
+    The second kind is not: `overperformer` and `underperformer` compare each
+    player's match against their own last-30 average. FACEIT cannot show this,
+    because a match room only knows about the match. "Top fragger" tells you who
+    is good; "played 0.6 K/D above their own average" tells you what actually
+    happened tonight, which is a different and more interesting question.
+    """
+    people = []
+    for team in (t1, t2):
+        for p in team["players"]:
+            m = p.get("match") or {}
+            if not m:
+                continue
+            people.append({
+                "player_id": p.get("player_id"),
+                "nickname": p.get("nickname"),
+                "avatar": p.get("avatar"),
+                "level": p.get("level"),
+                "country": p.get("country"),
+                "team": team.get("name"),
+                "win": team.get("win"),
+                "match": m,
+                "recent": p.get("recent") or {},
+            })
+    if not people:
+        return None
+
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    def best(key, source="match"):
+        ranked = [(p, _f((p[source] or {}).get(key))) for p in people]
+        ranked = [(p, v) for p, v in ranked if v is not None]
+        if not ranked:
+            return None
+        p, v = max(ranked, key=lambda x: x[1])
+        return {"player": _award_player(p), "value": v}
+
+    def swing(direction):
+        """Biggest gap between this match and the player's own baseline.
+
+        Measured in K/D because it is the stat every player already knows their
+        own number for. Needs both halves; a player with no recent data is not
+        a candidate rather than a zero.
+        """
+        ranked = []
+        for p in people:
+            now = _f((p["match"] or {}).get("kd"))
+            base = _f((p["recent"] or {}).get("kd"))
+            if now is None or not base:
+                continue
+            ranked.append((p, round(now - base, 2), base, now))
+        if not ranked:
+            return None
+        pick = (max if direction > 0 else min)(ranked, key=lambda x: x[1])
+        p, delta, base, now = pick
+        # A swing inside the noise of a 30-match average is not a story.
+        if abs(delta) < 0.25:
+            return None
+        return {"player": _award_player(p), "value": delta, "base": base, "now": now}
+
+    mvp = best("rating")
+    return {
+        "mvp": mvp,
+        "kills": best("kills"),
+        "damage": best("damage"),
+        "kast": best("kast"),
+        "overperformer": swing(1),
+        "underperformer": swing(-1),
+    }
+
+
+def _award_player(p):
+    return {
+        "player_id": p["player_id"],
+        "nickname": p["nickname"],
+        "avatar": p["avatar"],
+        "level": p["level"],
+        "country": p["country"],
+        "team": p["team"],
+        "win": p["win"],
+        "match": p["match"],
+    }
+
+
 def get_match_room(raw):
     """
     Scout a FACEIT match room: both teams' rosters with current ELO/level and
@@ -796,6 +914,7 @@ def get_match_room(raw):
         picked_map = mp[0]
 
     finished = str(status or "").upper() in {"FINISHED", "COMPLETED", "CANCELLED", "ABORTED"}
+    awards = None
 
     # A finished room is a different page from an upcoming one.
     #
@@ -849,6 +968,8 @@ def get_match_room(raw):
             if not picked_map:
                 picked_map = detail.get("map")
 
+            awards = _match_awards(t1, t2)
+
     return {
         "match_id": match_id,
         "status": status,
@@ -868,6 +989,7 @@ def get_match_room(raw):
         # payload so "was the favourite right" is still answerable.
         "prob1": prob1,
         "prob2": (100 - prob1) if prob1 is not None else None,
+        "awards": awards,
     }
 
 
