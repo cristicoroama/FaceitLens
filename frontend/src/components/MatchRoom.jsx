@@ -263,7 +263,7 @@ function Awards({ awards, onPick }) {
           <span className="mr-aw-mvp-tag">{Icon.trophy} Player of the match</span>
           <AwardFace p={mvp.player} onPick={onPick} size={52} />
           <div className="mr-aw-mvp-stats">
-            <span><b>{mvp.value.toFixed(2)}</b><small>Rating est.</small></span>
+            <span><b>{mvp.value.toFixed(2)}</b><small>HLTV 2.0 est.</small></span>
             <span><b>{mvp.player.match?.kills ?? "—"}/{mvp.player.match?.deaths ?? "—"}/{mvp.player.match?.assists ?? "—"}</b><small>K/D/A</small></span>
             <span><b>{mvp.player.match?.adr ?? "—"}</b><small>ADR</small></span>
             <span><b>{mvp.player.match?.hs != null ? `${mvp.player.match.hs}%` : "—"}</b><small>HS</small></span>
@@ -386,14 +386,15 @@ function HeadCells({ view }) {
   }
   return (
     <>
-      {/* "est." is not modesty, it is accuracy. This is an HLTV-style
-          rating fitted from kills, deaths, assists, ADR and multikills;
-          FACEIT Rating is a different, proprietary metric that is not
-          in the public API. They disagree, sometimes by a lot, and
-          a column labelled plain "Rating" invites people to read the
-          difference as a bug rather than as two different questions. */}
-      <th title="Estimated HLTV-style rating from this match's kills, deaths, assists, ADR and multikills. Not FACEIT's own rating, which isn't published in their API.">
-        Rating <span className="mr-sb-est">est.</span>
+      {/* Named, not just hedged. "Rating" alone says nothing about the scale,
+          and the scale is what makes the colour bands mean anything — 1.15 and
+          0.90 are landmarks people already carry for HLTV 2.0 and for nothing
+          else. "est." stays because ours is fitted from kills, deaths,
+          assists, ADR and multikills, where HLTV's own uses full demo data.
+          FACEIT Rating is a third thing again: proprietary, undocumented, and
+          absent from their API, so it is not on this page at all. */}
+      <th title="HLTV 2.0-style rating, estimated from this match's kills, deaths, assists, ADR and multikills. HLTV computes theirs from full demo data; FACEIT's own rating is proprietary and isn't published in their API.">
+        HLTV 2.0 <span className="mr-sb-est">est.</span>
       </th>
       <th>K</th><th>D</th><th>A</th>
       <th>ADR</th><th>K/D</th><th>HS%</th>

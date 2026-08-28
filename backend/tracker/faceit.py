@@ -699,6 +699,77 @@ def build_recent_averages(items, n=30, map_filter=None):
     }
 
 
+def build_recent_roles(items, n=30):
+    """Entry, clutch and utility over the last `n` matches.
+
+    Why this exists next to FACEIT's lifetime figures rather than instead of
+    them: lifetime hides the only thing worth knowing. FACEIT publishes
+    ``Entry Rate`` and ``1v1 Win Rate`` over a player's whole career, so
+    somebody who entried for two years and now plays support reads as an entry
+    fragger forever. The career number answers "what have they been"; this one
+    answers "what are they now", and the gap between the two is the story.
+
+    Nothing is modelled here. Every figure is a sum of counts FACEIT reports
+    per match — ``Entry Count``, ``Entry Wins``, ``1v1Count``, ``1v1Wins`` and
+    so on — divided by another such sum. Contrast the match rating, which is a
+    fitted regression and labelled an estimate wherever it appears.
+
+    Rates are None rather than 0 when the denominator is zero: a player who
+    took no entry duels has no entry win rate, and printing 0% would read as
+    "lost them all".
+    """
+    items = (items or [])[:n]
+    if not items:
+        return None
+
+    def total(key):
+        out = 0
+        seen = False
+        for it in items:
+            v = _to_int((it.get("stats") or {}).get(key))
+            if v is not None:
+                out += v
+                seen = True
+        return out if seen else None
+
+    def pct(won, count):
+        if not count:
+            return None
+        return round((won or 0) / count * 100)
+
+    rounds = total("Rounds")
+    entries, entry_wins = total("Entry Count"), total("Entry Wins")
+    v1c, v1w = total("1v1Count"), total("1v1Wins")
+    v2c, v2w = total("1v2Count"), total("1v2Wins")
+    flashes, flash_ok = total("Flash Count"), total("Flash Successes")
+    util_c, util_ok = total("Utility Count"), total("Utility Successes")
+
+    clutch_c = (v1c or 0) + (v2c or 0)
+    clutch_w = (v1w or 0) + (v2w or 0)
+
+    return {
+        "matches": len(items),
+        "rounds": rounds,
+        # Entry: how often they take the opening duel, and how it goes.
+        "entries": entries,
+        "entry_wins": entry_wins,
+        "entry_success": pct(entry_wins, entries),
+        "entry_rate": pct(entries, rounds) if rounds else None,
+        "first_kills": total("First Kills"),
+        # Clutch, split because 1v1 and 1v2 are different asks.
+        "clutch_kills": total("Clutch Kills"),
+        "v1_count": v1c, "v1_wins": v1w, "v1_rate": pct(v1w, v1c),
+        "v2_count": v2c, "v2_wins": v2w, "v2_rate": pct(v2w, v2c),
+        "clutch_rate": pct(clutch_w, clutch_c) if clutch_c else None,
+        # Support work.
+        "flashes": flashes,
+        "flash_success": pct(flash_ok, flashes),
+        "enemies_flashed": total("Enemies Flashed"),
+        "util_damage": total("Utility Damage"),
+        "util_success": pct(util_ok, util_c),
+    }
+
+
 def get_match_demo_url(match_id):
     """Return the first demo download URL for a FACEIT match, or None."""
     try:
@@ -2587,6 +2658,13 @@ def build_player_summary(nickname):
         # Five 0-100 ratings from the block above. None when the account
         # predates every stat they're built from.
         "skills": _skills.build_skill_profile(lifetime, recent_avg),
+        # The same entry/clutch/utility questions as the lifetime block above,
+        # asked of the last 30 matches instead of the whole career. Sums of
+        # FACEIT's own per-match counts — no model, nothing estimated. The
+        # point is the comparison: a career entry rate of 34% against 12% over
+        # the last thirty is a player who changed roles, and the lifetime
+        # figure alone will never say so.
+        "recent_roles": build_recent_roles(match_items),
         "recent_matches": [
             {
                 "match_id": m.get("match_id"),
