@@ -75,13 +75,30 @@ export default function PlayerHeader({ player, children }) {
         <div className="ph-info">
           <div className="ph-name">
             {player.nickname}
+            {/* Icon-only, the way every FACEIT tracker shows these: three small
+                marks in a row, no text and no pill. A word-sized "PREMIUM"
+                chip next to a nickname reads as a headline; the mark reads as
+                a property of the account, which is what it is. */}
+            {/* The real marks, as files rather than inline SVG. Both carry
+                gradients and filters with fixed ids — "abcd", "filter0_i_6_71"
+                — and two of those in one document would collide, with the
+                second element silently painting itself with the first one's
+                fill. An <img> gives each its own document and can't clash. */}
             {player.verified && (
-              <span className="acct-badge verified" title="Verified FACEIT account">
-                {Icon.patchCheckFill}
-              </span>
+              <img
+                className="acct-badge"
+                src="/badges/verified.svg"
+                alt="Verified"
+                title="Verified FACEIT account"
+              />
             )}
             {player.memberships && player.memberships.some((m) => /premium/i.test(m)) && (
-              <span className="acct-badge premium" title="FACEIT Premium member">Premium</span>
+              <img
+                className="acct-badge"
+                src="/badges/premium.svg"
+                alt="Premium"
+                title="FACEIT Premium member"
+              />
             )}
             {/* ESEA rides in the same `memberships` array as Premium — no
                 extra call, no extra field. Matched exactly rather than by
@@ -89,7 +106,12 @@ export default function PlayerHeader({ player, children }) {
                 "ow2_league_pass" and "super_match_token", and a loose test
                 would eventually badge one of those as something it isn't. */}
             {player.memberships && player.memberships.some((m) => String(m).toLowerCase() === "esea") && (
-              <span className="acct-badge esea" title="ESEA subscriber">ESEA</span>
+              <img
+                className="acct-badge"
+                src="/badges/esea.png"
+                alt="ESEA"
+                title="ESEA subscriber"
+              />
             )}
           </div>
           <div className="ph-meta">

@@ -886,23 +886,16 @@ a { color: inherit; }
   .ph-elo-row .fl-icon { width: 34px; height: 34px; }
   .ph-elo-value { font-size: 34px; }
 }
+/* Three small marks in a row after the nickname — the real FACEIT and ESEA
+   badges, served as files. No colour rules here on purpose: these carry their
+   own gradients and are brand marks, so recolouring them would misrepresent
+   them. Sized and spaced only. */
 .acct-badge {
-  display: inline-flex; align-items: center; margin-left: 9px; padding: 3px 9px;
-  border-radius: 7px; font-family: var(--font-display); font-weight: 600;
-  font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; vertical-align: middle;
+  width: 15px; height: 15px;
+  margin-left: 5px; vertical-align: middle;
+  display: inline-block; object-fit: contain;
 }
-/* Icon-only now, so it needs no pill around it — the badge shape IS the
-   affordance. Orange to match the rest of the brand. */
-.acct-badge.verified {
-  color: var(--accent); background: none; border: none;
-  padding: 0; margin-left: 8px;
-}
-.acct-badge.verified svg { width: 18px; height: 18px; display: block; }
-.acct-badge.premium { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.4); }
-/* ESEA in the blue the palette already keeps for secondary information, not a
-   third brand colour dropped into the header. Sits beside Premium without the
-   two fighting over the same orange. */
-.acct-badge.esea { color: var(--accent-2); background: rgba(var(--accent-2-rgb), 0.12); border: 1px solid rgba(var(--accent-2-rgb), 0.4); }
+.acct-badge:first-of-type { margin-left: 9px; }
 
 /* actions row inside hero */
 .ph-actions {
