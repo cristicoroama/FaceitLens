@@ -3,15 +3,36 @@ import CountUp from "./CountUp.jsx";
 import FormStrip from "./FormStrip.jsx";
 import { Icon } from "../icons.jsx";
 
-/* mini stroke icons for the stat cards */
+/* Card icons — Solar, Linear weight.
+ *
+ * These seven used to be hand-drawn inline SVGs, which made them a third icon
+ * style on a page that already runs Bootstrap Icons everywhere else. Solar's
+ * Linear weight is the same thin-stroke language as Bootstrap but tidier
+ * geometry, so swapping only these takes the page from three styles to two
+ * that agree. The small Bootstrap glyphs in chips and table headers stay: at
+ * 13-16px the difference is invisible and churning them buys nothing.
+ *
+ * Imported per icon rather than from the package root so the bundle carries
+ * seven components instead of 1,269.
+ *
+ * Icons are CC BY 4.0 by 480 Design — credited in the site footer, which is a
+ * condition of the licence and not a courtesy. */
+import { GraphUpIcon } from "@solar-icons/react/linear/graph-up";
+import { TargetIcon } from "@solar-icons/react/linear/target";
+import { CupStarIcon } from "@solar-icons/react/linear/cup-star";
+import { BoltIcon } from "@solar-icons/react/linear/bolt";
+import { StarIcon } from "@solar-icons/react/linear/star";
+import { ClockCircleIcon } from "@solar-icons/react/linear/clock-circle";
+import { FireIcon } from "@solar-icons/react/linear/fire";
+
 const IC = {
-  rating: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>,
-  kd: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="8" /><path d="M12 4v16M4 12h16" /></svg>,
-  wr: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4Z" /></svg>,
-  adr: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" /></svg>,
-  elo: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m12 2 2.6 6.6L21 9l-5 4.4L17.5 21 12 17.3 6.5 21 8 13.4 3 9l6.4-.4L12 2Z" /></svg>,
-  session: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>,
-  mk: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 19 12 5l7 14H5Z" /><path d="M12 12v3" /></svg>,
+  rating: <GraphUpIcon />,
+  kd: <TargetIcon />,
+  wr: <CupStarIcon />,
+  adr: <BoltIcon />,
+  elo: <StarIcon />,
+  session: <ClockCircleIcon />,
+  mk: <FireIcon />,
 };
 
 /* How far back each card looks.

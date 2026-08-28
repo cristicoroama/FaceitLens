@@ -89,6 +89,29 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
         (CC BY-SA 3.0). Trust and smurf scores are automated estimates from
         public stats — not accusations.
       </p>
+
+      {/* Required, not optional. The Solar set is CC BY 4.0, which permits
+          commercial use only with credit — the same reason Liquipedia is named
+          above. Map icons are Valve's own artwork. */}
+      <p className="site-foot-note">
+        Interface icons from{" "}
+        <a href="https://solar-icons.vercel.app" target="_blank" rel="noopener noreferrer">
+          Solar Icons
+        </a>{" "}
+        by{" "}
+        <a
+          href="https://www.figma.com/community/file/1166831539721848736"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          480 Design
+        </a>{" "}
+        (CC BY 4.0) and{" "}
+        <a href="https://icons.getbootstrap.com" target="_blank" rel="noopener noreferrer">
+          Bootstrap Icons
+        </a>{" "}
+        (MIT). Map icons are the property of Valve Corporation.
+      </p>
     </footer>
   );
 }
