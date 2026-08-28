@@ -113,6 +113,10 @@ function PlayerRow({ p, onPick, top }) {
           <div className="mr-p-name">
             {p.country && <Flag country={p.country} size={15} />}
             <span className="mr-p-nick">{p.nickname || "—"}</span>
+            {p.stand_in && (
+              <span className="mr-standin" title="Standing in for this match">SUB</span>
+            )}
+            <DivisionBadge placement={p.placement} />
             {/* The highest ELO in the room, not just on this team — the one
                 player whose day decides the match more than anyone else's. */}
             {top && (
@@ -316,6 +320,28 @@ function RoleBadge({ role }) {
   return <span className={`mr-role r-${role}`} title={r.title}>{r.short}</span>;
 }
 
+/* League standing — ESEA and anything else FACEIT runs as a league.
+ *
+ * This is the one thing about a player the site could not say at all: level 10
+ * and 2400 ELO look identical whether someone grinds matchmaking or plays
+ * Advanced, and those are not the same opponent. Absent on ordinary
+ * matchmaking rooms, which is most of them. */
+function DivisionBadge({ placement }) {
+  if (!placement?.division) return null;
+  const bits = [
+    placement.division,
+    placement.tier ? `tier ${placement.tier}` : null,
+    placement.position ? `#${placement.position}` : null,
+    placement.points != null ? `${placement.points} pts` : null,
+  ].filter(Boolean);
+  return (
+    <span className="mr-div" title={bits.join(" · ")}>
+      {placement.division}
+      {placement.tier ? <small>{placement.tier}</small> : null}
+    </span>
+  );
+}
+
 const SB_VIEWS = [
   { id: "general", label: "General" },
   { id: "entry", label: "Entry" },
@@ -470,6 +496,25 @@ function Scoreboard({ team, side, onPick, view = "general" }) {
             {team.overtime ? <> · <b>{team.overtime}</b> OT</> : null}
           </span>
         )}
+        {/* FACEIT's own read on the roster: the average level and how far
+            apart the five are. A team averaging 8 with a 5–10 spread is a
+            different problem from five flat 8s. */}
+        {team.skill_avg != null && (
+          <span
+            className="mr-sb-skill"
+            title={
+              team.skill_min != null && team.skill_max != null
+                ? `Levels ${team.skill_min}–${team.skill_max}`
+                : undefined
+            }
+          >
+            lvl {team.skill_avg}
+            {team.skill_min != null && team.skill_max != null
+              && team.skill_min !== team.skill_max && (
+              <small>{team.skill_min}–{team.skill_max}</small>
+            )}
+          </span>
+        )}
         <span className="mr-sb-avg">{team.avg_elo ?? "—"} <small>avg elo</small></span>
       </div>
 
@@ -495,6 +540,16 @@ function Scoreboard({ team, side, onPick, view = "general" }) {
                       <FaceitLevel level={p.level || 1} size={16} />
                       {p.country && <Flag country={p.country} size={13} />}
                       <span className="mr-sb-nick">{p.nickname || "—"}</span>
+                      {/* A stand-in changes how you read every number next to
+                          them: their ELO is real but their practice with these
+                          four teammates is not. FACEIT marks them on the match
+                          object and the site was throwing it away. */}
+                      {p.stand_in && (
+                        <span className="mr-standin" title="Standing in for this match">
+                          SUB
+                        </span>
+                      )}
+                      <DivisionBadge placement={p.placement} />
                       <RoleBadge role={m?.role} />
                     </span>
                   </td>
@@ -572,6 +627,10 @@ function matchDay(ts) {
  * already in the roster we fetched; no extra call. Falls back to initials,
  * because a leader who never set an avatar is common. */
 function teamAvatar(team) {
+  /* FACEIT names the faction's own picture when there is one; on matchmaking
+     rooms that field is usually empty and the picture shown is the leader's,
+     so fall back to their avatar out of the roster we already have. */
+  if (team?.avatar) return team.avatar;
   if (!team?.leader) return null;
   const lead = team.players?.find((p) => p.player_id === team.leader);
   return lead?.avatar || null;
@@ -663,6 +722,21 @@ function MapBanner({ data }) {
         </div>
         <BannerSide team={data.team2} side="right" won={won === 2} />
       </div>
+
+      {/* On a series the headline score is the map count, which hides the
+          match. 2–1 off 13–11, 4–13, 13–12 is a different night from 2–1 off
+          13–2, 6–13, 13–3, and only the per-map line separates them. */}
+      {data.map_scores?.length > 1 && (
+        <div className="mr-maps">
+          {data.map_scores.map((m, i) => (
+            <span key={i} className="mr-map-score">
+              <b className={m.winner === 1 ? "w" : ""}>{m.t1 ?? "—"}</b>
+              <i>:</i>
+              <b className={m.winner === 2 ? "w" : ""}>{m.t2 ?? "—"}</b>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -763,7 +837,24 @@ export default function MatchRoom({ onPick }) {
                 </div>
               </div>
               <div className="mr-predict-label">
-                {favored === 1 ? data.team1.name : data.team2.name} favored by ELO
+                {favored === 1 ? data.team1.name : data.team2.name} favoured
+                {/* Whose number this is matters. FACEIT publishes its own
+                    probability on the match object; ours is a logistic curve
+                    over average ELO and knows nothing about map or roles.
+                    Printing both as one anonymous percentage would pass off
+                    an estimate as a measurement. */}
+                {data.prob_source === "faceit" ? (
+                  <span className="mr-predict-src" title="FACEIT's own win probability, published on the match">
+                    by FACEIT
+                  </span>
+                ) : (
+                  <span
+                    className="mr-predict-src est"
+                    title="Our estimate: a logistic curve over the average ELO gap. It doesn't know the map, the roles or who's standing in."
+                  >
+                    by ELO · est.
+                  </span>
+                )}
                 {calledIt != null && (
                   <span className={`mr-predict-verdict ${calledIt ? "hit" : "miss"}`}>
                     {calledIt ? "called it" : "upset"}

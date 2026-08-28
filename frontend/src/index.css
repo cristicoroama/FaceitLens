@@ -5691,6 +5691,60 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .mr-tab:hover { color: var(--text); background: var(--bg-elev-2); }
 .mr-tab.on { color: var(--text); background: var(--bg-elev-3); }
 
+/* League division. Gold because it is the rarest thing on the row — most
+   lobbies have none of these, and where it appears it outranks everything
+   else as context for the numbers beside it. */
+.mr-div {
+  display: inline-flex; align-items: baseline; gap: 3px;
+  margin-left: 6px; padding: 1px 6px; border-radius: 3px;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold);
+  font-size: 9px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap;
+}
+.mr-div small { font-size: 0.85em; font-weight: 700; opacity: 0.8; }
+
+/* Per-map scores under the banner scoreline. */
+.mr-maps {
+  position: relative; z-index: 1;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  margin-top: 2px;
+}
+.mr-map-score {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(10, 10, 12, 0.55); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.mr-map-score b { font-weight: 700; }
+.mr-map-score b.w { color: var(--win); }
+.mr-map-score i { font-style: normal; opacity: 0.5; }
+
+/* Team level and spread, beside the average ELO in the scoreboard header. */
+.mr-sb-skill {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+}
+.mr-sb-skill small { font-size: 0.85em; opacity: 0.75; }
+
+/* Stand-in. Filled rather than outlined, unlike the role badges: this one is
+   a fact about the roster rather than a reading of the player, and it changes
+   how every other number on the row should be taken. */
+.mr-standin {
+  margin-left: 6px; padding: 1px 5px; border-radius: 3px;
+  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+  color: var(--accent-2);
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; white-space: nowrap;
+}
+
+/* Whose forecast this is. Quiet, but never absent — an unlabelled percentage
+   is the one thing this row must not show. */
+.mr-predict-src {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: none; color: var(--text-dim);
+}
+.mr-predict-src.est { opacity: 0.85; }
+
 /* Three letters, and only when the behaviour earned them. Bordered rather
    than filled so a row with a badge doesn't outweigh a row without one. */
 .mr-role {

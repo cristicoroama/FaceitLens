@@ -230,6 +230,97 @@ def _match_extras(ps, rounds):
     }
 
 
+# --- ESEA / league placement ---------------------------------------------- #
+#
+# The chain FACEIT makes you walk to answer "what division is this player in":
+#
+#     match.competition_id  ->  /matchmakings/{id}      -> league_id
+#     league_id             ->  /leagues/{id}           -> current season number
+#     league + season + pid ->  .../players/{pid}       -> division, tier, points
+#
+# Three hops before the first useful byte, and the last one is per player, so a
+# ten-player room is twelve requests on top of everything else the page already
+# makes. That is the whole reason for the cache TTLs below rather than one
+# blanket value: the first two hops describe the competition and change once a
+# season, while a player's standing moves after every match they play.
+#
+# Every function here returns None instead of raising. A missing division is a
+# blank badge; a raised exception is a broken match room, and the division is
+# the least important thing on the page.
+
+LEAGUE_TTL = 12 * 60 * 60      # matchmaking -> league, league -> season
+PLACEMENT_TTL = 30 * 60        # a player's division and points
+
+
+def _league_for_matchmaking(matchmaking_id):
+    """The league behind a matchmaking queue, or None if it has no league."""
+    if not matchmaking_id:
+        return None
+    key = f"faceit:mm-league:{matchmaking_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+    try:
+        mm = _get(f"/matchmakings/{matchmaking_id}")
+    except Exception:
+        return None
+    league_id = (mm or {}).get("league_id") or ""
+    # Cached even when empty: most queues are plain matchmaking with no league,
+    # and re-asking on every page load would be twelve wasted requests a minute.
+    cache.set(key, league_id, LEAGUE_TTL)
+    return league_id or None
+
+
+def _current_season(league_id):
+    """The season number currently running in a league, or None."""
+    if not league_id:
+        return None
+    key = f"faceit:league-season:{league_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+    try:
+        league = _get(f"/leagues/{league_id}")
+    except Exception:
+        return None
+    season = ((league or {}).get("season") or {}).get("number")
+    cache.set(key, season or "", LEAGUE_TTL)
+    return season or None
+
+
+def _placement(league_id, season, player_id):
+    """One player's standing in a league season, or None if unplaced.
+
+    A 404 here is the normal case, not an error: it means the player never
+    entered this league, which is true of most of any given lobby.
+    """
+    if not (league_id and season and player_id):
+        return None
+    key = f"faceit:placement:{league_id}:{season}:{player_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+    try:
+        p = _get(f"/leagues/{league_id}/seasons/{season}/players/{player_id}")
+    except Exception:
+        cache.set(key, "", PLACEMENT_TTL)
+        return None
+
+    out = {
+        "division": p.get("division_name"),
+        "tier": p.get("division_tier"),
+        "type": p.get("division_type"),
+        "points": p.get("points"),
+        "position": p.get("position"),
+    }
+    # A row with no division name is a placement in name only.
+    if not out["division"]:
+        cache.set(key, "", PLACEMENT_TTL)
+        return None
+    cache.set(key, out, PLACEMENT_TTL)
+    return out
+
+
 def _match_role(x, kills, rounds):
     """A role read off what the player actually did, not what they call it.
 
@@ -986,11 +1077,27 @@ def get_match_room(raw):
     #
     # max_workers is capped at 10 rather than len(ids)*2 so a malformed room
     # with a huge roster can't open an unbounded number of sockets.
-    elo_by_id, recent_by_id = {}, {}
+    # If this room belongs to a league, resolve it once before the fan-out.
+    #
+    # Sequential on purpose: the per-player placement calls need the league and
+    # season, so there is nothing to parallelise until both are known. Both are
+    # cached for twelve hours, so this is two requests on the first room of the
+    # season and zero on every room after it.
+    league_id = None
+    season = None
+    if str(meta.get("competition_type") or "").lower() == "matchmaking":
+        league_id = _league_for_matchmaking(meta.get("competition_id"))
+        season = _current_season(league_id) if league_id else None
+
+    elo_by_id, recent_by_id, placement_by_id = {}, {}, {}
     if ids:
         with ThreadPoolExecutor(max_workers=min(10, len(ids) * 2)) as pool:
             elo_futs = {pid: pool.submit(_player_elo_level, pid) for pid in ids}
             rec_futs = {pid: pool.submit(_player_recent, pid) for pid in ids}
+            plc_futs = (
+                {pid: pool.submit(_placement, league_id, season, pid) for pid in ids}
+                if (league_id and season) else {}
+            )
             for pid, fut in elo_futs.items():
                 try:
                     elo_by_id[pid] = fut.result()
@@ -1001,6 +1108,11 @@ def get_match_room(raw):
                     recent_by_id[pid] = fut.result()
                 except Exception:
                     recent_by_id[pid] = None
+            for pid, fut in plc_futs.items():
+                try:
+                    placement_by_id[pid] = fut.result()
+                except Exception:
+                    placement_by_id[pid] = None
 
     def build_team(faction):
         f = teams_in.get(faction, {}) or {}
@@ -1017,6 +1129,9 @@ def get_match_room(raw):
                 "avatar": info.get("avatar") or r.get("avatar") or None,
                 "faceit_url": (r.get("faceit_url") or "").replace("{lang}", "en") or None,
                 "recent": recent_by_id.get(pid),
+                # ESEA division and standing, when this room is part of a
+                # league. None for the plain matchmaking most rooms are.
+                "placement": placement_by_id.get(pid),
             })
         players.sort(key=lambda x: (x["elo"] or 0), reverse=True)
 
@@ -1032,6 +1147,26 @@ def get_match_room(raw):
             if p.get("recent") and p["recent"].get("win_rate") is not None
         ]
 
+        # FACEIT's own numbers for this faction, which the site was ignoring.
+        # `stats` carries their win probability and the skill-level spread of
+        # the roster; `substitutes` says who is a stand-in, and which of them
+        # is actually playing.
+        fstats = f.get("stats") or {}
+        skill = fstats.get("skillLevel") or {}
+        srange = skill.get("range") or {}
+
+        subs = []
+        for s in f.get("substitutes") or []:
+            subs.append({
+                "player_id": s.get("player_id"),
+                "nickname": s.get("nickname"),
+                "level": s.get("game_skill_level"),
+                "playing": bool(s.get("playing")),
+            })
+        playing_subs = [s["player_id"] for s in subs if s["playing"]]
+        for p in players:
+            p["stand_in"] = p["player_id"] in playing_subs
+
         return {
             "name": f.get("name") or faction,
             "players": players,
@@ -1040,15 +1175,63 @@ def get_match_room(raw):
             "avg_adr": round(sum(adrs) / len(adrs)) if adrs else None,
             "avg_win_rate": round(sum(wrs) / len(wrs)) if wrs else None,
             "leader": f.get("leader"),
+            # The team picture FACEIT itself shows. On a matchmaking room this
+            # is the leader's own avatar, which is why the roster fallback
+            # below still exists — but when FACEIT names one, use theirs.
+            "avatar": f.get("avatar") or None,
+            # Their probability, not ours. See the note at prob1 below.
+            "win_probability": fstats.get("winProbability"),
+            "skill_avg": skill.get("average"),
+            "skill_min": srange.get("min"),
+            "skill_max": srange.get("max"),
+            "substitutes": subs,
+            "substituted": bool(f.get("substituted")),
         }
 
     t1 = build_team("faction1")
     t2 = build_team("faction2")
 
-    # ELO win probability (logistic on the average-ELO gap)
+    # Win probability: FACEIT's if they published one, ours only as a fallback.
+    #
+    # They expose `stats.winProbability` per faction on the match object, and
+    # theirs is the better number — it is the one their own matchmaker used, so
+    # it knows things a logistic curve over average ELO cannot. The estimate
+    # below stays because the field is absent on plenty of rooms (custom games,
+    # older matches, some competitions), and a missing forecast is worse than
+    # an approximate one as long as the page says which it is.
+    prob_source = None
     prob1 = None
-    if t1["avg_elo"] and t2["avg_elo"]:
+    p_faceit = t1.get("win_probability")
+    if isinstance(p_faceit, (int, float)) and 0 <= p_faceit <= 1:
+        prob1 = round(p_faceit * 100)
+        prob_source = "faceit"
+    elif t1["avg_elo"] and t2["avg_elo"]:
         prob1 = round(1 / (1 + 10 ** ((t2["avg_elo"] - t1["avg_elo"]) / 400)) * 100)
+        prob_source = "elo"
+
+    # Per-map scores on a best-of series.
+    #
+    # `detailed_results` is one entry per map played, each with both factions'
+    # scores and the winner. The banner shows a single score, which on a Bo3 is
+    # the series count — "2 – 1" — and says nothing about how the maps went. A
+    # 2-1 built on 13-11, 4-13, 13-12 is a different match from one built on
+    # 13-2, 6-13, 13-3, and only this field can tell them apart.
+    map_scores = []
+    for r in meta.get("detailed_results") or []:
+        fx = r.get("factions") or {}
+        s1 = (fx.get("faction1") or {}).get("score")
+        s2 = (fx.get("faction2") or {}).get("score")
+        if s1 is None and s2 is None:
+            continue
+        map_scores.append({
+            "t1": s1,
+            "t2": s2,
+            "winner": 1 if r.get("winner") == "faction1"
+            else 2 if r.get("winner") == "faction2" else None,
+        })
+    # One entry is just the match score the banner already shows.
+    if len(map_scores) < 2:
+        map_scores = []
 
     status = meta.get("status")
     voting = meta.get("voting", {}) or {}
@@ -1132,6 +1315,14 @@ def get_match_room(raw):
         # curiosity, not a prediction — the UI hides it, but it stays in the
         # payload so "was the favourite right" is still answerable.
         "prob1": prob1,
+        # "faceit" when the figure is theirs, "elo" when it is our fallback.
+        # The UI has to say which, or the number is a claim we can't support.
+        "prob_source": prob_source,
+        # Per-map scores on a series; empty on a single map.
+        "map_scores": map_scores,
+        # Present only when the room belongs to a league (ESEA and friends).
+        "league_id": league_id,
+        "season": season,
         "prob2": (100 - prob1) if prob1 is not None else None,
         "awards": awards,
     }
