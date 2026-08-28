@@ -73,7 +73,15 @@ export default function StatPanels({ stats }) {
         ["Average K/R", dec(s.avg_kr)],
         ["Headshots", pct(s.avg_hs)],
         ["ADR", dec(s.adr, 1)],
-        ["Total kills", count(s.total_kills)],
+        /* Labelled, because the two numbers on this page cover different
+           universes and read as a contradiction otherwise.
+           FACEIT's "Matches" for CS2 carries the account's CS:GO history too —
+           7,218 on the profile this was checked against, where FACEIT's own
+           page splits it 2,478 CS2 and 4,747 CS:GO. "Total Kills with extended
+           stats" only counts matches that have the advanced block, so it is
+           CS2-only. Side by side and unlabelled they implied six kills a match
+           for a player who averages twenty. */
+        ["Total kills (CS2)", count(s.total_kills)],
       ],
     },
     {

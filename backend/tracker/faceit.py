@@ -2392,7 +2392,22 @@ def build_hltv_stats(items, n=30):
             continue
         if kpr <= 0:
             continue
-        rounds = kills / kpr
+
+        # Rounds: the published field first, the division only as a fallback.
+        #
+        # This used to always compute kills / K/R. FACEIT reports K/R rounded to
+        # two decimals, so that division inherits the rounding — 20 kills at a
+        # true 0.833 comes back as 0.83 and yields 24.1 rounds instead of 24.
+        # Small, but DPR and APR are both divided by it, and KAST, Impact and
+        # the rating are all built on those, so the error propagates into every
+        # figure on the panel. `Rounds` is in the same stats block, exact.
+        rounds = None
+        try:
+            rounds = float(s.get("Rounds"))
+        except (TypeError, ValueError):
+            rounds = None
+        if not rounds or rounds <= 0:
+            rounds = kills / kpr
         if rounds <= 0:
             continue
         kpr_l.append(kpr)
@@ -2535,6 +2550,22 @@ def build_player_summary(nickname):
     best_teammates = build_best_teammates(history, player.get("nickname"))
     teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
     nemeses = build_nemeses(history, player.get("nickname"))
+    # Newest first, by when the match ENDED.
+    #
+    # FACEIT's history comes back ordered by start time, and the two orders are
+    # not the same: a match that starts earlier can finish later after a pause
+    # or a long overtime, and a cancelled one carries a finish time with no map
+    # at all. On a live profile this put a match from seven hours ago below
+    # three from two days earlier, under a heading that says "last 10".
+    #
+    # Sorted on a copy: `history` is also what the teammate and nemesis
+    # builders walk, and they have no business being reordered from here.
+    recent_history = sorted(
+        history,
+        key=lambda m: (m.get("finished_at") or m.get("started_at") or 0),
+        reverse=True,
+    )[:10]
+
     nicknames = []
     recent_avg = build_recent_averages(match_items, n=30)
     hltv = build_hltv_stats(match_items, n=30)
@@ -2694,7 +2725,7 @@ def build_player_summary(nickname):
                     for side, t in m.get("teams", {}).items()
                 },
             }
-            for m in history[:10]
+            for m in recent_history
         ],
     }
 

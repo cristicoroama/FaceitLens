@@ -8,7 +8,11 @@ const METRICS = {
             tiers: [[0.8, "great"], [0.7, "good"], [0.6, "okay"], [0, "poor"]] },
   dpr:    { label: "DPR", min: 0.55, max: 0.85, higherBetter: false,
             tiers: [[0.62, "great"], [0.68, "good"], [0.74, "okay"], [Infinity, "poor"]] },
-  adr:    { label: "ADR", approx: true, min: 50, max: 100, higherBetter: true,
+  /* Not approximate. FACEIT publishes ADR per match and this is the mean of
+     those values — the same arithmetic anyone would do by hand. The star used
+     to sit here anyway, which made a measured figure look guessed and put it in
+     the same class as KAST and Impact, which genuinely are inferred. */
+  adr:    { label: "ADR", min: 50, max: 100, higherBetter: true,
             tiers: [[90, "great"], [80, "good"], [68, "okay"], [0, "poor"]] },
   kast:   { label: "KAST %", approx: true, min: 55, max: 85, higherBetter: true,
             tiers: [[78, "great"], [72, "good"], [66, "okay"], [0, "poor"]] },
