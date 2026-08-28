@@ -34,13 +34,38 @@ function Stat({ icon, value, label, tone }) {
   );
 }
 
+/* The ceiling FACEIT scales its rating bar against.
+ *
+ * Read off the live scoreboard, not guessed: every bar's width divided by its
+ * rating came back at 2.00 (2.006, 2.013, 2.017, 2.000 … the drift is only the
+ * displayed figure being rounded to two decimals while the bar uses the raw
+ * one), and a 2.00 rating filled the cell exactly.
+ *
+ * A fixed ceiling rather than the best rating in the room, which is what this
+ * used to do. Scaling to the room makes every match look the same — the top
+ * player always fills the bar, whether they went 2.00 or 1.05. Against a fixed
+ * 2.00 the bar means the same thing in every match you open, which is the
+ * whole point of looking at more than one. */
+const RATING_MAX = 2;
+
+function ratingPct(r) {
+  const v = Number(r);
+  if (!Number.isFinite(v) || v <= 0) return 0;
+  return Math.min(100, (v / RATING_MAX) * 100);
+}
+
 /* Rating bands, matching the ones FACEIT puts on its own scoreboard.
  *
  * It bands the number rather than shading it continuously, and the bands are
  * what players actually quote at each other: under ~0.90 was a bad night, 1.15
- * and up a good one, and 1.60 up is the tier FACEIT labels "high impact" on
- * the MVP card. Four buckets and no gradient, because a per-hundredth ramp
- * would imply the figure is precise to the hundredth, and it isn't. */
+ * and up a good one, and 1.60 up is the tier it labels "high impact" on the
+ * MVP card. Four buckets and no gradient, because a per-hundredth ramp would
+ * imply the figure is precise to the hundredth, and it isn't.
+ *
+ * Every rating visible on the reference room lands in the same band FACEIT
+ * gives it: 2.00 and 1.83 gold, 1.41 green, 1.02/0.96/0.94 white, 0.87 down
+ * red. The exact cut points between those are inference — the observations
+ * only bracket them. */
 function ratingTier(r) {
   const v = Number(r);
   if (!Number.isFinite(v)) return null;
@@ -259,7 +284,7 @@ function Awards({ awards, onPick }) {
   );
 }
 
-function Scoreboard({ team, side, onPick, bestRating }) {
+function Scoreboard({ team, side, onPick }) {
   return (
     <div className={`mr-sb ${side}`}>
       <div className="mr-sb-head">
@@ -307,30 +332,26 @@ function Scoreboard({ team, side, onPick, bestRating }) {
                     </span>
                   </td>
                   <td className="mr-sb-rt">
-                    {/* FACEIT's own shape: a tinted box holding the figure with
-                        a thin fill strip along its bottom edge, scaled to the
-                        best rating in the room. Reading ten decimals down a
-                        column is work; the strip makes the shape of the match
-                        visible without a second glance. */}
+                    {/* Two separate things, both copied off FACEIT's live
+                        scoreboard: a neutral bar filling the cell behind
+                        everything, and the tinted box holding the figure. */}
+                    {m?.rating != null && (
+                      <span
+                        className="mr-rt-cell"
+                        style={{ width: `${ratingPct(m.rating)}%` }}
+                        role="progressbar"
+                        aria-label={`Rating ${m.rating} of ${RATING_MAX}`}
+                        aria-valuenow={Number(m.rating)}
+                        aria-valuemin="0"
+                        aria-valuemax={RATING_MAX}
+                      />
+                    )}
                     <b
                       className={`mr-sb-rating${ratingTier(m?.rating) ? ` r-${ratingTier(m.rating)}` : ""}`}
                       title={ratingTier(m?.rating) === "elite" ? "High impact" : undefined}
                     >
                       <span className="mr-rt-v">{m?.rating ?? "—"}</span>
-                      {m?.rating != null && bestRating > 0 && (
-                        <span
-                          className="mr-rt-bar"
-                          role="progressbar"
-                          aria-label={`Rating ${m.rating} of ${bestRating} best in room`}
-                          aria-valuenow={Number(m.rating)}
-                          aria-valuemin="0"
-                          aria-valuemax={bestRating}
-                        >
-                          <i
-                            style={{ width: `${Math.min(100, (Number(m.rating) / bestRating) * 100)}%` }}
-                          />
-                        </span>
-                      )}
+                      <span className="mr-rt-rule" aria-hidden="true" />
                     </b>
                   </td>
                   <td>{m?.kills ?? "—"}</td>
@@ -560,18 +581,6 @@ export default function MatchRoom({ onPick }) {
       ) || null
     : null;
 
-  /* Scale for the rating bars: the best rating in the room, not a fixed 2.00.
-     Anchoring on the room means a low-scoring match still fills the column and
-     stays readable, and the bars always answer the only question they're for —
-     who carried, relative to everyone else on the server. */
-  const bestRating = data
-    ? Math.max(
-        0,
-        ...[...data.team1.players, ...data.team2.players]
-          .map((p) => Number(p.match?.rating) || 0),
-      )
-    : 0;
-
   return (
     <>
       <div className="page-hero">
@@ -633,8 +642,8 @@ export default function MatchRoom({ onPick }) {
           {data.finished ? (
             <>
               <Awards awards={data.awards} onPick={onPick} />
-              <Scoreboard team={data.team1} side="a" onPick={onPick} bestRating={bestRating} />
-              <Scoreboard team={data.team2} side="b" onPick={onPick} bestRating={bestRating} />
+              <Scoreboard team={data.team1} side="a" onPick={onPick} />
+              <Scoreboard team={data.team2} side="b" onPick={onPick} />
               <div className="hltv-note">
                 The last two columns are what this site is for: each player's
                 result in this match against their own average over their last 30.

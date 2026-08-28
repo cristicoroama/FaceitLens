@@ -5655,68 +5655,63 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 }
 
 .mr-sb-rt { position: relative; }
-/* The rating box, rebuilt from the computed style of FACEIT's own element
-   rather than from a screenshot. What that changed, versus the guess:
+/* ==========================================================================
+   Rating cell, copied off FACEIT's live scoreboard rather than a screenshot.
+   Every number below was read from the computed style of their own elements
+   on a real match room, so this is a port, not an impression.
 
-     - no border at all. The box is a tint, not a frame — FACEIT fills it with
-       a 90deg gradient at 16% alpha and draws no outline.
-     - radius is 4px (their --f-space-xs).
-     - the fill strip lives INSIDE the box along the bottom edge, rather than
-       washing the whole table cell behind the number.
-     - a text-shadow keeps the figure legible against its own tint:
-       0 0 2px rgba(6,6,6,.24), 0 0 12px rgba(6,6,6,.48), verbatim.
+   Their structure is two independent pieces, which is the part a screenshot
+   cannot show you:
 
-   Only the top band takes FACEIT's orange-to-yellow gradient, because that is
-   the one they use to mean "high impact". Below it the site's own green and
-   red do the work, since those already mean good and bad in the two columns to
-   the right, and inventing a second good/bad palette here would undo that. */
+     1. a neutral bar filling the table cell behind everything, white at 5%,
+        width = rating / 2.00. Neutral, not tinted — the colour is carried by
+        the box, the bar carries only length.
+     2. a tinted box holding the figure. No border at all: fill at 16% alpha,
+        4px radius, and a 3px rule of the same tint across its bottom edge.
+        The rule is decorative and always full width — it is not a gauge.
+
+   The band colours are theirs too, and are not their palette tokens: the
+   rating scale uses #6ade43 and #ff2727, while --f-palette-activeGreen-50 is
+   #05ff00 and heatedOrange-50 is #ef0000. Copying the tokens would have been
+   the obvious mistake, and the wrong colours.
+   ========================================================================== */
+.mr-rt-cell {
+  position: absolute; inset-block: 0; inset-inline-start: 0;
+  background: rgba(241, 241, 241, 0.05);
+  pointer-events: none;
+}
 .mr-sb-rt .mr-sb-rating {
   position: relative; overflow: hidden;
-  display: inline-flex; flex-direction: column; align-items: center;
-  justify-content: center;
-  min-width: 52px; padding: 3px 8px 5px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--text-dim) 12%, transparent);
-  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  color: var(--text-dim); text-align: center; user-select: none;
+  display: inline-flex; flex-direction: column;
+  min-width: 46px; padding: 0;
+  border: 0; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  font-variant-numeric: tabular-nums; text-align: center; user-select: none;
+  color: #fff;
   text-shadow: 0 0 2px rgba(6, 6, 6, 0.24), 0 0 12px rgba(6, 6, 6, 0.48);
 }
-.mr-rt-v { position: relative; line-height: 1.15; }
-
-/* The strip, hugging the bottom inside edge. `currentColor` so it always
-   agrees with the band above it without a rule per tier. */
-.mr-rt-bar {
-  display: block; width: 100%; height: 2px; margin-top: 3px;
-  background: color-mix(in srgb, var(--text-dim) 22%, transparent);
-  border-radius: 999px; overflow: hidden;
-}
-.mr-rt-bar i {
-  display: block; height: 100%; background: currentColor; opacity: 0.75;
-  border-radius: 999px;
+.mr-rt-v { display: block; padding: 2px 4px; line-height: 1.3; }
+.mr-rt-rule {
+  display: block; height: 3px;
+  background: currentColor; opacity: 0.16;
 }
 
 .mr-sb-rating.r-elite {
   background: linear-gradient(90deg, rgba(255, 115, 0, 0.16), rgba(252, 217, 42, 0.16));
-  color: #fcd92a;
+  color: #ff7300;
 }
-/* The figure itself is gradient-filled on this band, the way FACEIT's
-   GradientText does it. Falls back to the flat colour above wherever
-   background-clip: text isn't honoured. */
+/* The figure is gradient-filled on this band, the way their GradientText does
+   it. Falls back to the flat colour above where background-clip: text isn't
+   honoured, which is why the colour is set on the box and not only here. */
 .mr-sb-rating.r-elite .mr-rt-v {
   background: linear-gradient(90deg, #ff7300, #fcd92a);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.mr-sb-rating.r-good {
-  background: color-mix(in srgb, var(--win) 14%, transparent);
-  color: var(--win);
-}
-.mr-sb-rating.r-mid { color: var(--text); }
-.mr-sb-rating.r-poor {
-  background: color-mix(in srgb, var(--loss) 13%, transparent);
-  color: var(--loss);
-}
+.mr-sb-rating.r-good { background: rgba(106, 222, 67, 0.16); color: #6ade43; }
+.mr-sb-rating.r-mid { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.mr-sb-rating.r-poor { background: rgba(255, 39, 39, 0.16); color: #ff2727; }
 
 /* Multikills read as noise at "0" everywhere, so only hits are drawn.
    An ace is gold, not orange: orange is the brand and the MVP, and a fourth
