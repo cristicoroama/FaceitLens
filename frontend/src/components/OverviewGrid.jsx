@@ -78,8 +78,15 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
   const recent = period === "recent";
   const win = recent ? "last 30" : "all time";
 
+  /* FACEIT's lifetime block sends ADR as a two-decimal string, "91.02", while
+     our recent average is already rounded. Printed side by side across a
+     toggle that is meant to change only the window, the extra decimals read as
+     a different metric rather than the same one over more games. Damage per
+     round is not meaningful to a hundredth either way. */
+  const round1 = (v) => (v == null || v === "" ? null : Math.round(Number(v)));
+
   const kd = recent ? ra.kd : s.avg_kd;
-  const adr = recent ? ra.adr : s.adr;
+  const adr = recent ? ra.adr : round1(s.adr);
   const kr = recent ? ra.kr : s.avg_kr;
   const hs = recent ? ra.hs : s.avg_hs;
   const winRate = recent ? ra.win_rate : s.win_rate;
@@ -102,21 +109,26 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         <div className="section-title" style={{ margin: 0 }}>
           Overview {mapFilter ? `· ${mapFilter.replace("de_", "")}` : ""}
         </div>
-        <select
-          className="map-filter"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-          aria-label="Time window"
-        >
-          <option value="recent">Last 30 matches</option>
-          <option value="all">All time</option>
-        </select>
-        {maps && maps.length > 0 && (
-          <select className="map-filter" value={mapFilter || ""} onChange={(e) => onMapFilter(e.target.value || null)}>
-            <option value="">All maps</option>
-            {maps.map((m) => <option key={m} value={m}>{m.replace("de_", "")}</option>)}
+        {/* Both filters in one group, hard right. `.ov-head` is a
+            space-between flex, so a third child lands stranded in the middle
+            of the row instead of beside the control it belongs with. */}
+        <div className="ov-filters">
+          <select
+            className="map-filter"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            aria-label="Time window"
+          >
+            <option value="recent">Last 30 matches</option>
+            <option value="all">All time</option>
           </select>
-        )}
+          {maps && maps.length > 0 && (
+            <select className="map-filter" value={mapFilter || ""} onChange={(e) => onMapFilter(e.target.value || null)}>
+              <option value="">All maps</option>
+              {maps.map((m) => <option key={m} value={m}>{m.replace("de_", "")}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Above the cards: the last ten results are the first thing anyone
