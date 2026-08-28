@@ -1,3 +1,4 @@
+import { useState } from "react";
 import CountUp from "./CountUp.jsx";
 import FormStrip from "./FormStrip.jsx";
 import { Icon } from "../icons.jsx";
@@ -61,6 +62,29 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
   const mk = data.multikills;
   const sess = data.last_session;
 
+  /* One window for the whole grid, chosen by the reader.
+   *
+   * These cards used to mix spans silently: K/D and ADR over the last 30
+   * matches sitting beside a career win rate, same names, different questions.
+   * Labelling each card helped, but the honest fix is to stop mixing — pick a
+   * window and answer every card in it.
+   *
+   * Not every card has both. Rating 2.0 and its parts only exist over recent
+   * matches, ELO is a present-tense number and the session card is today; those
+   * keep their own label whatever is selected, because pretending otherwise
+   * would be the same lie in a different place.
+   */
+  const [period, setPeriod] = useState("recent");
+  const recent = period === "recent";
+  const win = recent ? "last 30" : "all time";
+
+  const kd = recent ? ra.kd : s.avg_kd;
+  const adr = recent ? ra.adr : s.adr;
+  const kr = recent ? ra.kr : s.avg_kr;
+  const hs = recent ? ra.hs : s.avg_hs;
+  const winRate = recent ? ra.win_rate : s.win_rate;
+  const matches = recent ? ra.matches : s.matches;
+
   function ratingColor(r) {
     if (r == null) return undefined;
     if (r >= 1.15) return "var(--win)";
@@ -78,6 +102,15 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         <div className="section-title" style={{ margin: 0 }}>
           Overview {mapFilter ? `· ${mapFilter.replace("de_", "")}` : ""}
         </div>
+        <select
+          className="map-filter"
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+          aria-label="Time window"
+        >
+          <option value="recent">Last 30 matches</option>
+          <option value="all">All time</option>
+        </select>
         {maps && maps.length > 0 && (
           <select className="map-filter" value={mapFilter || ""} onChange={(e) => onMapFilter(e.target.value || null)}>
             <option value="">All maps</option>
@@ -103,29 +136,49 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.kd}
-          label="K/D" period="last 30" value={ra.kd ?? s.avg_kd ?? "—"} trend={data.kd_trend}
+          label="K/D" period={win} value={kd ?? "—"} trend={recent ? data.kd_trend : undefined}
           subs={[
-            { label: "Kills", value: ra.kills },
-            { label: "Deaths", value: ra.deaths },
-            { label: "Assists", value: ra.assists },
+            { label: recent ? "Kills / match" : "Total kills", value: recent ? ra.kills : s.total_kills },
+            { label: "Deaths", value: recent ? ra.deaths : null },
+            { label: "Assists", value: recent ? ra.assists : null },
           ]}
         />
         <Card
           ic={IC.wr}
-          label="Win Rate" period="all time" value={s.win_rate != null ? `${s.win_rate}%` : "—"}
-          subs={[
-            { label: "Matches", value: s.matches },
-            { label: "Best streak", value: s.longest_win_streak },
-            { label: "Current", value: s.current_win_streak },
-          ]}
+          label="Win Rate" period={win} value={winRate != null ? `${winRate}%` : "—"}
+          subs={
+            /* Streaks are career-long and have no thirty-match counterpart, so
+               on the recent window they are replaced rather than shown under a
+               heading that says "last 30". The record is derived from the two
+               figures above it — 30 matches at 57% is 17-13 — which is the same
+               fact stated in the form people actually quote. */
+            recent
+              ? [
+                  { label: "Matches", value: matches },
+                  {
+                    label: "Record",
+                    value:
+                      matches != null && winRate != null
+                        ? `${Math.round((matches * winRate) / 100)}W-${
+                            matches - Math.round((matches * winRate) / 100)
+                          }L`
+                        : null,
+                  },
+                ]
+              : [
+                  { label: "Matches", value: matches },
+                  { label: "Best streak", value: s.longest_win_streak },
+                  { label: "Current", value: s.current_win_streak },
+                ]
+          }
         />
         <Card
           ic={IC.adr}
-          label="ADR" period="last 30" value={ra.adr ?? "—"}
+          label="ADR" period={win} value={adr ?? "—"}
           subs={[
-            { label: "K/R", value: ra.kr },
-            { label: "HS%", value: ra.hs != null ? `${ra.hs}%` : null },
-            { label: "Impact*", value: h.impact },
+            { label: "K/R", value: kr },
+            { label: "HS%", value: hs != null ? `${hs}%` : null },
+            { label: "Impact*", value: recent ? h.impact : null },
           ]}
         />
         <Card

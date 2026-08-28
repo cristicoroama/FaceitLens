@@ -704,7 +704,23 @@ def build_recent_averages(items, n=30, map_filter=None):
         "kills": mean("Kills", 1),
         "deaths": mean("Deaths", 1),
         "assists": mean("Assists", 1),
+        # Win rate over the same window, so the overview can offer "all time"
+        # and "last 30" as one switch instead of mixing the two on screen.
+        # `Result` is FACEIT's own 1/0 per match; counted only where present,
+        # so a run of older matches without it yields None rather than 0%.
+        "win_rate": _recent_win_rate(items),
     }
+
+
+def _recent_win_rate(items):
+    seen = [
+        _to_int((it.get("stats") or {}).get("Result"))
+        for it in items
+    ]
+    seen = [r for r in seen if r is not None]
+    if not seen:
+        return None
+    return round(sum(1 for r in seen if r == 1) / len(seen) * 100)
 
 
 def build_recent_roles(items, n=30):
