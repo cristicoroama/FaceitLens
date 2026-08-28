@@ -139,13 +139,152 @@ MULTIKILL_FIELDS = {
 }
 
 
-def _match_damage(ps, rounds):
-    """Total damage in a match, from ADR and the rounds played.
+def _num(value):
+    """A float, or None. FACEIT sends every stat as a string."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
-    FACEIT publishes ADR but not the total, and the total is the number people
-    actually compare — "4061 damage" lands where "116 ADR" doesn't. Returns
-    None rather than a guess when either input is missing.
+
+def _rate(won, total):
+    """`won / total` as a percentage, or None when nobody tried.
+
+    Zero attempts and zero successes are different facts. A player who never
+    took an entry duel has no entry success rate; rendering that as 0% would
+    accuse them of losing duels they never entered.
     """
+    w, t = _to_int(won), _to_int(total)
+    if not t:
+        return None
+    return round((w or 0) / t * 100)
+
+
+def _match_extras(ps, rounds):
+    """Entry, clutch, utility and flash figures for one player in one match.
+
+    None of this costs an extra request: every key below is already in the
+    `player_stats` block that `/matches/{id}/stats` returns, and the site was
+    reading nine of the forty-six it sends. These are the ones that carry
+    information the scoreboard columns cannot — a 0.79 K/D means one thing from
+    the player who opened half the rounds and another from the one who never
+    took a duel.
+
+    Key names are verbatim from a real response, not from the documentation,
+    which declares `player_stats` a free-form map and lists no keys at all.
+    Anything absent stays None: older matches predate CS2's richer stats block,
+    and a missing figure must not read as a zero.
+    """
+    r = _to_int(rounds) or 0
+
+    entry_count = _to_int(ps.get("Entry Count"))
+    entry_wins = _to_int(ps.get("Entry Wins"))
+    v1_count = _to_int(ps.get("1v1Count"))
+    v1_wins = _to_int(ps.get("1v1Wins"))
+    v2_count = _to_int(ps.get("1v2Count"))
+    v2_wins = _to_int(ps.get("1v2Wins"))
+    flash_count = _to_int(ps.get("Flash Count"))
+    flash_ok = _to_int(ps.get("Flash Successes"))
+    util_count = _to_int(ps.get("Utility Count"))
+    util_ok = _to_int(ps.get("Utility Successes"))
+    sniper = _to_int(ps.get("Sniper Kills"))
+
+    return {
+        # Opening duels: who takes the first fight, and how it goes.
+        "entries": entry_count,
+        "entry_wins": entry_wins,
+        "entry_rate": _rate(entry_wins, entry_count),
+        # Share of the team's rounds this player opened.
+        "entry_share": round(entry_count / r * 100) if r and entry_count else None,
+        "first_kills": _to_int(ps.get("First Kills")),
+
+        # Clutches. Kept split, because 1v1 and 1v2 are not the same ask.
+        "clutch_kills": _to_int(ps.get("Clutch Kills")),
+        "v1_count": v1_count,
+        "v1_wins": v1_wins,
+        "v2_count": v2_count,
+        "v2_wins": v2_wins,
+        "clutch_count": (v1_count or 0) + (v2_count or 0) or None,
+        "clutch_wins": (v1_wins or 0) + (v2_wins or 0) if (v1_count or v2_count) else None,
+
+        # Utility. `enemies` is people hurt, `damage` is the total dealt.
+        "util_damage": _to_int(ps.get("Utility Damage")),
+        "util_count": util_count,
+        "util_successes": util_ok,
+        "util_enemies": _to_int(ps.get("Utility Enemies")),
+        "util_dpr": _num(ps.get("Utility Damage per Round in a Match")),
+
+        # Flashes — the clearest support signal in the whole block.
+        "flashes": flash_count,
+        "flash_successes": flash_ok,
+        "enemies_flashed": _to_int(ps.get("Enemies Flashed")),
+        "flashes_pr": _num(ps.get("Flashes per Round in a Match")),
+
+        # Only what identifies the AWPer. FACEIT also sends pistol, knife and
+        # Zeus kills, and a precomputed success rate for both utility and
+        # flashes; none are here, because the UI shows successes over attempts
+        # instead of a percentage, and the novelty kills answer no question
+        # anyone asks. They are one line away in `ps` if that changes.
+        "sniper_kills": sniper,
+        "sniper_rate": _num(ps.get("Sniper Kill Rate per Round")),
+    }
+
+
+def _match_role(x, kills, rounds):
+    """A role read off what the player actually did, not what they call it.
+
+    This is the thing the raw columns can't say. Two players both finish 0.79
+    K/D; one opened a fifth of the rounds and died doing it, the other never
+    took a duel and threw flashes. The scoreboard prints the same number for
+    both, and the number is the least interesting thing about either.
+
+    Returns one role, strongest signal first, or None. None is the common and
+    correct answer: most players in most matches are just riflers, and labelling
+    everyone would make the label worthless.
+
+    The thresholds are judgement, not measurement — the data brackets them but
+    doesn't fix them. They are set where a human watching the demo would agree:
+
+      awp     a third of their kills with the AWP, and at least three of them,
+              so one lucky pickup off the ground doesn't make someone an AWPer.
+      entry   opens at least a fifth of the rounds played.
+      support half a flash per round, or six utility damage per round.
+    """
+    if not x:
+        return None
+
+    k = _to_int(kills) or 0
+    sniper = x.get("sniper_kills") or 0
+    if sniper >= 3 and k and sniper / k >= 0.30:
+        return "awp"
+
+    if (x.get("entry_share") or 0) >= 20:
+        return "entry"
+
+    if (x.get("flashes_pr") or 0) >= 0.5 or (x.get("util_dpr") or 0) >= 6:
+        return "support"
+
+    return None
+
+
+def _match_damage(ps, rounds):
+    """Total damage in a match.
+
+    FACEIT does publish the real total, as `Damage` — an earlier version of
+    this said it didn't and multiplied ADR by the rounds instead. That was
+    wrong twice over: it is a guess standing in for a fact, and it disagrees
+    with the fact. On a 16-round map, ADR 69.8 x 16 rounds to 1117 where the
+    API says 1116, because the published ADR is itself rounded to one decimal.
+
+    The derivation stays as a fallback, since older matches in a player's
+    history predate the richer stats block and carry ADR but no `Damage`.
+    """
+    real = ps.get("Damage")
+    try:
+        return int(float(real))
+    except (TypeError, ValueError):
+        pass
+
     adr = ps.get("ADR") or ps.get("Average Damage per Round")
     try:
         return int(round(float(adr) * int(rounds)))
@@ -574,6 +713,7 @@ def get_match_detail(match_id):
         for p in team.get("players", []):
             ps = p.get("player_stats", {})
             perf = _perf.match_performance(ps, rounds=map_rounds)
+            extras = _match_extras(ps, map_rounds)
             pid = p.get("player_id")
             players.append({
                 "player_id": pid,
@@ -600,6 +740,10 @@ def get_match_detail(match_id):
                 "k4": _to_int(ps.get("Quadro Kills")),
                 "k5": _to_int(ps.get("Penta Kills")),
                 "damage": _match_damage(ps, map_rounds),
+                # Entry, clutch, utility, flash and weapon flavour — all of it
+                # already in `ps`, none of it costing a request.
+                **extras,
+                "role": _match_role(extras, ps.get("Kills"), map_rounds),
             })
         players.sort(key=lambda x: float(x["kd"] or 0), reverse=True)
         detail["teams"].append({

@@ -259,7 +259,7 @@ function Awards({ awards, onPick }) {
           <span className="mr-aw-mvp-tag">{Icon.trophy} Player of the match</span>
           <AwardFace p={mvp.player} onPick={onPick} size={52} />
           <div className="mr-aw-mvp-stats">
-            <span><b>{mvp.value.toFixed(2)}</b><small>Rating</small></span>
+            <span><b>{mvp.value.toFixed(2)}</b><small>Rating est.</small></span>
             <span><b>{mvp.player.match?.kills ?? "—"}/{mvp.player.match?.deaths ?? "—"}/{mvp.player.match?.assists ?? "—"}</b><small>K/D/A</small></span>
             <span><b>{mvp.player.match?.adr ?? "—"}</b><small>ADR</small></span>
             <span><b>{mvp.player.match?.hs != null ? `${mvp.player.match.hs}%` : "—"}</b><small>HS</small></span>
@@ -284,7 +284,180 @@ function Awards({ awards, onPick }) {
   );
 }
 
-function Scoreboard({ team, side, onPick }) {
+/* A figure, or an em dash. Written once because the difference between "0" and
+ * "didn't try" is the whole reason these columns are worth adding, and typing
+ * `?? "—"` twenty times is how that difference gets lost. */
+function N({ v, suffix = "" }) {
+  if (v == null) return <>—</>;
+  return <>{v}{suffix}</>;
+}
+
+/* "3/5" — done together so a bare success count never appears without the
+ * attempts that give it meaning. */
+function OfN({ won, count }) {
+  if (!count) return <>—</>;
+  return <>{won ?? 0}<small>/{count}</small></>;
+}
+
+/* What the player actually did, in three letters.
+ *
+ * Deliberately absent for most players: the badge is worth something only
+ * because it is rare, and in a normal match three or four of the ten get
+ * nothing at all. */
+const ROLES = {
+  awp: { short: "AWP", title: "A third of their kills came with the AWP" },
+  entry: { short: "ENT", title: "Opened at least a fifth of the rounds" },
+  support: { short: "SUP", title: "Heavy flash or utility contribution" },
+};
+
+function RoleBadge({ role }) {
+  const r = ROLES[role];
+  if (!r) return null;
+  return <span className={`mr-role r-${role}`} title={r.title}>{r.short}</span>;
+}
+
+const SB_VIEWS = [
+  { id: "general", label: "General" },
+  { id: "entry", label: "Entry" },
+  { id: "clutch", label: "Clutch" },
+  { id: "utility", label: "Utility" },
+];
+
+function HeadCells({ view }) {
+  if (view === "entry") {
+    return (
+      <>
+        <th title="Opening duels taken">Entries</th>
+        <th title="Opening duels won">Won</th>
+        <th title="Share of their opening duels that they won">Win%</th>
+        <th title="Share of the map's rounds this player opened">Opened</th>
+        <th title="Rounds where they took the very first kill">First kills</th>
+      </>
+    );
+  }
+  if (view === "clutch") {
+    return (
+      <>
+        <th title="Kills made while last alive">Clutch kills</th>
+        <th title="1v1 situations won of those faced">1v1</th>
+        <th title="1v2 situations won of those faced">1v2</th>
+        <th title="All clutch situations won of those faced">Total</th>
+      </>
+    );
+  }
+  if (view === "utility") {
+    return (
+      <>
+        <th title="Damage dealt with grenades">Util dmg</th>
+        <th title="Utility damage per round">Per round</th>
+        <th title="Grenades that did something, of those thrown">Nades</th>
+        <th title="Opponents damaged by utility">Enemies hit</th>
+        <th title="Flashes that blinded someone, of those thrown">Flashes</th>
+        <th title="Opponents blinded">Blinded</th>
+        <th title="Flashes thrown per round">Per round</th>
+      </>
+    );
+  }
+  return (
+    <>
+      {/* "est." is not modesty, it is accuracy. This is an HLTV-style
+          rating fitted from kills, deaths, assists, ADR and multikills;
+          FACEIT Rating is a different, proprietary metric that is not
+          in the public API. They disagree, sometimes by a lot, and
+          a column labelled plain "Rating" invites people to read the
+          difference as a bug rather than as two different questions. */}
+      <th title="Estimated HLTV-style rating from this match's kills, deaths, assists, ADR and multikills. Not FACEIT's own rating, which isn't published in their API.">
+        Rating <span className="mr-sb-est">est.</span>
+      </th>
+      <th>K</th><th>D</th><th>A</th>
+      <th>ADR</th><th>K/D</th><th>HS%</th>
+      <th title="Triple kills">3k</th>
+      <th title="Quadro kills">4k</th>
+      <th title="Ace">5k</th>
+      <th>MVP</th>
+      {/* Two columns, one idea: this match against their own last 30. */}
+      <th className="sep">K/D vs 30</th><th>ADR vs 30</th>
+    </>
+  );
+}
+
+function BodyCells({ view, m, r }) {
+  if (view === "entry") {
+    return (
+      <>
+        <td><N v={m?.entries} /></td>
+        <td><N v={m?.entry_wins} /></td>
+        <td><N v={m?.entry_rate} suffix="%" /></td>
+        <td><N v={m?.entry_share} suffix="%" /></td>
+        <td><N v={m?.first_kills} /></td>
+      </>
+    );
+  }
+  if (view === "clutch") {
+    return (
+      <>
+        <td className={m?.clutch_kills ? "hit" : ""}><N v={m?.clutch_kills} /></td>
+        <td><OfN won={m?.v1_wins} count={m?.v1_count} /></td>
+        <td><OfN won={m?.v2_wins} count={m?.v2_count} /></td>
+        <td><OfN won={m?.clutch_wins} count={m?.clutch_count} /></td>
+      </>
+    );
+  }
+  if (view === "utility") {
+    return (
+      <>
+        <td><N v={m?.util_damage} /></td>
+        <td><N v={m?.util_dpr} /></td>
+        <td><OfN won={m?.util_successes} count={m?.util_count} /></td>
+        <td><N v={m?.util_enemies} /></td>
+        <td><OfN won={m?.flash_successes} count={m?.flashes} /></td>
+        <td><N v={m?.enemies_flashed} /></td>
+        <td><N v={m?.flashes_pr} /></td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="mr-sb-rt">
+        {/* Two separate things, both copied off FACEIT's live
+            scoreboard: a neutral bar filling the cell behind
+            everything, and the tinted box holding the figure. */}
+        {m?.rating != null && (
+          <span
+            className="mr-rt-cell"
+            style={{ width: `${ratingPct(m.rating)}%` }}
+            role="progressbar"
+            aria-label={`Rating ${m.rating} of ${RATING_MAX}`}
+            aria-valuenow={Number(m.rating)}
+            aria-valuemin="0"
+            aria-valuemax={RATING_MAX}
+          />
+        )}
+        <b
+          className={`mr-sb-rating${ratingTier(m?.rating) ? ` r-${ratingTier(m.rating)}` : ""}`}
+          title={ratingTier(m?.rating) === "elite" ? "High impact" : undefined}
+        >
+          <span className="mr-rt-v">{m?.rating ?? "—"}</span>
+          <span className="mr-rt-rule" aria-hidden="true" />
+        </b>
+      </td>
+      <td>{m?.kills ?? "—"}</td>
+      <td>{m?.deaths ?? "—"}</td>
+      <td>{m?.assists ?? "—"}</td>
+      <td>{m?.adr ?? "—"}</td>
+      <td>{m?.kd ?? "—"}</td>
+      <td>{m?.hs != null ? `${m.hs}%` : "—"}</td>
+      <td className={m?.k3 ? "hit" : ""}>{m?.k3 || "—"}</td>
+      <td className={m?.k4 ? "hit" : ""}>{m?.k4 || "—"}</td>
+      <td className={m?.k5 ? "ace" : ""}>{m?.k5 || "—"}</td>
+      <td>{m?.mvps ?? "—"}</td>
+      <td className="sep"><Delta now={m?.kd} base={r?.kd} /></td>
+      <td><Delta now={m?.adr} base={r?.adr} digits={0} /></td>
+    </>
+  );
+}
+
+function Scoreboard({ team, side, onPick, view = "general" }) {
   return (
     <div className={`mr-sb ${side}`}>
       <div className="mr-sb-head">
@@ -305,14 +478,7 @@ function Scoreboard({ team, side, onPick }) {
           <thead>
             <tr>
               <th className="l">Player</th>
-              <th>Rating</th><th>K</th><th>D</th><th>A</th>
-              <th>ADR</th><th>K/D</th><th>HS%</th>
-              <th title="Triple kills">3k</th>
-              <th title="Quadro kills">4k</th>
-              <th title="Ace">5k</th>
-              <th>MVP</th>
-              {/* Two columns, one idea: this match against their own last 30. */}
-              <th className="sep">K/D vs 30</th><th>ADR vs 30</th>
+              <HeadCells view={view} />
             </tr>
           </thead>
           <tbody>
@@ -329,43 +495,10 @@ function Scoreboard({ team, side, onPick }) {
                       <FaceitLevel level={p.level || 1} size={16} />
                       {p.country && <Flag country={p.country} size={13} />}
                       <span className="mr-sb-nick">{p.nickname || "—"}</span>
+                      <RoleBadge role={m?.role} />
                     </span>
                   </td>
-                  <td className="mr-sb-rt">
-                    {/* Two separate things, both copied off FACEIT's live
-                        scoreboard: a neutral bar filling the cell behind
-                        everything, and the tinted box holding the figure. */}
-                    {m?.rating != null && (
-                      <span
-                        className="mr-rt-cell"
-                        style={{ width: `${ratingPct(m.rating)}%` }}
-                        role="progressbar"
-                        aria-label={`Rating ${m.rating} of ${RATING_MAX}`}
-                        aria-valuenow={Number(m.rating)}
-                        aria-valuemin="0"
-                        aria-valuemax={RATING_MAX}
-                      />
-                    )}
-                    <b
-                      className={`mr-sb-rating${ratingTier(m?.rating) ? ` r-${ratingTier(m.rating)}` : ""}`}
-                      title={ratingTier(m?.rating) === "elite" ? "High impact" : undefined}
-                    >
-                      <span className="mr-rt-v">{m?.rating ?? "—"}</span>
-                      <span className="mr-rt-rule" aria-hidden="true" />
-                    </b>
-                  </td>
-                  <td>{m?.kills ?? "—"}</td>
-                  <td>{m?.deaths ?? "—"}</td>
-                  <td>{m?.assists ?? "—"}</td>
-                  <td>{m?.adr ?? "—"}</td>
-                  <td>{m?.kd ?? "—"}</td>
-                  <td>{m?.hs != null ? `${m.hs}%` : "—"}</td>
-                  <td className={m?.k3 ? "hit" : ""}>{m?.k3 || "—"}</td>
-                  <td className={m?.k4 ? "hit" : ""}>{m?.k4 || "—"}</td>
-                  <td className={m?.k5 ? "ace" : ""}>{m?.k5 || "—"}</td>
-                  <td>{m?.mvps ?? "—"}</td>
-                  <td className="sep"><Delta now={m?.kd} base={r?.kd} /></td>
-                  <td><Delta now={m?.adr} base={r?.adr} digits={0} /></td>
+                  <BodyCells view={view} m={m} r={r} />
                 </tr>
               );
             })}
@@ -539,6 +672,7 @@ export default function MatchRoom({ onPick }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [view, setView] = useState("general");
 
   async function scout() {
     const v = url.trim();
@@ -642,8 +776,25 @@ export default function MatchRoom({ onPick }) {
           {data.finished ? (
             <>
               <Awards awards={data.awards} onPick={onPick} />
-              <Scoreboard team={data.team1} side="a" onPick={onPick} />
-              <Scoreboard team={data.team2} side="b" onPick={onPick} />
+              {/* Tabs rather than thirty columns. Every figure behind these
+                  came in the same response as the scoreboard itself — the
+                  cost of showing them is layout, not bandwidth. */}
+              <div className="mr-tabs" role="tablist" aria-label="Scoreboard view">
+                {SB_VIEWS.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === v.id}
+                    className={`mr-tab${view === v.id ? " on" : ""}`}
+                    onClick={() => setView(v.id)}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <Scoreboard team={data.team1} side="a" onPick={onPick} view={view} />
+              <Scoreboard team={data.team2} side="b" onPick={onPick} view={view} />
               <div className="hltv-note">
                 The last two columns are what this site is for: each player's
                 result in this match against their own average over their last 30.
