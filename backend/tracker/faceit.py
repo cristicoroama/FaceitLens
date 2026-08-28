@@ -762,7 +762,11 @@ def build_recent_roles(items, n=30):
         "entries": entries,
         "entry_wins": entry_wins,
         "entry_success": pct(entry_wins, entries),
-        "entry_rate": pct(entries, rounds) if rounds else None,
+        # `entries` None means the field is absent from these matches, not that
+        # the player took no duels. Dividing that by rounds gave a confident
+        # 0%, which is a different and false claim — seen on a live profile
+        # where every other figure here came back None and this one said zero.
+        "entry_rate": pct(entries, rounds) if (rounds and entries is not None) else None,
         "first_kills": total("First Kills"),
         # Clutch, split because 1v1 and 1v2 are different asks.
         "clutch_kills": total("Clutch Kills"),
