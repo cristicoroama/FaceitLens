@@ -307,29 +307,30 @@ function Scoreboard({ team, side, onPick, bestRating }) {
                     </span>
                   </td>
                   <td className="mr-sb-rt">
-                    {/* Bar behind the number, scaled to the best rating in the
-                        room. Reading ten decimals down a column is work; a bar
-                        makes the shape of the match visible at a glance. */}
-                    {m?.rating != null && bestRating > 0 && (
-                      <div
-                        className="progress"
-                        role="progressbar"
-                        aria-label={`Rating ${m.rating} of ${bestRating} best in room`}
-                        aria-valuenow={Number(m.rating)}
-                        aria-valuemin="0"
-                        aria-valuemax={bestRating}
-                      >
-                        <div
-                          className="progress-bar"
-                          style={{ width: `${Math.min(100, (Number(m.rating) / bestRating) * 100)}%` }}
-                        />
-                      </div>
-                    )}
+                    {/* FACEIT's own shape: a tinted box holding the figure with
+                        a thin fill strip along its bottom edge, scaled to the
+                        best rating in the room. Reading ten decimals down a
+                        column is work; the strip makes the shape of the match
+                        visible without a second glance. */}
                     <b
                       className={`mr-sb-rating${ratingTier(m?.rating) ? ` r-${ratingTier(m.rating)}` : ""}`}
                       title={ratingTier(m?.rating) === "elite" ? "High impact" : undefined}
                     >
-                      {m?.rating ?? "—"}
+                      <span className="mr-rt-v">{m?.rating ?? "—"}</span>
+                      {m?.rating != null && bestRating > 0 && (
+                        <span
+                          className="mr-rt-bar"
+                          role="progressbar"
+                          aria-label={`Rating ${m.rating} of ${bestRating} best in room`}
+                          aria-valuenow={Number(m.rating)}
+                          aria-valuemin="0"
+                          aria-valuemax={bestRating}
+                        >
+                          <i
+                            style={{ width: `${Math.min(100, (Number(m.rating) / bestRating) * 100)}%` }}
+                          />
+                        </span>
+                      )}
                     </b>
                   </td>
                   <td>{m?.kills ?? "—"}</td>

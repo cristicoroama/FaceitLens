@@ -5654,45 +5654,68 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   color: var(--text-dim); white-space: nowrap;
 }
 
-/* Rating cell: a Bootstrap .progress sat behind the number. Reading ten
-   decimals down a column is work; a bar makes the shape of the match visible. */
 .mr-sb-rt { position: relative; }
-.mr-sb-rt .progress {
-  position: absolute; inset-block: 3px; inset-inline: 0;
-  height: auto; background: transparent; border-radius: 3px;
-}
-/* Neutral, not orange.
-   A translucent accent over a near-black row mixes to a muddy brown, and it
-   made the bar read as a rendering fault rather than a measurement. Length is
-   already the whole message here — the colour was carrying nothing except a
-   third, conflicting meaning for the site's one accent. */
-.mr-sb-rt .progress-bar {
-  background-color: var(--border-hi);
-  border-radius: 3px;
-}
-/* The number sits in its own box over the bar, the way FACEIT draws it: the
-   box gives the digits a consistent width so the column reads as a column, and
-   the colour bands it — under 0.90 red, 1.15 up green, 1.60 up gold.
-   Colour on the figure and not on the bar is the point. One element, one
-   meaning, four steps; the bar stays neutral and only carries length. */
+/* The rating box, rebuilt from the computed style of FACEIT's own element
+   rather than from a screenshot. What that changed, versus the guess:
+
+     - no border at all. The box is a tint, not a frame — FACEIT fills it with
+       a 90deg gradient at 16% alpha and draws no outline.
+     - radius is 4px (their --f-space-xs).
+     - the fill strip lives INSIDE the box along the bottom edge, rather than
+       washing the whole table cell behind the number.
+     - a text-shadow keeps the figure legible against its own tint:
+       0 0 2px rgba(6,6,6,.24), 0 0 12px rgba(6,6,6,.48), verbatim.
+
+   Only the top band takes FACEIT's orange-to-yellow gradient, because that is
+   the one they use to mean "high impact". Below it the site's own green and
+   red do the work, since those already mean good and bad in the two columns to
+   the right, and inventing a second good/bad palette here would undo that. */
 .mr-sb-rt .mr-sb-rating {
-  position: relative;
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 48px; padding: 2px 6px;
-  border: 1px solid var(--border-hi); border-radius: 4px;
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  position: relative; overflow: hidden;
+  display: inline-flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  min-width: 52px; padding: 3px 8px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-dim) 12%, transparent);
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
+  color: var(--text-dim); text-align: center; user-select: none;
+  text-shadow: 0 0 2px rgba(6, 6, 6, 0.24), 0 0 12px rgba(6, 6, 6, 0.48);
 }
+.mr-rt-v { position: relative; line-height: 1.15; }
+
+/* The strip, hugging the bottom inside edge. `currentColor` so it always
+   agrees with the band above it without a rule per tier. */
+.mr-rt-bar {
+  display: block; width: 100%; height: 2px; margin-top: 3px;
+  background: color-mix(in srgb, var(--text-dim) 22%, transparent);
+  border-radius: 999px; overflow: hidden;
+}
+.mr-rt-bar i {
+  display: block; height: 100%; background: currentColor; opacity: 0.75;
+  border-radius: 999px;
+}
+
 .mr-sb-rating.r-elite {
-  color: var(--gold); border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: linear-gradient(90deg, rgba(255, 115, 0, 0.16), rgba(252, 217, 42, 0.16));
+  color: #fcd92a;
+}
+/* The figure itself is gradient-filled on this band, the way FACEIT's
+   GradientText does it. Falls back to the flat colour above wherever
+   background-clip: text isn't honoured. */
+.mr-sb-rating.r-elite .mr-rt-v {
+  background: linear-gradient(90deg, #ff7300, #fcd92a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .mr-sb-rating.r-good {
-  color: var(--win); border-color: color-mix(in srgb, var(--win) 45%, transparent);
+  background: color-mix(in srgb, var(--win) 14%, transparent);
+  color: var(--win);
 }
 .mr-sb-rating.r-mid { color: var(--text); }
 .mr-sb-rating.r-poor {
-  color: var(--loss); border-color: color-mix(in srgb, var(--loss) 42%, transparent);
+  background: color-mix(in srgb, var(--loss) 13%, transparent);
+  color: var(--loss);
 }
 
 /* Multikills read as noise at "0" everywhere, so only hits are drawn.
