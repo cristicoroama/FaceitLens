@@ -34,6 +34,22 @@ function Stat({ icon, value, label, tone }) {
   );
 }
 
+/* Rating bands, matching the ones FACEIT puts on its own scoreboard.
+ *
+ * It bands the number rather than shading it continuously, and the bands are
+ * what players actually quote at each other: under ~0.90 was a bad night, 1.15
+ * and up a good one, and 1.60 up is the tier FACEIT labels "high impact" on
+ * the MVP card. Four buckets and no gradient, because a per-hundredth ramp
+ * would imply the figure is precise to the hundredth, and it isn't. */
+function ratingTier(r) {
+  const v = Number(r);
+  if (!Number.isFinite(v)) return null;
+  if (v >= 1.6) return "elite";
+  if (v >= 1.15) return "good";
+  if (v >= 0.9) return "mid";
+  return "poor";
+}
+
 /* K/D over 30 matches, read against the 1.00 break-even that every CS2 player
    already has in their head. Deliberately only three buckets: a per-hundredth
    gradient would imply a precision a 30-match sample doesn't have. */
@@ -309,7 +325,12 @@ function Scoreboard({ team, side, onPick, bestRating }) {
                         />
                       </div>
                     )}
-                    <b className="mr-sb-rating">{m?.rating ?? "—"}</b>
+                    <b
+                      className={`mr-sb-rating${ratingTier(m?.rating) ? ` r-${ratingTier(m.rating)}` : ""}`}
+                      title={ratingTier(m?.rating) === "elite" ? "High impact" : undefined}
+                    >
+                      {m?.rating ?? "—"}
+                    </b>
                   </td>
                   <td>{m?.kills ?? "—"}</td>
                   <td>{m?.deaths ?? "—"}</td>
