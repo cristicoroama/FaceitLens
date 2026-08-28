@@ -160,6 +160,28 @@ def _rate(won, total):
     return round((w or 0) / t * 100)
 
 
+def _clean_platforms(raw):
+    """Linked third-party accounts, whitelisted and stripped.
+
+    FACEIT hands back a free-form map, so this only passes through the four
+    platforms the UI knows how to link. A whitelist rather than a pass-through
+    because the values go straight into an href: an unknown key with a
+    surprising value would be a link the site builds out of data it never
+    checked. Handles only — no URLs, no protocols, nothing with a slash.
+    """
+    known = {"steam", "twitch", "youtube", "discord"}
+    out = {}
+    for key, value in (raw or {}).items():
+        k = str(key).strip().lower()
+        v = str(value or "").strip()
+        # A handle, not a link. Anything carrying a scheme, a host or a path
+        # is not what this field is supposed to hold, so it is dropped rather
+        # than repaired.
+        if k in known and v and not any(c in v for c in "/\\:?#& "):
+            out[k] = v[:64]
+    return out or None
+
+
 def _match_extras(ps, rounds):
     """Entry, clutch, utility and flash figures for one player in one match.
 
@@ -2664,6 +2686,11 @@ def build_player_summary(nickname):
         "verified": player.get("verified", False),
         "steam_id": steam_id,
         "memberships": player.get("memberships", []),
+        # Third-party accounts the player linked on FACEIT — twitch, youtube,
+        # discord, steam. This is where every tracker gets the Twitch handle
+        # from; there is no separate endpoint for it. FACEIT returns handles,
+        # not URLs, so the frontend builds the link.
+        "platforms": _clean_platforms(player.get("platforms")),
         "ranking": ranking,
         "bans": bans,
         "streak": session_info["streak"],
