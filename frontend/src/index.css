@@ -2430,15 +2430,19 @@ body, .topnav, .card, .squad-row, .rank-card,
 
 /* ---- overview cards v2 (icon chip in corner) ---- */
 .ov-card { position: relative; }
+/* The icon on its own — no chip, no border, no accent tint.
+   The box was doing the work of drawing the eye to a decoration, in the one
+   colour the page reserves for meaning. Bare and white, it reads as the label
+   it is, and the orange goes back to marking things that matter. */
 .ov-ic {
   position: absolute; top: 14px; right: 14px;
-  width: 28px; height: 28px; border-radius: 9px;
   display: grid; place-items: center;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.14), transparent);
-  border: 1px solid rgba(var(--accent-rgb), 0.25);
-  color: var(--accent); opacity: 0.9;
+  color: var(--text);
+  /* Dimmed a touch so a 22px glyph doesn't compete with the 34px figure it
+     belongs to. Drop this line for pure white if it reads too quiet. */
+  opacity: 0.7;
 }
-.ov-ic svg { width: 14px; height: 14px; }
+.ov-ic svg { width: 22px; height: 22px; }
 
 /* ---- HLTV profile gauges v2 ---- */
 .g2-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
