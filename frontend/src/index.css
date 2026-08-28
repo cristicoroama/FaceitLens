@@ -891,8 +891,8 @@ a { color: inherit; }
    own gradients and are brand marks, so recolouring them would misrepresent
    them. Sized and spaced only. */
 .acct-badge {
-  width: 15px; height: 15px;
-  margin-left: 5px; vertical-align: middle;
+  width: 19px; height: 19px;
+  margin-left: 6px; vertical-align: middle;
   display: inline-block; object-fit: contain;
 }
 .acct-badge:first-of-type { margin-left: 9px; }
