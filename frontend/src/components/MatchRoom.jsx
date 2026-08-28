@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FaceitLevel, Flag } from "./RankIcons.jsx";
 import { ResultChip } from "./FormStrip.jsx";
-import { mapKey, mapLabel } from "../map-art.jsx";
+import { mapKey, mapLabel, MapIcon } from "../map-art.jsx";
 import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -455,7 +455,8 @@ function MapBanner({ data }) {
         </div>
         <div className="mr-chips">
           <span className="mr-chip">
-            {Icon.grid1x2} {data.map ? mapLabel(data.map) : "No map yet"}
+            {data.map ? <MapIcon map={data.map} /> : Icon.grid1x2}
+            {data.map ? mapLabel(data.map) : "No map yet"}
           </span>
           {when && <span className="mr-chip">{when}</span>}
           {data.faceit_url && (

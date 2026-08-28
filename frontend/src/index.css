@@ -3467,6 +3467,11 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mr-chip svg { color: var(--text-dim); flex-shrink: 0; }
+/* Valve's icons are full-colour badges on transparent, not line art, so they
+   keep their own colour rather than inheriting the chip's. They are the one
+   place on this page where colour is decoration and not a signal — which is
+   fine, because a map badge means "this map" and nothing else. */
+.map-icon { flex-shrink: 0; object-fit: contain; }
 .mr-chip.status { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; }
 .mr-chip.status.s-ongoing, .mr-chip.status.s-live { color: var(--win); border-color: var(--win); }
 .mr-chip.status.s-finished { color: var(--text-dim); }

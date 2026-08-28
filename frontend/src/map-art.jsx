@@ -32,6 +32,25 @@ const LABELS = {
   italy: "Italy",
 };
 
+/**
+ * Valve's own map icons, from github.com/MurkyYT/cs2-map-icons, resized to
+ * 48px and stored in public/map-icons/<key>.png.
+ *
+ * Deliberately a wider set than HAS_IMAGE above: the banner art only covers
+ * the maps in the active pools, but an icon exists for anything that turns up
+ * in match history — cbble and dogtown included. Keep this list in step with
+ * the folder, same as HAS_IMAGE.
+ */
+const HAS_ICON = new Set([
+  "agency", "alpine", "ancient", "anubis", "assembly", "baggage", "basalt",
+  "boulder", "brewery", "cache", "canals", "cbble", "debris", "dogtown",
+  "dust", "dust2", "edin", "eldorado", "fachwerk", "golden", "grail",
+  "inferno", "italy", "jura", "lake", "memento", "mills", "mirage", "nuke",
+  "office", "overpass", "palacio", "palais", "pool_day", "poseidon",
+  "rooftop", "sanctum", "shelter", "shoots", "stronghold", "sugarcane",
+  "thera", "train", "transit", "vertigo", "warden", "whistle",
+]);
+
 export function mapKey(map) {
   return (map || "").toLowerCase().replace(/^(de|cs|ar)_/, "").replace(/\s+/g, "_");
 }
@@ -49,6 +68,34 @@ function codeFor(key) {
     c: "var(--accent)",
     code: key.replace(/_/g, "").slice(0, 3).toUpperCase() || "MAP",
   };
+}
+
+/**
+ * The small square icon that sits next to a map name, the way FACEIT puts one
+ * beside "Nuke" in its match header.
+ *
+ * Renders nothing rather than a placeholder when the map is unknown: this is
+ * decoration beside a label that already says the name, so a missing icon
+ * should cost a few pixels of gap, not draw a grey box.
+ */
+export function MapIcon({ map, size = 16, className = "" }) {
+  const key = mapKey(map);
+  const [failed, setFailed] = useState(false);
+
+  if (!HAS_ICON.has(key) || failed) return null;
+  return (
+    <img
+      className={`map-icon ${className}`}
+      src={`/map-icons/${key}.png`}
+      alt=""
+      aria-hidden="true"
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function MapThumb({ map, className = "" }) {
