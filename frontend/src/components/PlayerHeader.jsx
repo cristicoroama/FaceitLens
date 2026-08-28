@@ -1,7 +1,7 @@
 import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
-import { SteamIcon, FaceitIcon, ExternalIcon } from "./BrandIcons.jsx";
+import { SteamIcon, FaceitIcon, TwitchIcon, ExternalIcon } from "./BrandIcons.jsx";
 import { Icon } from "../icons.jsx";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
@@ -83,6 +83,14 @@ export default function PlayerHeader({ player, children }) {
             {player.memberships && player.memberships.some((m) => /premium/i.test(m)) && (
               <span className="acct-badge premium" title="FACEIT Premium member">Premium</span>
             )}
+            {/* ESEA rides in the same `memberships` array as Premium — no
+                extra call, no extra field. Matched exactly rather than by
+                substring: the array also carries entries like
+                "ow2_league_pass" and "super_match_token", and a loose test
+                would eventually badge one of those as something it isn't. */}
+            {player.memberships && player.memberships.some((m) => String(m).toLowerCase() === "esea") && (
+              <span className="acct-badge esea" title="ESEA subscriber">ESEA</span>
+            )}
           </div>
           <div className="ph-meta">
             <span className="ph-country">
@@ -118,6 +126,22 @@ export default function PlayerHeader({ player, children }) {
               >
                 <SteamIcon />
                 Steam Profile
+                <ExternalIcon />
+              </a>
+            )}
+            {/* Twitch comes from FACEIT's `platforms` map — the account the
+                player linked themselves. The backend already whitelists the
+                platform and rejects anything that isn't a bare handle, so this
+                is a handle going into a path, never a URL passed through. */}
+            {player.platforms?.twitch && (
+              <a
+                className="ph-link twitch"
+                href={`https://twitch.tv/${encodeURIComponent(player.platforms.twitch)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <TwitchIcon />
+                Twitch
                 <ExternalIcon />
               </a>
             )}

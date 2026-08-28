@@ -18,6 +18,17 @@ export function SteamIcon({ size = 16 }) {
 
 /** FACEIT's arrow mark, drawn as a single filled path so it takes the colour
     of whatever button it sits in instead of carrying a black outline. */
+/* Twitch's own glyph, from their brand guidelines. Kept monochrome and driven
+   by currentColor so the link colours it like the others rather than dropping
+   the brand purple into a page that reserves colour for meaning. */
+export function TwitchIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M4.265 0 1.5 3.687v16.591h5.53V24h3.032l3.687-3.722h4.607L23.5 15.13V0H4.265Zm2.765 2.765h13.706v11.06l-3.687 3.688h-4.607l-3.687 3.687v-3.687H7.03V2.765Zm4.607 3.687v5.53h2.765v-5.53h-2.765Zm5.53 0v5.53h2.765v-5.53h-2.765Z" />
+    </svg>
+  );
+}
+
 export function FaceitIcon({ size = 16 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">

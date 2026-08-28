@@ -832,6 +832,9 @@ a { color: inherit; }
 .ph-link.faceit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .ph-link.faceit:hover { border-color: var(--accent); }
 .ph-link.steam:hover { color: #66c0f4; border-color: color-mix(in srgb, #66c0f4 55%, var(--border)); }
+/* Brand colour on hover only, like Steam above — the resting state stays
+   neutral so three coloured buttons don't compete with the ELO beside them. */
+.ph-link.twitch:hover { color: #a970ff; border-color: color-mix(in srgb, #a970ff 55%, var(--border)); }
 .ph-link svg:last-child { opacity: 0.5; }
 @media (max-width: 640px) { .ph-links { margin-top: 10px; } }
 .ph-avatar { position: relative; flex-shrink: 0; }
@@ -896,6 +899,10 @@ a { color: inherit; }
 }
 .acct-badge.verified svg { width: 18px; height: 18px; display: block; }
 .acct-badge.premium { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.4); }
+/* ESEA in the blue the palette already keeps for secondary information, not a
+   third brand colour dropped into the header. Sits beside Premium without the
+   two fighting over the same orange. */
+.acct-badge.esea { color: var(--accent-2); background: rgba(var(--accent-2-rgb), 0.12); border: 1px solid rgba(var(--accent-2-rgb), 0.4); }
 
 /* actions row inside hero */
 .ph-actions {
