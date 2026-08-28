@@ -13,13 +13,23 @@ const IC = {
   mk: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 19 12 5l7 14H5Z" /><path d="M12 12v3" /></svg>,
 };
 
-function Card({ label, approx, value, color, trend, subs, ic }) {
+/* How far back each card looks.
+ *
+ * These cards sit side by side and cover three different windows: Rating, K/D
+ * and ADR are the last 30 matches, Win Rate and Matches are the whole career,
+ * Last Session is today. Unlabelled, that reads as contradiction — a K/D of
+ * 1.51 next to 7,219 matches invites you to multiply them, and the answer is
+ * wrong because the two numbers are not about the same games.
+ *
+ * The period belongs on the card, not in a footnote nobody reaches. */
+function Card({ label, approx, period, value, color, trend, subs, ic }) {
   return (
     <div className="ov-card">
       {ic && <div className="ov-ic">{ic}</div>}
       <div className="ov-card-label">
         {label}
         {approx && <span className="ov-approx">*</span>}
+        {period && <span className="ov-window">{period}</span>}
       </div>
       <div className="ov-card-value" style={color ? { color } : undefined}>
         {value}
@@ -84,7 +94,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
       <div className="ov-grid">
         <Card
           ic={IC.rating}
-          label="Rating 2.0" approx value={h.rating ?? "—"} color={ratingColor(h.rating)}
+          label="Rating 2.0" approx period="last 30" value={h.rating ?? "—"} color={ratingColor(h.rating)}
           subs={[
             { label: "KPR", value: h.kpr },
             { label: "DPR", value: h.dpr },
@@ -93,7 +103,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.kd}
-          label="K/D" value={ra.kd ?? s.avg_kd ?? "—"} trend={data.kd_trend}
+          label="K/D" period="last 30" value={ra.kd ?? s.avg_kd ?? "—"} trend={data.kd_trend}
           subs={[
             { label: "Kills", value: ra.kills },
             { label: "Deaths", value: ra.deaths },
@@ -102,7 +112,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.wr}
-          label="Win Rate" value={s.win_rate != null ? `${s.win_rate}%` : "—"}
+          label="Win Rate" period="all time" value={s.win_rate != null ? `${s.win_rate}%` : "—"}
           subs={[
             { label: "Matches", value: s.matches },
             { label: "Best streak", value: s.longest_win_streak },
@@ -111,7 +121,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.adr}
-          label="ADR" approx value={ra.adr ?? "—"}
+          label="ADR" period="last 30" value={ra.adr ?? "—"}
           subs={[
             { label: "K/R", value: ra.kr },
             { label: "HS%", value: ra.hs != null ? `${ra.hs}%` : null },
@@ -120,7 +130,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.elo}
-          label="ELO" value={<CountUp value={data.elo} />} color="var(--accent)"
+          label="ELO" period="current" value={<CountUp value={data.elo} />} color="var(--accent)"
           subs={[
             { label: "Highest", value: ex.high },
             { label: "Lowest", value: ex.low },
@@ -130,7 +140,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         {sess && (
           <Card
             ic={IC.session}
-            label="Last Session" value={`${sess.wins}-${sess.losses}`}
+            label="Last Session" period="today" value={`${sess.wins}-${sess.losses}`}
             color={sess.elo_change >= 0 ? "var(--win)" : "var(--loss)"}
             subs={[
               { label: "ELO", value: `${sess.elo_change >= 0 ? "+" : ""}${sess.elo_change}` },
@@ -142,7 +152,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         {mk && (
           <Card
             ic={IC.mk}
-            label="Multi-Kills" value={mk.triple_total}
+            label="Multi-Kills" period="last 50" value={mk.triple_total}
             subs={[
               { label: "Triple", value: mk.triple_total },
               { label: "Quad", value: mk.quadro_total },

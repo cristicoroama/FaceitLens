@@ -1080,6 +1080,27 @@ a { color: inherit; }
 .ov-card:hover { transform: translateY(-3px); }
 .ov-card-label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
 .ov-approx { color: var(--accent); margin-left: 3px; }
+/* Which window the card covers. These sit side by side over three different
+   spans — last 30, all time, today — and without this a career K/D next to a
+   recent one reads as a contradiction rather than as two questions. Quiet
+   enough to ignore once you've learned the layout, present enough to answer
+   the question the first time it comes up. */
+.ov-window {
+  margin-left: 6px; padding: 1px 5px; border-radius: 3px;
+  background: var(--bg-elev-3); color: var(--text-dim);
+  font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
+  text-transform: none; white-space: nowrap; vertical-align: 1px;
+}
+
+/* Same idea on the hero strip, which is career-long throughout. Absolute
+   rather than a sixth grid child: .ph-strip is a fixed five-column grid and
+   an extra element would drop to a second row. */
+.ph-strip-tag {
+  position: absolute; top: 4px; right: 8px;
+  font-size: 8.5px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-dim); opacity: 0.6;
+  pointer-events: none;
+}
 .ov-card-value { font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1.1; margin: 4px 0 10px; }
 .ov-card-subs { border-top: 1px solid var(--glass-brd); padding-top: 8px; display: flex; flex-direction: column; gap: 5px; }
 .ov-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }

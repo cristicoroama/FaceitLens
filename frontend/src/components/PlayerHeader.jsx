@@ -138,8 +138,13 @@ export default function PlayerHeader({ player, children }) {
         </div>
       </div>
 
-      {/* quick-stat strip */}
+      {/* Quick-stat strip — every figure here is career-long.
+          Said out loud because the overview cards a screen below show the same
+          names over the last 30 matches, and a K/D of 1.32 here against 1.44
+          there reads as one of them being broken. Two windows, two answers,
+          both right; the label is what makes that legible. */}
       <div className="ph-strip">
+        <div className="ph-strip-tag">All time</div>
         <PS label="Matches" value={s.matches} />
         <PS
           label="Win Rate"

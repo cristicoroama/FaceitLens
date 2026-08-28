@@ -2550,13 +2550,20 @@ def build_player_summary(nickname):
     best_teammates = build_best_teammates(history, player.get("nickname"))
     teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
     nemeses = build_nemeses(history, player.get("nickname"))
-    # Newest first, by when the match ENDED.
+    # Newest first, by `finished_at` — the same field the list prints.
     #
-    # FACEIT's history comes back ordered by start time, and the two orders are
-    # not the same: a match that starts earlier can finish later after a pause
-    # or a long overtime, and a cancelled one carries a finish time with no map
-    # at all. On a live profile this put a match from seven hours ago below
-    # three from two days earlier, under a heading that says "last 10".
+    # FACEIT returns history ordered by start time, and the two orders differ:
+    # a match that starts earlier can finish later, and an abandoned one keeps
+    # a finish stamp from whenever an admin closed it. One on this profile
+    # started 3.9 days ago and was closed 11 hours ago, 85 hours apart.
+    #
+    # Sort on `finished_at` and not on `started_at`, even though the latter is
+    # closer to "when was this played". The column renders
+    # relTime(finished_at), so sorting by anything else puts a row reading
+    # "11h ago" between "4d ago" and "8d ago" — the list has to be ordered by
+    # the number it shows, or it reads as broken no matter which field is
+    # philosophically righter. If that display ever changes, this changes with
+    # it; the two are one decision, not two.
     #
     # Sorted on a copy: `history` is also what the teammate and nemesis
     # builders walk, and they have no business being reordered from here.
