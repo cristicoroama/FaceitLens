@@ -327,17 +327,35 @@ function RoleBadge({ role }) {
  * Advanced, and those are not the same opponent. Absent on ordinary
  * matchmaking rooms, which is most of them. */
 function DivisionBadge({ placement }) {
-  if (!placement?.division) return null;
+  const name = placement?.division;
+  if (!name) return null;
+
+  /* Two things this filters out, both learned from a real room.
+   *
+   * "Skill Level 4-6" is not a league division — it is FACEIT's matchmaking
+   * bracket, and it repeats the level icon already sitting two elements to the
+   * left. A badge that restates its neighbour is noise.
+   *
+   * And `division_tier` comes back as a slug, "skill__level_4_6-1", which is
+   * an internal key and was being printed verbatim. Anything that looks like a
+   * slug is dropped rather than shown; the tier only survives if it reads like
+   * something a person wrote. */
+  if (/^skill\s*level/i.test(name)) return null;
+
+  const tier = placement.tier;
+  const tierOk = tier && !/[_]|--/.test(String(tier)) && String(tier).length <= 12;
+
   const bits = [
-    placement.division,
-    placement.tier ? `tier ${placement.tier}` : null,
+    name,
+    tierOk ? `tier ${tier}` : null,
     placement.position ? `#${placement.position}` : null,
     placement.points != null ? `${placement.points} pts` : null,
   ].filter(Boolean);
+
   return (
     <span className="mr-div" title={bits.join(" · ")}>
-      {placement.division}
-      {placement.tier ? <small>{placement.tier}</small> : null}
+      {name}
+      {tierOk ? <small>{tier}</small> : null}
     </span>
   );
 }

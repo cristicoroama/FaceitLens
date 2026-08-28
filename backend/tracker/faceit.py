@@ -338,8 +338,16 @@ def _match_role(x, kills, rounds):
 
       awp     a third of their kills with the AWP, and at least three of them,
               so one lucky pickup off the ground doesn't make someone an AWPer.
-      entry   opens at least a fifth of the rounds played.
-      support half a flash per round, or six utility damage per round.
+      entry   opens at least three rounds in ten, and at least five rounds
+              outright.
+      support two flashes every three rounds, or eight utility damage per
+              round.
+
+    The entry and support marks were both raised after seeing them on a real
+    room: at a fifth of the rounds, five of ten players came back "entry",
+    which is not a reading of anything. Opening four rounds of sixteen is what
+    an ordinary rifler does by accident. The badge has to mean the player went
+    in first as a job, so the bar is where only one or two on a side clear it.
     """
     if not x:
         return None
@@ -349,10 +357,10 @@ def _match_role(x, kills, rounds):
     if sniper >= 3 and k and sniper / k >= 0.30:
         return "awp"
 
-    if (x.get("entry_share") or 0) >= 20:
+    if (x.get("entry_share") or 0) >= 30 and (x.get("entries") or 0) >= 5:
         return "entry"
 
-    if (x.get("flashes_pr") or 0) >= 0.5 or (x.get("util_dpr") or 0) >= 6:
+    if (x.get("flashes_pr") or 0) >= 0.66 or (x.get("util_dpr") or 0) >= 8:
         return "support"
 
     return None
