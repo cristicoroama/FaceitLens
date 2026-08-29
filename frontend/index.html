@@ -6,9 +6,34 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- No font <link>. Typography is Bootstrap 5's system stack, declared in
-         index.css — Bootstrap ships no webfont, so there is nothing to fetch
-         and no render-blocking request to a font CDN. -->
+    <!-- Inter for text, JetBrains Mono for figures.
+
+         Two fonts, not three: Inter carries both display and body, because a
+         separate heading face on a page that is mostly tables buys nothing and
+         costs another download.
+
+         `preconnect` to both hosts because the CSS on fonts.googleapis.com
+         then references files on fonts.gstatic.com — without the second hint
+         that connection is only opened after the stylesheet parses, which is
+         the whole latency this is meant to remove. The crossorigin attribute
+         is required on the gstatic hint: fonts are fetched anonymously, and a
+         preconnect without it opens a connection the font request won't reuse.
+
+         `display=swap` so text paints immediately in the system fallback and
+         reflows when the webfont lands. The alternative is a few hundred ms of
+         invisible text, which on a stats page means invisible stats.
+
+         Weight RANGES (`300..800`), not a list of discrete weights, because
+         index.css uses `font-weight: 650` and `750` in places. Against a set
+         of static instances those snap to the nearest cut and the deliberate
+         half-step is lost; the variable font renders them exactly. It also
+         arrives as one file per family instead of five. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap"
+    />
     <meta name="keywords" content="faceit analyser, faceit analyzer, faceit match room analyser, faceit finder, faceit tracker, cs2 stats, faceit elo, cs2 tracker, faceit stats checker, smurf checker, cs2 account checker, faceit level, cs2 smurf detector" />
     <meta name="theme-color" content="#0a0a0c" />
     <meta property="og:site_name" content="Faceit-Lens" />
