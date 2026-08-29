@@ -13,6 +13,7 @@ import AllMatches from "./components/AllMatches.jsx";
 import ProfileTools from "./components/ProfileTools.jsx";
 import EloChart from "./components/EloChart.jsx";
 import CompareView from "./components/CompareView.jsx";
+import ProfileCompare from "./components/ProfileCompare.jsx";
 import MapStats from "./components/MapStats.jsx";
 import Squad from "./components/Squad.jsx";
 import Skeleton from "./components/Skeleton.jsx";
@@ -1197,9 +1198,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               ) : profileTab === "activity" ? (
                 <Activity activity={data.activity} />
               ) : profileTab === "compare" ? (
-                /* Prefilled with this player, so the tab opens on a comparison
-                   already half-made rather than an empty form. */
-                <CompareView players={data.nickname} onPick={go} />
+                <ProfileCompare player={data} onPick={go} />
               ) : profileTab === "bans" ? (
                 <BanStatus bans={data.bans} steam={data.steam} />
               ) : profileTab === "account" ? (

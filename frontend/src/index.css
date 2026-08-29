@@ -774,9 +774,17 @@ a { color: inherit; }
    PLAYER HERO
    ============================================================ */
 .player-hero {
-  position: relative; overflow: hidden;
+  position: relative;
   border-radius: var(--radius);
   margin-bottom: 16px;
+  /* No `overflow: hidden` here. It was only ever needed to keep the cover
+     image inside the rounded corners, and `.ph-cover` already clips itself —
+     so this clipped nothing useful and one thing that mattered: the Generate
+     menu opens downward out of the last row of the card, and was being cut off
+     at the card's bottom edge with no way to reach it.
+
+     Anything that must stay inside the card clips itself, the way .ph-cover
+     does. */
 }
 /* The animated aurora band that used to sweep across the hero top is gone —
    with a real cover image behind it, two moving backgrounds fought. */
@@ -6567,3 +6575,21 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   }
   .prof-main { order: 1; }
 }
+
+/* ---- Compare, from inside a profile ------------------------------------ */
+.pcmp-note {
+  margin-left: 8px; font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim);
+}
+.pcmp-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.pcmp-form .compare-input { flex: 1 1 240px; min-width: 0; }
+.pcmp-go, .pcmp-clear {
+  padding: 0 18px; height: 40px; border-radius: 10px;
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.pcmp-go { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.pcmp-go:hover:not(:disabled) { filter: brightness(1.08); }
+.pcmp-go:disabled { opacity: .45; cursor: default; }
+.pcmp-clear { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); }
+.pcmp-clear:hover { color: var(--text); border-color: var(--border-hi); }

@@ -36,8 +36,12 @@ function bestIndexes(players, row) {
 }
 
 export default function CompareView({ players, onPick }) {
-  // Back-compat: also accept the old {a, b} shape.
-  const list = players.filter(Boolean);
+  /* `players` must be an array of player objects.
+     Guarded rather than assumed: this component is rendered from three places
+     now, and when one of them passed a bare nickname string the `.filter` call
+     below threw and took the entire page white — a crash for a prop mistake,
+     in a component whose worst case should be rendering nothing. */
+  const list = Array.isArray(players) ? players.filter(Boolean) : [];
   if (list.length < 2) return null;
 
   return (
