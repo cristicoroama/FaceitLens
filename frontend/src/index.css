@@ -817,25 +817,30 @@ a { color: inherit; }
 }
 
 /* ---- links out to the source profiles ---- */
-.ph-links { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.ph-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* Round icon buttons, no labels.
+   The names were doing no work: nobody reads "Steam Profile" to know it is
+   Steam, the mark says it faster and in less room. Each keeps its service's
+   colour so it is recognised before it is examined. */
 .ph-link {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 13px; border-radius: var(--radius-sm);
+  width: 34px; height: 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
   /* Slightly opaque so they stay legible over a cover image */
   background: color-mix(in srgb, var(--bg-elev-2) 88%, transparent);
   border: 1px solid var(--border);
-  color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  color: var(--text); text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease,
+              transform 0.15s ease;
 }
-.ph-link:hover { background: var(--bg-elev-3); border-color: var(--border-hi); }
-/* Each keeps its service's colour, so the mark is recognised before it's read */
-.ph-link.faceit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.ph-link:hover { background: var(--bg-elev-3); border-color: var(--border-hi); transform: translateY(-1px); }
+.ph-link svg { width: 17px; height: 17px; display: block; }
+
+.ph-link.faceit { color: var(--accent); }
 .ph-link.faceit:hover { border-color: var(--accent); }
+.ph-link.steam { color: #c7d5e0; }
 .ph-link.steam:hover { color: #66c0f4; border-color: color-mix(in srgb, #66c0f4 55%, var(--border)); }
-/* Brand colour on hover only, like Steam above — the resting state stays
-   neutral so three coloured buttons don't compete with the ELO beside them. */
-.ph-link.twitch:hover { color: #a970ff; border-color: color-mix(in srgb, #a970ff 55%, var(--border)); }
-.ph-link svg:last-child { opacity: 0.5; }
+.ph-link.twitch { color: #a970ff; }
+.ph-link.twitch:hover { border-color: color-mix(in srgb, #a970ff 65%, var(--border)); }
 @media (max-width: 640px) { .ph-links { margin-top: 10px; } }
 .ph-avatar { position: relative; flex-shrink: 0; }
 /* direct child only — the level icon inside .ph-lvl must keep its own size */

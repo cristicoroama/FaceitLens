@@ -1,7 +1,7 @@
 import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
-import { SteamIcon, FaceitIcon, TwitchIcon, ExternalIcon } from "./BrandIcons.jsx";
+import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
 import { Icon } from "../icons.jsx";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
@@ -133,10 +133,15 @@ export default function PlayerHeader({ player, children }) {
               actually have the id — a dead link is worse than no link. */}
           <div className="ph-links">
             {faceitUrl && (
-              <a className="ph-link faceit" href={faceitUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                className="ph-link faceit"
+                href={faceitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="FACEIT profile"
+                aria-label="FACEIT profile"
+              >
                 <FaceitIcon />
-                FACEIT Profile
-                <ExternalIcon />
               </a>
             )}
             {player.steam_id && (
@@ -145,10 +150,10 @@ export default function PlayerHeader({ player, children }) {
                 href={`https://steamcommunity.com/profiles/${player.steam_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                title="Steam profile"
+                aria-label="Steam profile"
               >
                 <SteamIcon />
-                Steam Profile
-                <ExternalIcon />
               </a>
             )}
             {/* Twitch comes from FACEIT's `platforms` map — the account the
@@ -161,10 +166,10 @@ export default function PlayerHeader({ player, children }) {
                 href={`https://twitch.tv/${encodeURIComponent(player.platforms.twitch)}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                title={`Twitch — ${player.platforms.twitch}`}
+                aria-label="Twitch channel"
               >
                 <TwitchIcon />
-                Twitch
-                <ExternalIcon />
               </a>
             )}
           </div>

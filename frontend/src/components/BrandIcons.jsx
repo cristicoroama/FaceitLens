@@ -38,12 +38,3 @@ export function FaceitIcon({ size = 16 }) {
 }
 
 /** Opens-in-a-new-tab marker, so the buttons read as leaving the site. */
-export function ExternalIcon({ size = 13 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
-         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M14 4h6v6M20 4l-8.5 8.5" />
-      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
-    </svg>
-  );
-}
