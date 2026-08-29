@@ -1042,23 +1042,54 @@ a { color: inherit; }
 .ptabs {
   position: relative;
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
+  /* Never wrap. Thirteen tabs wrapped onto a second line read as two separate
+     rails, and the indicator would jump vertically between them. They scroll
+     sideways instead, at every width — the old rule only did this under 640px,
+     which is why the last two were simply unreachable on a laptop. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /* Snap so a flick lands on a tab boundary rather than mid-word. */
+  scroll-snap-type: x proximity;
+  /* A real scrollbar, kept thin, rather than a hidden one.
+
+     The first attempt here was a pair of edge fades driven by
+     `animation-timeline: scroll(self inline)`. It did not work: the
+     ScrollTimeline reported `currentTime: null` and the mask parked at its
+     mid-keyframe, so BOTH edges stayed faded even when every tab fit. A
+     scrollbar is less clever and always tells the truth — it is absent when
+     there is nothing to scroll, which is exactly the signal that was missing
+     when the last two tabs sat off-screen with no hint they existed. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+  padding-bottom: 2px;
 }
+.ptabs::-webkit-scrollbar { height: 3px; }
+.ptabs::-webkit-scrollbar-track { background: transparent; }
+.ptabs::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+.ptabs:hover::-webkit-scrollbar-thumb { background: var(--text-dim); }
 .ptab {
   position: relative;
   background: none;
   border: none;
   border-radius: 0;
-  padding: 11px 14px;
+  /* 10px sides and half the tracking: thirteen labels measured 1207px at the
+     old values, which overflowed a 1160px container. This brings them under
+     ~1105px, so they fit without scrolling on a normal desktop and still
+     scroll on anything narrower. */
+  padding: 11px 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  scroll-snap-align: start;
   color: var(--text-dim);
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 12.5px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: color 0.18s;
 }
@@ -2218,13 +2249,8 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 
 /* ---- tab bar with icons ---- */
-/* Nine uppercase words do not wrap onto two lines on a phone without looking
-   like two separate rows of tabs, so below this they scroll sideways instead.
-   The bottom rule scrolls with them, which is correct: it belongs to the rail,
-   not to the page. */
-.ptabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
-.ptabs::-webkit-scrollbar { display: none; }
-.ptab { white-space: nowrap; flex-shrink: 0; }
+/* The tab rail scrolls at every width now — see .ptabs above. */
+.ptab { padding-inline: 10px; }
 
 /* ---- ring gauge (SVG) ---- */
 .ringg { position: relative; display: inline-grid; place-items: center; }
@@ -6322,4 +6348,222 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
    widest and the least numeric, and the filter above still reaches it. */
 @media (max-width: 720px) {
   .am-comp, .am th:nth-child(3) { display: none; }
+}
+
+/* ---- Nickname history ------------------------------------------------- */
+.nk-note {
+  margin-left: 8px; font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim);
+}
+.nk-wrap {
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow-x: auto;
+}
+.nk { width: 100%; border-collapse: collapse; font-size: 13px; }
+.nk thead th {
+  padding: 10px 12px; text-align: right; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.nk th.nk-l, .nk td.nk-l { text-align: left; }
+.nk td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.nk tbody tr:last-child td { border-bottom: 0; }
+.nk tbody tr:hover { background: rgba(255, 255, 255, .03); }
+/* The current name gets a left edge rather than a filled row: it needs to be
+   findable in the list, not to dominate it. */
+.nk tbody tr.current td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+.nk-name { display: flex; align-items: center; gap: 10px; }
+.nk-ava {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px;
+  background: var(--bg-elev-2); color: var(--text-dim);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+}
+.nk-text { font-weight: 600; }
+.nk-badge {
+  padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft);
+}
+.nk-num { text-align: right; font-family: var(--font-mono); font-weight: 600; }
+.nk-match { color: var(--accent-2); text-decoration: none; }
+.nk-match:hover { text-decoration: underline; }
+.nk-dash, .nk-dim { color: var(--text-dim); }
+.nk-foot { margin: 8px 2px 0; font-size: 11.5px; line-height: 1.5; color: var(--text-dim); }
+
+/* ---- Ban status -------------------------------------------------------- */
+.bst { display: flex; flex-direction: column; gap: 2px; }
+.bst:not(.compact) {
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 4px 14px 12px;
+}
+.bst-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.bst-row:last-of-type { border-bottom: 0; }
+.bst-label { font-size: 13px; color: var(--text-dim); }
+.bst-pill {
+  padding: 3px 10px; border-radius: 7px; font-size: 11.5px; font-weight: 700;
+  white-space: nowrap;
+}
+.bst-pill.good { color: var(--win); background: color-mix(in srgb, var(--win) 12%, transparent); }
+.bst-pill.bad { color: var(--loss); background: color-mix(in srgb, var(--loss) 12%, transparent); }
+/* Unknown is deliberately grey, not green: we did not verify this. */
+.bst-pill.unknown { color: var(--text-dim); background: rgba(255, 255, 255, .06); }
+.bst-detail { margin-top: 8px; font-size: 12px; color: var(--loss); }
+.bst-detail i { font-style: normal; color: var(--text-dim); }
+
+/* ---- Header: form ticker, sync, nickname menu -------------------------- */
+.ph-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; padding: 10px 18px;
+  border-top: 1px solid var(--border);
+}
+.ph-form { display: flex; align-items: center; gap: 5px; }
+.ph-form-label {
+  margin-right: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.ph-sync { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.ph-sync-when { font-size: 11.5px; color: var(--text-dim); }
+.ph-refresh {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg-elev);
+  color: var(--text-dim); cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.ph-refresh:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.ph-refresh:disabled { cursor: default; }
+.ph-refresh.spinning svg { animation: ph-spin 0.9s linear infinite; }
+@keyframes ph-spin { to { transform: rotate(360deg); } }
+/* Someone who turned animation off still needs to know the button did
+   something, so the spin becomes a fade instead of vanishing entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .ph-refresh.spinning svg { animation: none; opacity: .45; }
+}
+
+.ph-nickmenu { position: relative; display: inline-flex; }
+.ph-nickcaret {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text-dim); cursor: pointer;
+  transition: color .15s, background .15s, transform .15s;
+}
+.ph-nickcaret:hover { color: var(--text); background: rgba(255, 255, 255, .07); }
+.ph-nickcaret.open { color: var(--accent); transform: rotate(180deg); }
+.ph-nicklist {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  display: flex; flex-direction: column; min-width: 230px; padding: 8px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg-elev-2); box-shadow: var(--shadow);
+}
+.ph-nicklist-head {
+  padding: 4px 8px 8px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
+}
+.ph-nickrow { display: flex; flex-direction: column; padding: 6px 8px; border-radius: 8px; }
+.ph-nickrow:hover { background: rgba(255, 255, 255, .05); }
+.ph-nickrow b { font-size: 13px; font-weight: 600; }
+.ph-nickrow i { font-style: normal; font-size: 11.5px; color: var(--text-dim); }
+
+/* ---- Profile layout: sidebar + tabbed content -------------------------- */
+/* 280px is enough for a hub name plus its two figures without wrapping, and
+   `minmax(0, 1fr)` on the main column rather than plain `1fr` — a 1fr track
+   floors at min-content, so the twelve-column tables inside would push the
+   grid wider than the page instead of scrolling inside their own wrapper. */
+.prof-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+/* Sticky, because the point of a persistent column is that it stays with you
+   while the tab content scrolls past. */
+.psb {
+  position: sticky;
+  top: calc(var(--topbar-h) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.psb-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.psb-activity { padding: 8px 10px; }
+.psb-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+.psb-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.psb-count {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--text-dim);
+}
+
+.psb-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+}
+.psb-row:first-of-type { border-top: 0; }
+.psb-row.clickable { cursor: pointer; }
+.psb-row.clickable:hover .psb-name { color: var(--accent); }
+.psb-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.psb-name {
+  font-size: 12.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color .15s;
+}
+.psb-figs {
+  display: flex; align-items: baseline; gap: 8px;
+  font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap;
+}
+.psb-n { color: var(--text-dim); }
+.psb-wr { font-weight: 700; }
+.psb-wr.pos { color: var(--win); }
+.psb-wr.neg { color: var(--loss); }
+
+.psb-bar {
+  grid-column: 1 / -1;
+  height: 3px; border-radius: 3px; overflow: hidden;
+  background: rgba(255, 255, 255, .07);
+}
+.psb-bar-fill { display: block; height: 100%; border-radius: 3px; background: var(--text-dim); }
+.psb-bar-fill.pos { background: var(--win); }
+.psb-bar-fill.neg { background: var(--loss); }
+
+.psb-socials { display: flex; flex-wrap: wrap; gap: 6px; }
+.psb-social {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-elev-2);
+  color: var(--text-dim); font-size: 12px; font-weight: 600; text-decoration: none;
+  transition: color .15s, border-color .15s;
+}
+.psb-social:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* Below this the sidebar stops being a column and becomes a footer: two
+   columns of cards under the content, then one. Sticky is dropped with it —
+   a sticky block in normal flow just pins uselessly to the top. */
+@media (max-width: 1080px) {
+  .prof-layout { grid-template-columns: minmax(0, 1fr); }
+  .psb {
+    position: static;
+    order: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .prof-main { order: 1; }
 }

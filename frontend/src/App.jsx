@@ -17,6 +17,8 @@ import MapStats from "./components/MapStats.jsx";
 import Squad from "./components/Squad.jsx";
 import Skeleton from "./components/Skeleton.jsx";
 import BanBanner from "./components/BanBanner.jsx";
+import BanStatus from "./components/BanStatus.jsx";
+import ProfileSidebar from "./components/ProfileSidebar.jsx";
 import SearchInput from "./components/SearchInput.jsx";
 import BestTeammates from "./components/BestTeammates.jsx";
 import HltvStats from "./components/HltvStats.jsx";
@@ -313,6 +315,9 @@ function buildProfileTabs(t) { return [
   ["hubs", t("tab.hubs")],
   ["highlights", t("tab.highlights")],
   ["teammates", t("tab.teammates")],
+  ["activity", t("tab.activity")],
+  ["compare", t("tab.compare")],
+  ["bans", t("tab.bans")],
   ["account", t("tab.trust")],
   ["leetify", t("tab.leetify")],
   ["clips", t("tab.clips")],
@@ -360,6 +365,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   const [copied, setCopied] = useState(false);
   const [mapFilter, setMapFilter] = useState(null);
   const [profileTab, setProfileTab] = useState("overview");
+  const [refreshing, setRefreshing] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -601,6 +607,23 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  /* Re-fetch in place: no setData(null), so the page does not blank out and
+     bounce back. The refresh button spins instead, and the numbers change
+     under it if anything actually changed. */
+  async function refreshPlayer() {
+    const nick = data?.nickname;
+    if (!nick || refreshing) return;
+    setRefreshing(true);
+    try {
+      setData(await fetchPlayer(nick));
+    } catch {
+      /* Keep what is on screen. A failed refresh should not destroy a page
+         that was rendering fine a second ago. */
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -1081,7 +1104,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {showProfile && (
             <>
               <BanBanner bans={data.bans} />
-              <PlayerHeader player={data}>
+              <PlayerHeader player={data} onRefresh={refreshPlayer} refreshing={refreshing}>
                 <button className={`act-btn ${isFav ? "on" : ""}`} onClick={onToggleFav}>
                   {isFav ? Icon.starFill : Icon.star}
                   {isFav ? "Favorited" : "Favorite"}
@@ -1125,6 +1148,13 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
+              {/* Sidebar + tabs, side by side. The sidebar is outside the tab
+                  switch on purpose: none of what it holds belongs to one tab,
+                  and re-mounting the activity heatmap on every tab change
+                  would replay its entrance animation each time. */}
+              <div className="prof-layout">
+                <ProfileSidebar player={data} onPick={go} />
+                <div className="prof-main">
               <div className="ptabs">
                 {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
                   <button
@@ -1164,6 +1194,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 <PlayerHubs competitions={data.competitions} />
               ) : profileTab === "highlights" ? (
                 <Highlights highlights={data.highlights} />
+              ) : profileTab === "activity" ? (
+                <Activity activity={data.activity} />
+              ) : profileTab === "compare" ? (
+                /* Prefilled with this player, so the tab opens on a comparison
+                   already half-made rather than an empty form. */
+                <CompareView players={data.nickname} onPick={go} />
+              ) : profileTab === "bans" ? (
+                <BanStatus bans={data.bans} steam={data.steam} />
               ) : profileTab === "account" ? (
                 <AccountView nickname={data.nickname} />
               ) : profileTab === "leetify" ? (
@@ -1188,7 +1226,11 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               ) : profileTab === "steam" ? (
                 <SteamInfo steam={data.steam} />
               ) : profileTab === "nicknames" ? (
-                <Nicknames nicknames={data.nicknames} />
+                <Nicknames
+                  nicknames={data.nicknames}
+                  history={data.nickname_history}
+                  player={data.nickname}
+                />
               ) : (
                 /* Overview is now a summary, not the whole profile. Everything
                    that answers "show me the detail behind this number" moved to
@@ -1209,12 +1251,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                       be checked rather than just disbelieved. */}
                   <StatPanels stats={data.stats} />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
-                  <div className="duo">
-                    <div><EloProjector elo={data.elo} winRate={data.stats?.win_rate} /></div>
-                    <div><Activity activity={data.activity} /></div>
-                  </div>
+                  {/* No activity heatmap here. The sidebar shows it on every
+                      tab, and its own tab shows it full width — a third copy
+                      inside Overview was the same picture three times. */}
+                  <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                 </>
               )}
+                </div>
+              </div>
 
             </>
           )}

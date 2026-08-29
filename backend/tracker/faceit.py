@@ -3,6 +3,7 @@ Service that talks to the FACEIT Data API v4.
 Docs: https://developers.faceit.com/docs/tools/data-api
 """
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -965,6 +966,88 @@ def build_recent_roles(items, n=30):
         "util_damage": total("Utility Damage"),
         "util_success": pct(util_ok, util_c),
     }
+
+
+def _find_self(match, player_id, fallback_nickname=None):
+    """The searched player's own roster entry in a match, and which side.
+
+    Matched on player id, not nickname. Every roster records the name the
+    player was using WHEN THAT MATCH WAS PLAYED, so matching by the name they
+    use today silently drops every match from before a rename — which is
+    exactly the history this function exists to reconstruct.
+
+    Falls back to the nickname only when a roster carries no id at all.
+    """
+    for side, team in (match.get("teams") or {}).items():
+        for p in team.get("players") or []:
+            pid = p.get("player_id") or p.get("user_id")
+            if pid and player_id and pid == player_id:
+                return p, side
+            if not pid and fallback_nickname and p.get("nickname") == fallback_nickname:
+                return p, side
+    return None, None
+
+
+def build_nickname_history(history, player_id, current_nickname=None):
+    """Every name this account has played under, from the matches themselves.
+
+    The `NicknameHistory` table only knows what FaceitLens itself has seen
+    since the player was first searched here, so for most accounts it holds a
+    single row and no history at all. The match rosters know better: each one
+    records the name in use at the time, so 250 matches is 250 dated samples of
+    what this account was called.
+
+    No ELO column. FACEIT publishes no historical ELO, and the curve on this
+    page is a flat ±25 reconstruction — fine as a trend, useless as "they were
+    3,204 under this name". A number that precise and that wrong is worse than
+    an absent column.
+    """
+    history = history or []
+    if not history or not player_id:
+        return None
+
+    groups = {}
+    for m in history:
+        me, _ = _find_self(m, player_id, current_nickname)
+        if not me:
+            continue
+        nick = (me.get("nickname") or "").strip()
+        if not nick:
+            continue
+        when = m.get("finished_at") or m.get("started_at")
+        if not when:
+            continue
+        mid = m.get("match_id")
+        g = groups.setdefault(nick, {"matches": 0, "first": None, "last": None})
+        g["matches"] += 1
+        if g["first"] is None or when < g["first"]["date"]:
+            g["first"] = {"match_id": mid, "date": when}
+        if g["last"] is None or when > g["last"]["date"]:
+            g["last"] = {"match_id": mid, "date": when}
+
+    if not groups:
+        return None
+
+    rows = [
+        {
+            "nickname": nick,
+            "matches": g["matches"],
+            "is_current": nick == current_nickname,
+            "first_match": g["first"],
+            "last_match": g["last"],
+            "date_from": g["first"]["date"] if g["first"] else None,
+            "date_to": g["last"]["date"] if g["last"] else None,
+        }
+        for nick, g in groups.items()
+    ]
+    # Most recently used first, so the current name leads and renames read
+    # backwards in time the way the rest of the profile does.
+    rows.sort(key=lambda r: r["date_to"] or 0, reverse=True)
+
+    # One name over the whole window is not a history, it is a fact already on
+    # the page. Returning None lets the UI say "no changes recorded" instead of
+    # printing a one-row table that looks like a bug.
+    return rows if len(rows) > 1 else None
 
 
 def build_full_matches(history, stat_items, limit=250):
@@ -2049,7 +2132,7 @@ def build_form_and_trend(items):
     return {"form": form, "kd_trend": trend}
 
 
-def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
+def build_best_teammates(history_items, player_nickname, top=3, min_games=3, player_id=None):
     """
     From match history, find who the player wins with most often.
     Returns up to `top` teammates with >= `min_games` games together.
@@ -2059,18 +2142,18 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
     for m in history_items:
         teams = m.get("teams", {})
         winner = (m.get("results", {}) or {}).get("winner")
-        my_faction = None
-        for side, t in teams.items():
-            names = [p.get("nickname") for p in t.get("players", [])]
-            if player_nickname in names:
-                my_faction = side
-                break
+        # By id, not by name. A roster records the nickname in use at the time,
+        # so matching on today's name drops every match played before a rename
+        # — silently, and only for the players who rename most.
+        _me, my_faction = _find_self(m, player_id, player_nickname)
         if my_faction is None:
             continue
+        my_names = {player_nickname, (_me or {}).get("nickname")}
         won = winner == my_faction
         for p in teams[my_faction].get("players", []):
             nick = p.get("nickname")
-            if not nick or nick == player_nickname:
+            # Skip every name this account has used, not just the current one.
+            if not nick or nick in my_names:
                 continue
             entry = tally.setdefault(nick, [0, 0])
             entry[0] += 1
@@ -2099,7 +2182,7 @@ def build_best_teammates(history_items, player_nickname, top=3, min_games=3):
     return mates[:top]
 
 
-def build_nemeses(history_items, player_nickname, top=3, min_games=2):
+def build_nemeses(history_items, player_nickname, top=3, min_games=2, player_id=None):
     """
     The mirror of best teammates: opponents faced most often, and how the player
     fares against them. `win_rate` here is the PLAYER's win rate vs that rival —
@@ -2111,12 +2194,9 @@ def build_nemeses(history_items, player_nickname, top=3, min_games=2):
     for m in history_items:
         teams = m.get("teams", {})
         winner = (m.get("results", {}) or {}).get("winner")
-        my_faction = None
-        for side, t in teams.items():
-            names = [p.get("nickname") for p in t.get("players", [])]
-            if player_nickname in names:
-                my_faction = side
-                break
+        # Same reason as build_best_teammates: match on id, not on a name that
+        # may have changed since the match was played.
+        _me, my_faction = _find_self(m, player_id, player_nickname)
         if my_faction is None or not winner:
             continue
         i_won = winner == my_faction
@@ -2734,6 +2814,7 @@ def get_steam_info(steam_id):
         return cached
 
     info = {"hours_cs2": None, "vac_banned": None, "vac_count": None,
+            "game_ban_count": None, "economy_ban": None,
             "profile_url": None, "created": None, "persona": None,
             "avatar": None, "country": None}
     base = "https://api.steampowered.com"
@@ -2760,6 +2841,11 @@ def get_steam_info(steam_id):
         if arr:
             info["vac_banned"] = arr[0].get("VACBanned")
             info["vac_count"] = arr[0].get("NumberOfVACBans")
+            # Same response, previously unread. A game ban is a developer-issued
+            # ban (Valve Anti-Cheat is separate), and the two are shown as
+            # separate lines everywhere, so they are read separately here.
+            info["game_ban_count"] = arr[0].get("NumberOfGameBans")
+            info["economy_ban"] = arr[0].get("EconomyBan")
     except (requests.RequestException, ValueError):
         pass
     try:
@@ -2993,9 +3079,9 @@ def build_player_summary(nickname):
     elo_history = build_elo_history(player_id, current_elo, items=match_items)
     session_info = build_sessions_and_streak(player_id, items=match_items)
     form_trend = build_form_and_trend(match_items)
-    best_teammates = build_best_teammates(history, player.get("nickname"))
-    teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2)
-    nemeses = build_nemeses(history, player.get("nickname"))
+    best_teammates = build_best_teammates(history, player.get("nickname"), player_id=player_id)
+    teammates_full = build_best_teammates(history, player.get("nickname"), top=25, min_games=2, player_id=player_id)
+    nemeses = build_nemeses(history, player.get("nickname"), player_id=player_id)
     # Newest first, by `finished_at` — the same field the list prints.
     #
     # FACEIT returns history ordered by start time, and the two orders differ:
@@ -3183,6 +3269,17 @@ def build_player_summary(nickname):
         # The long scannable list, paginated and filtered on the client. Flat
         # rows, no teams — `recent_matches` above is the expandable one.
         "all_matches": build_full_matches(history_all, recent_all),
+        # Every name this account has played under, reconstructed from the
+        # match rosters. Separate from `nicknames` below, which is only what
+        # this site has observed since the player was first searched here.
+        "nickname_history": build_nickname_history(
+            history_all, player_id, player.get("nickname")
+        ),
+        # When this payload was actually assembled. Written before the cache
+        # write, so a cached hit reports when the data was FETCHED, not when it
+        # was served — which is the whole point of showing it. Without this the
+        # refresh button would be a button with nothing to say.
+        "fetched_at": int(time.time()),
         "recent_matches": [
             {
                 "match_id": m.get("match_id"),

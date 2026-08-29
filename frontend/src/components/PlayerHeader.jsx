@@ -2,7 +2,9 @@ import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
+import { ResultChip } from "./FormStrip.jsx";
 import { Icon } from "../icons.jsx";
+import { useState } from "react";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
    pool. It's positional, not an ELO band, so it's derived from the ranking
@@ -38,6 +40,65 @@ function accountAge(iso) {
   return { when, age, full: d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) };
 }
 
+/** "2m ago" — how stale the numbers on this page are.
+ *
+ * Shown next to the refresh button because a refresh control with no age is a
+ * button you press hopefully. The profile is server-cached, so a reload can
+ * legitimately return the same data; saying when it was fetched is what makes
+ * that legible instead of looking broken.
+ */
+function sinceText(ts) {
+  if (!ts) return null;
+  const secs = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (secs < 60) return "just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
+
+/** Past names, in a dropdown beside the current one.
+ *
+ * Collapsed by default: on most accounts there is nothing to show, and on the
+ * ones where there is, the old names are context rather than headline. The
+ * caret only renders when there is actually something behind it. */
+function NicknameMenu({ history }) {
+  const [open, setOpen] = useState(false);
+  const past = (history || []).filter((h) => !h.is_current);
+  if (!past.length) return null;
+
+  return (
+    <span className="ph-nickmenu">
+      <button
+        type="button"
+        className={`ph-nickcaret ${open ? "open" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`${past.length} previous nickname${past.length === 1 ? "" : "s"}`}
+        title={`${past.length} previous nickname${past.length === 1 ? "" : "s"}`}
+      >
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none"
+             stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <span className="ph-nicklist" role="list">
+          <span className="ph-nicklist-head">Previously known as</span>
+          {past.map((h) => (
+            <span className="ph-nickrow" role="listitem" key={h.nickname}>
+              <b>{h.nickname}</b>
+              <i>
+                {h.matches} match{h.matches === 1 ? "" : "es"}
+                {h.date_to ? ` · last ${new Date(h.date_to * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}` : ""}
+              </i>
+            </span>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Quick-stat cell for the hero strip. */
 function PS({ label, value, tone }) {
   return (
@@ -48,7 +109,7 @@ function PS({ label, value, tone }) {
   );
 }
 
-export default function PlayerHeader({ player, children }) {
+export default function PlayerHeader({ player, children, onRefresh, refreshing }) {
   const s = player.stats || {};
   // The API's faceit_url is the reliable one (it survives odd nicknames);
   // fall back to building it so older cached payloads still get a link.
@@ -69,6 +130,11 @@ export default function PlayerHeader({ player, children }) {
     ? `${s.current_win_streak}W`
     : null;
   const age = accountAge(player.created_at);
+  // Newest first, five of them — the ticker in the reference reads left to
+  // right as most-recent to oldest, which is the order recent_matches is
+  // already sorted in.
+  const form = (player.recent_matches || []).slice(0, 5);
+  const fetched = sinceText(player.fetched_at);
   const streakTone = player.streak
     ? player.streak.type === "W"
       ? "pos"
@@ -144,6 +210,7 @@ export default function PlayerHeader({ player, children }) {
                 title="ESEA subscriber"
               />
             )}
+            <NicknameMenu history={player.nickname_history} />
           </div>
           <div className="ph-meta">
             <span className="ph-country">
@@ -255,6 +322,47 @@ export default function PlayerHeader({ player, children }) {
           names over the last 30 matches, and a K/D of 1.32 here against 1.44
           there reads as one of them being broken. Two windows, two answers,
           both right; the label is what makes that legible. */}
+      {/* Last five results and how fresh the page is, on one line above the
+          career strip. Both answer "is this worth reading right now" — one
+          about the player, one about the data. */}
+      {(form.length > 0 || onRefresh) && (
+        <div className="ph-bar">
+          {form.length > 0 && (
+            <div className="ph-form" title="Last 5 matches, newest first">
+              <span className="ph-form-label">Last 5</span>
+              {form.map((m, i) => (
+                <ResultChip
+                  key={m.match_id || i}
+                  won={m.won}
+                  title={m.finished_at
+                    ? new Date(m.finished_at * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                    : undefined}
+                />
+              ))}
+            </div>
+          )}
+          {onRefresh && (
+            <div className="ph-sync">
+              {fetched && <span className="ph-sync-when">Updated {fetched}</span>}
+              <button
+                type="button"
+                className={`ph-refresh ${refreshing ? "spinning" : ""}`}
+                onClick={onRefresh}
+                disabled={refreshing}
+                title="Fetch fresh data"
+                aria-label="Refresh player data"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                     stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="ph-strip">
         <div className="ph-strip-tag">All time</div>
         <PS label="Matches" value={s.matches} />
