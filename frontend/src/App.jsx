@@ -7,6 +7,9 @@ import MatchHistory from "./components/MatchHistory.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
 import StatPanels from "./components/StatPanels.jsx";
 import MapHighlights from "./components/MapHighlights.jsx";
+import Highlights from "./components/Highlights.jsx";
+import PlayerHubs from "./components/PlayerHubs.jsx";
+import AllMatches from "./components/AllMatches.jsx";
 import ProfileTools from "./components/ProfileTools.jsx";
 import EloChart from "./components/EloChart.jsx";
 import CompareView from "./components/CompareView.jsx";
@@ -1169,6 +1172,10 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                       is the question people came to answer, and it needs no
                       explanation of how it was scored. */}
                   <MapHighlights maps={data.map_stats} />
+                  {/* Records go next to the map cards, above the averages:
+                      both answer "what am I actually good at", and both are
+                      concrete in a way the rating bars underneath are not. */}
+                  <Highlights highlights={data.highlights} />
                   <SkillRatings skills={data.skills} />
                   {/* Directly under the ratings: these are the numbers those
                       bars were scored from, so a rating you disagree with can
@@ -1184,7 +1191,15 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                     <div><BestTeammates mates={data.best_teammates} onPick={go} /></div>
                     <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
                   </div>
+                  {/* Under the map table, above the match list: it's the same
+                      "where did these numbers come from" question the map
+                      breakdown asks, only split by competition instead. */}
+                  <PlayerHubs competitions={data.competitions} />
                   <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
+                  {/* Last on the page: the detailed ten come first because
+                      that's what most people want, and the long filterable
+                      list is there for whoever scrolls past them. */}
+                  <AllMatches matches={data.all_matches} />
                 </>
               )}
 

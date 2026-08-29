@@ -5855,3 +5855,361 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 @media (max-width: 620px) {
   .mr-aw-mvp-stats { margin-left: 0; gap: 16px; }
 }
+
+/* ---- Highlights: personal records ------------------------------------- */
+/* A record only means something if you can see what it beat, so every row
+   keeps its supporting line rather than showing a bare number. */
+.hl-note {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.hl-wrap {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.hl-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.hl-tabs::-webkit-scrollbar { display: none; }
+
+.hl-tab {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.hl-tab:hover { color: var(--text); background: var(--border); }
+.hl-tab.on { color: #fff; background: var(--accent); }
+
+.hl-list { display: flex; flex-direction: column; }
+
+.hl-row {
+  display: grid;
+  grid-template-columns: 26px 62px minmax(120px, 1fr) 92px minmax(150px, 1fr) 96px;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--border);
+  color: inherit;
+  text-decoration: none;
+}
+.hl-list > .hl-row:first-child { border-top: 0; }
+.hl-row.is-link { cursor: pointer; transition: background .12s; }
+.hl-row.is-link:hover { background: rgba(255, 255, 255, .04); }
+
+/* The position, not a stat — kept quiet so it doesn't compete with the value. */
+.hlr-rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: center;
+  opacity: .65;
+}
+
+.hlr-val {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+.hlr-map {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.hlr-map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hlr-res {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hlr-res.won { color: var(--win); }
+.hlr-res.lost { color: var(--loss); }
+
+.hlr-kda {
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hlr-kda i { font-style: normal; font-weight: 500; color: var(--text-dim); }
+
+.hlr-when {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* On a phone the six columns can't all fit and squeezing them makes every one
+   unreadable. The value and the map stay on top; the detail wraps beneath. */
+@media (max-width: 720px) {
+  .hl-row {
+    grid-template-columns: 22px 58px 1fr auto;
+    row-gap: 4px;
+  }
+  .hlr-kda { grid-column: 2 / -1; }
+  .hlr-when { grid-column: 2 / -1; text-align: left; }
+}
+
+/* ---- Hubs & competitions: one career, split by where it happened -------- */
+.phb-note {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* Twelve numeric columns will not fit a phone. Scrolling the table sideways
+   beats shrinking every figure until none of them can be read. */
+.phb-wrap {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.phb {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.phb thead th {
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.phb thead th:hover { color: var(--text); }
+.phb thead th.on { color: var(--accent); }
+.phb thead th i { font-style: normal; margin-left: 3px; }
+
+.phb-name-h { text-align: left; padding-left: 14px !important; cursor: default !important; }
+.phb-name-h:hover { color: var(--text-dim) !important; }
+
+.phb td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.phb tbody tr:last-child td { border-bottom: 0; }
+.phb tbody tr:hover { background: rgba(255, 255, 255, .03); }
+
+.phb-num { text-align: right; white-space: nowrap; }
+.phb-num.pos { color: var(--win); font-weight: 700; }
+.phb-num.neg { color: var(--loss); font-weight: 700; }
+
+.phb-name {
+  padding-left: 14px !important;
+  min-width: 190px;
+  max-width: 280px;
+}
+.phb-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phb-kind {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.phb-foot {
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* ---- All matches: the long, filterable list ---------------------------- */
+.am-note {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.am-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.am-filters select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.am-filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* W / L / All as one control rather than a third dropdown: three options that
+   are always the same three read faster as buttons. */
+.am-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.am-seg button {
+  padding: 7px 14px;
+  border: 0;
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.am-seg button + button { border-left: 1px solid var(--border); }
+.am-seg button:hover { color: var(--text); }
+.am-seg button.on { background: var(--accent); color: #fff; }
+
+.am-wrap {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.am {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.am thead th {
+  padding: 9px 8px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.am th.am-l, .am td.am-l { text-align: left; }
+.am thead th:first-child, .am tbody td:first-child { padding-left: 14px; }
+.am thead th:last-child, .am tbody td:last-child { padding-right: 14px; }
+
+.am td {
+  padding: 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.am tbody tr:last-child td { border-bottom: 0; }
+.am tbody tr:hover { background: rgba(255, 255, 255, .03); }
+
+/* A 2px edge instead of a tinted row: win/loss needs to be visible while
+   scanning a hundred rows, without turning the table into a colour field that
+   drowns out the +/- and rating columns that also carry colour. */
+.am tbody tr.won td:first-child { box-shadow: inset 2px 0 0 var(--win); }
+.am tbody tr.lost td:first-child { box-shadow: inset 2px 0 0 var(--loss); }
+
+.am-date { color: var(--text-dim); }
+.am-map { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.am-comp {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.am-res { font-weight: 700; }
+.am-res i { font-style: normal; font-weight: 500; opacity: .6; }
+.am td.pos { color: var(--win); font-weight: 700; }
+.am td.neg { color: var(--loss); font-weight: 700; }
+
+.am-empty { padding: 26px 14px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+.am-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.am-pager button {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.am-pager button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.am-pager button:disabled { opacity: .4; cursor: default; }
+
+.am-foot {
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* Below this the competition column is the first thing to go — it's the
+   widest and the least numeric, and the filter above still reaches it. */
+@media (max-width: 720px) {
+  .am-comp, .am th:nth-child(3) { display: none; }
+}

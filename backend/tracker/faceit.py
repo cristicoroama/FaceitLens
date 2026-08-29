@@ -537,10 +537,31 @@ def get_player_stats(player_id):
     return _get(f"/players/{player_id}/stats/{GAME}")
 
 
-def get_player_history(player_id, limit=10):
+def get_player_history(player_id, limit=10, offset=0):
     """The player's most recent matches."""
-    data = _get(f"/players/{player_id}/history", params={"game": GAME, "offset": 0, "limit": limit})
+    data = _get(f"/players/{player_id}/history", params={"game": GAME, "offset": offset, "limit": limit})
     return data.get("items", [])
+
+
+def get_recent_history(player_id, total=250):
+    """History for `total` matches, paginated 100 at a time.
+
+    The stats endpoint carries the numbers but not which hub or championship a
+    match belonged to; the history endpoint carries the competition but no
+    stats. Neither is enough alone, so both are fetched over the same window
+    and joined on match id.
+    """
+    items = []
+    offset = 0
+    while len(items) < total:
+        batch = get_player_history(player_id, limit=min(100, total - len(items)), offset=offset)
+        if not batch:
+            break
+        items.extend(batch)
+        if len(batch) < 100:
+            break
+        offset += 100
+    return items[:total]
 
 
 # Approximate ELO gained/lost per match (FACEIT does not expose the real value).
@@ -904,6 +925,239 @@ def build_recent_roles(items, n=30):
         "util_damage": total("Utility Damage"),
         "util_success": pct(util_ok, util_c),
     }
+
+
+def build_full_matches(history, stat_items, limit=250):
+    """One flat row per match, over the whole 250 we already hold.
+
+    `recent_matches` stays what it is — ten rows, expandable, with teams and
+    scoreboards. This is the other thing a match list is for: scanning a long
+    run to see where the good and bad stretches were, and filtering it.
+
+    Deliberately without an ELO column. FACEIT does not publish per-match ELO
+    in the Data API; the chart on this page reconstructs it by assuming a flat
+    ±25 per match. That assumption is fine for a trend line, where the errors
+    cancel, and useless per row, where every win would print "+25" and look
+    like a measurement. A column that is always the same number is not data.
+    """
+    from . import performance as _perf
+
+    history = history or []
+    stat_items = stat_items or []
+    if not stat_items:
+        return None
+
+    meta = {}
+    for m in history:
+        mid = m.get("match_id")
+        if mid:
+            meta[mid] = m
+
+    rows = []
+    for it in stat_items[:limit]:
+        s = it.get("stats") or {}
+        mid = s.get("Match Id") or s.get("Match ID") or it.get("match_id")
+        h = meta.get(mid) or {}
+        perf = _perf.match_performance(s) or {}
+        kills = _to_int(s.get("Kills"))
+        deaths = _to_int(s.get("Deaths"))
+        # Published where FACEIT sends it, derived where it doesn't. A ratio of
+        # two numbers sitting right there in the same row should never render
+        # as a dash. Deaths of 0 stays None rather than becoming infinity.
+        kd = _num(s.get("K/D Ratio"))
+        if kd is None and kills is not None and deaths:
+            kd = round(kills / deaths, 2)
+        rows.append({
+            "match_id": mid,
+            "finished_at": _match_finished_seconds(s) or h.get("finished_at"),
+            "map": s.get("Map"),
+            "competition": (h.get("competition_name") or "").strip() or None,
+            "competition_type": (h.get("competition_type") or "").lower() or None,
+            "won": _to_int(s.get("Result")) == 1,
+            "score": s.get("Final Score") or s.get("Score"),
+            "kills": kills,
+            "deaths": deaths,
+            "assists": _to_int(s.get("Assists")),
+            "kd": kd,
+            "hs": _num(s.get("Headshots %")),
+            "adr": perf.get("adr"),
+            "rating": perf.get("rating"),
+            # +/- for one match, which people read before anything else.
+            "diff": (kills - deaths) if (kills is not None and deaths is not None) else None,
+        })
+
+    rows.sort(key=lambda r: r.get("finished_at") or 0, reverse=True)
+    return rows or None
+
+
+def build_competition_stats(history, stat_items, min_matches=3):
+    """Per-hub / per-competition breakdown, joined on match id.
+
+    A single career K/D hides the thing people most want to know: whether the
+    number comes from a 10-man pug hub or from ranked matchmaking. Those are
+    different games with different opponents, and averaging them together
+    produces a figure that describes neither.
+
+    Rating is `aggregate_performance`, the same round-weighted estimate the
+    rest of the profile uses, so a hub row and the overview can be compared
+    directly instead of being two different scales that happen to look alike.
+
+    Groups under `min_matches` are dropped rather than shown: a hub with one
+    match reports a 0% or 100% win rate, which is noise wearing a statistic's
+    clothes.
+    """
+    from . import performance as _perf
+
+    history = history or []
+    stat_items = stat_items or []
+    if not history or not stat_items:
+        return None
+
+    # match_id -> which competition it belonged to
+    meta = {}
+    for m in history:
+        mid = m.get("match_id")
+        if not mid:
+            continue
+        name = (m.get("competition_name") or "").strip()
+        if not name:
+            continue
+        meta[mid] = {
+            "name": name,
+            "kind": (m.get("competition_type") or "").lower() or None,
+            "competition_id": m.get("competition_id"),
+        }
+
+    groups = {}
+    for it in stat_items:
+        s = it.get("stats") or {}
+        mid = s.get("Match Id") or s.get("Match ID") or it.get("match_id")
+        info = meta.get(mid)
+        if not info:
+            continue  # outside the history window, or a match with no competition
+        g = groups.setdefault(
+            info["name"],
+            {"info": info, "items": [], "w": 0, "l": 0, "k": 0, "d": 0, "a": 0,
+             "rounds": 0.0, "hs": 0},
+        )
+        g["items"].append(it)
+
+        won = _to_int(s.get("Result")) == 1
+        g["w" if won else "l"] += 1
+        g["k"] += _to_int(s.get("Kills")) or 0
+        g["d"] += _to_int(s.get("Deaths")) or 0
+        g["a"] += _to_int(s.get("Assists")) or 0
+        g["hs"] += _to_int(s.get("Headshots")) or 0
+
+        # Rounds, for the per-round figures. Same fallback as everywhere else:
+        # prefer the published field, reconstruct from K/R only if it's absent.
+        r = _num(s.get("Rounds"))
+        if not r or r <= 0:
+            kpr = _num(s.get("K/R Ratio"))
+            k = _to_int(s.get("Kills")) or 0
+            r = (k / kpr) if kpr else 0
+        g["rounds"] += r or 0
+
+    rows = []
+    for name, g in groups.items():
+        n = g["w"] + g["l"]
+        if n < min_matches:
+            continue
+        rounds = g["rounds"] or 0
+        perf = _perf.aggregate_performance(g["items"]) or {}
+        rows.append({
+            "name": name,
+            "kind": g["info"]["kind"],
+            "competition_id": g["info"]["competition_id"],
+            "matches": n,
+            "wins": g["w"],
+            "losses": g["l"],
+            "win_rate": round(100.0 * g["w"] / n, 1),
+            "kills": g["k"],
+            "deaths": g["d"],
+            "assists": g["a"],
+            # The +/- people actually quote — total kills over total deaths,
+            # not an average of per-match differences.
+            "diff": g["k"] - g["d"],
+            "kd": round(g["k"] / g["d"], 2) if g["d"] else None,
+            "kpr": round(g["k"] / rounds, 2) if rounds else None,
+            "hs_pct": round(100.0 * g["hs"] / g["k"], 1) if g["k"] else None,
+            "adr": perf.get("adr"),
+            "rating": perf.get("rating"),
+        })
+
+    rows.sort(key=lambda r: r["matches"], reverse=True)
+    return rows or None
+
+
+HIGHLIGHT_METRICS = {
+    # key           label            stat field            higher is better
+    "kills":     ("Most kills",     "Kills",               True),
+    "kd":        ("Best K/D",       "K/D Ratio",           True),
+    "adr":       ("Best ADR",       "ADR",                 True),
+    "hs":        ("Best HS%",       "Headshots %",         True),
+    "worst_kd":  ("Worst K/D",      "K/D Ratio",           False),
+}
+
+
+def build_highlights(items, n=5):
+    """Best and worst matches by each metric, over everything we already hold.
+
+    This costs nothing new. `get_player_profile` already pulls up to 250
+    matches with full per-match stats and then uses only the first 50; the
+    other 200 sit in memory unread. Career bests are exactly the question a
+    long tail answers well and a 30-match average answers badly.
+
+    Every row carries enough to be clickable and checkable — match id, map,
+    score, date — because a "95 kills" with nothing behind it is a claim, not
+    a statistic.
+    """
+    items = items or []
+    if not items:
+        return None
+
+    def row(it):
+        s = it.get("stats") or {}
+        return {
+            "match_id": s.get("Match Id") or s.get("Match ID") or it.get("match_id"),
+            "map": s.get("Map"),
+            "score": s.get("Final Score") or s.get("Score"),
+            "kills": _to_int(s.get("Kills")),
+            "deaths": _to_int(s.get("Deaths")),
+            "assists": _to_int(s.get("Assists")),
+            "kd": _num(s.get("K/D Ratio")),
+            "adr": _num(s.get("ADR") or s.get("Average Damage per Round")),
+            "hs": _num(s.get("Headshots %")),
+            "won": _to_int(s.get("Result")) == 1,
+            "finished_at": _match_finished_seconds(s),
+        }
+
+    out = {}
+    for key, (label, field, higher) in HIGHLIGHT_METRICS.items():
+        scored = []
+        for it in items:
+            v = _num((it.get("stats") or {}).get(field))
+            if v is None:
+                continue
+            scored.append((v, it))
+        if not scored:
+            continue
+        scored.sort(key=lambda p: p[0], reverse=higher)
+        out[key] = {
+            "label": label,
+            "rows": [dict(row(it), value=v) for v, it in scored[:n]],
+        }
+
+    return out or None
+
+
+def _match_finished_seconds(s):
+    """`Match Finished At` in seconds. FACEIT sends it in milliseconds."""
+    v = _num(s.get("Match Finished At"))
+    if not v:
+        return None
+    # Anything past the year 2100 in seconds is really milliseconds.
+    return int(v / 1000) if v > 4102444800 else int(v)
 
 
 def get_match_demo_url(match_id):
@@ -2647,7 +2901,13 @@ def build_player_summary(nickname):
     # still raises out of .result(), same as when these ran sequentially.
     with ThreadPoolExecutor(max_workers=8) as pool:
         f_stats = pool.submit(get_player_stats, player_id)
-        f_history = pool.submit(get_player_history, player_id, limit=30)
+        # 250 rather than 30, to match the stats window: the hub breakdown
+        # joins these two on match id, and a stat with no history row beside it
+        # can't be attributed to a competition. Costs two extra calls, run in
+        # this same pool. Every existing consumer still reads history[:30] —
+        # widening their window would quietly change teammate and nemesis
+        # thresholds that were tuned against thirty matches.
+        f_history = pool.submit(get_recent_history, player_id, total=250)
         f_recent = pool.submit(get_recent_match_stats, player_id, total=250)
         f_ranking = pool.submit(get_player_ranking, player_id, region)
         f_bans = pool.submit(get_player_bans, player_id)
@@ -2656,7 +2916,11 @@ def build_player_summary(nickname):
         f_twitch = pool.submit(get_twitch_handle, player.get("nickname"))
 
         stats = f_stats.result()
-        history = f_history.result()
+        history_all = f_history.result()
+        # Everything downstream of `history` was written and tuned against the
+        # last 30, so that is what it keeps getting. `history_all` is used only
+        # where the wider window is the point.
+        history = history_all[:30]
         recent_all = f_recent.result()
         ranking = f_ranking.result()
         bans = f_bans.result()
@@ -2847,6 +3111,15 @@ def build_player_summary(nickname):
         # the last thirty is a player who changed roles, and the lifetime
         # figure alone will never say so.
         "recent_roles": build_recent_roles(match_items),
+        # Career bests, from `recent_all` rather than `match_items`: the whole
+        # point is the long tail, and match_items is the first 50 of it.
+        "highlights": build_highlights(recent_all),
+        # Where the numbers came from: ranked matchmaking against the hubs and
+        # championships, side by side, over the same 250 matches.
+        "competitions": build_competition_stats(history_all, recent_all),
+        # The long scannable list, paginated and filtered on the client. Flat
+        # rows, no teams — `recent_matches` above is the expandable one.
+        "all_matches": build_full_matches(history_all, recent_all),
         "recent_matches": [
             {
                 "match_id": m.get("match_id"),
