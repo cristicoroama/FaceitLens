@@ -222,11 +222,6 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
             <NicknameMenu history={player.nickname_history} />
           </div>
           <div className="ph-meta">
-            {/* Code only — the flag moved up beside the nickname, and two of
-                the same flag on one card is one too many. */}
-            <span className="ph-country">
-              {player.country ? player.country.toUpperCase() : "—"}
-            </span>
             {/* Region rank.
 
                 Europe gets the EU flag; every other region gets no mark at
