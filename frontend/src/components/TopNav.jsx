@@ -13,6 +13,16 @@ import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "..
 const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
 const LOCALE_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
 
+/* Discord's own mark. It was inline in three places; one copy now, because
+   three copies of a 900-character path is three chances to fix a bug twice. */
+export function DiscordMark({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.6 1.25a18.3 18.3 0 0 0-5.5 0 12.6 12.6 0 0 0-.61-1.25.08.08 0 0 0-.08-.04c-1.7.3-3.33.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.78 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6.01-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.09 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.22 0 2.18 1.09 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z" />
+    </svg>
+  );
+}
+
 function LangFlag({ code, size = 18 }) {
   return (
     <img
@@ -252,6 +262,23 @@ export default function TopNav({
         </div>
 
         <div className="tn-actions">{actions}</div>
+
+        {/* Icon only, and after the actions — a link out to somewhere else
+            belongs past the buttons that act on this site.
+
+            It used to be a full-width banner at the foot of the home page,
+            which meant it was missing from every other page and, on the one
+            page it did appear, was the largest thing on it. */}
+        <a
+          className="tn-social"
+          href={DISCORD_INVITE}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t("chrome.joinDiscord")}
+          aria-label={t("chrome.joinDiscord")}
+        >
+          <DiscordMark size={18} />
+        </a>
 
         <button
           className="tn-burger"
