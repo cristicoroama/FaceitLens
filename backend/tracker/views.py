@@ -1111,6 +1111,34 @@ AVATAR_HOSTS = {
 }
 AVATAR_MAX_BYTES = 3 * 1024 * 1024
 
+# Parent domains whose subdomains are all acceptable avatar sources.
+#
+# The exact-host set above is brittle: FACEIT and Steam both serve images from
+# a shifting set of CDN subdomains, and a host that isn't listed gets a 400,
+# which the share card sees as a failed image load and silently falls back to
+# initials. A missing avatar with no error is the hardest kind of bug to
+# notice, and this is the third time the list has needed a name added.
+#
+# Suffix-matched on the DOT, not with `endswith` alone: plain `endswith` on
+# "faceit.com" would also accept "evil-faceit.com" and "faceit.com.attacker.io"
+# is excluded by matching the hostname's end exactly.
+AVATAR_HOST_SUFFIXES = (
+    ".faceit-cdn.net",
+    ".faceit.com",
+    ".steamstatic.com",
+    ".akamaihd.net",
+)
+
+
+def _avatar_host_allowed(host):
+    """True for a host we are willing to fetch an image from."""
+    if not host:
+        return False
+    host = host.lower().rstrip(".")
+    if host in AVATAR_HOSTS:
+        return True
+    return any(host.endswith(sfx) for sfx in AVATAR_HOST_SUFFIXES)
+
 
 @require_GET
 def avatar_proxy(request):
@@ -1122,7 +1150,7 @@ def avatar_proxy(request):
         return JsonResponse({"error": "Missing url."}, status=400)
 
     parsed = urlparse(raw)
-    if parsed.scheme != "https" or parsed.hostname not in AVATAR_HOSTS:
+    if parsed.scheme != "https" or not _avatar_host_allowed(parsed.hostname):
         return JsonResponse({"error": "Host not allowed."}, status=400)
 
     cache_key = f"avatar:{raw}"

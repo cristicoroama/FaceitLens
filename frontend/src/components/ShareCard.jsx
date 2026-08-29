@@ -112,15 +112,58 @@ export default function ShareCard({ player, onClose }) {
       }
       ctx.restore();
 
-      // name
+      /* Level badge, on the avatar ring at 4-o'clock — the same place the
+         profile header puts it, so the card reads as a picture of the page
+         rather than a different design of the same facts.
+
+         Drawn rather than imported: FaceitLevel is an SVG React component,
+         and getting one onto a canvas means serialising it, loading it as an
+         image and waiting for that too. A disc with a number is what it
+         amounts to at this size. */
+      const lvl = player.skill_level;
+      if (lvl != null) {
+        const lx = ax + ar * 0.72, ly = ay + ar * 0.72, lr = 46;
+        ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+        ctx.fillStyle = "#0d0f1c"; ctx.fill();
+        ctx.strokeStyle = t.accent; ctx.lineWidth = 5; ctx.stroke();
+        ctx.fillStyle = t.accent;
+        ctx.font = "800 46px system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(String(lvl), lx, ly + 2);
+      }
+
+      // name, with the verified tick beside it when the account carries one
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ffffff";
       ctx.font = "700 68px system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
-      ctx.fillText(player.nickname || "—", S / 2, 500);
+      const nick = player.nickname || "—";
+      const nickW = ctx.measureText(nick).width;
+      /* Shifted left by half the tick's width so the NAME PLUS TICK is
+         centred, not the name alone with a mark hanging off the side. */
+      const tickR = player.verified ? 22 : 0;
+      const tickGap = player.verified ? 18 : 0;
+      ctx.fillText(nick, S / 2 - (tickR * 2 + tickGap) / 2, 500);
+
+      if (player.verified) {
+        const vx = S / 2 - (tickR * 2 + tickGap) / 2 + nickW / 2 + tickGap + tickR;
+        const vy = 500 + 34;
+        ctx.beginPath(); ctx.arc(vx, vy, tickR, 0, Math.PI * 2);
+        ctx.fillStyle = t.accent; ctx.fill();
+        // the tick itself
+        ctx.beginPath();
+        ctx.moveTo(vx - 10, vy);
+        ctx.lineTo(vx - 3, vy + 8);
+        ctx.lineTo(vx + 11, vy - 8);
+        ctx.strokeStyle = "#0d0f1c";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.stroke();
+      }
 
       // level + ELO line
       ctx.fillStyle = t.accent2;
       ctx.font = "700 40px SFMono-Regular, Menlo, Consolas, 'Courier New', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.fillText(`LVL ${player.skill_level ?? "?"}  ·  ${player.elo ?? "?"} ELO`, S / 2, 582);
 
       // stat tiles
@@ -189,7 +232,17 @@ export default function ShareCard({ player, onClose }) {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => !cancelled && safeDraw(img);
-      img.onerror = () => !cancelled && safeDraw(null);
+      img.onerror = () => {
+        /* Say which URL failed. The fallback to initials is silent by design,
+           which meant an avatar that never loaded looked like a styling choice
+           for months. The proxy rejects hosts it doesn't recognise, so the URL
+           is the one piece of information that identifies the cause. */
+        console.warn(
+          "ShareCard: avatar failed to load, falling back to initials.",
+          { source: player.avatar, via: `${API_BASE}/api/avatar/` }
+        );
+        if (!cancelled) safeDraw(null);
+      };
       img.src = `${API_BASE}/api/avatar/?url=${encodeURIComponent(player.avatar)}`;
     } else {
       safeDraw(null);
