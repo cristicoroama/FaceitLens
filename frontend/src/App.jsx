@@ -299,13 +299,24 @@ function applyMeta(title, desc, robots = "index, follow") {
    words for attention, and none of them says anything the word doesn't. The
    active tab is marked by an underline instead, which is one signal in one
    place rather than a filled pill plus a brightened icon. */
+/* Ordered the way the page is actually read: the summary, then the four views
+   that answer "show me the detail behind it", then the side pages.
+
+   No Seasons tab, though the site this layout came from has one. FACEIT's
+   public API exposes no per-player matchmaking season history — the only
+   seasons in it belong to ESEA leagues. A tab that could only ever be empty is
+   worse than no tab. */
 function buildProfileTabs(t) { return [
   ["overview", t("tab.overview")],
+  ["matches", t("tab.matches")],
+  ["maps", t("tab.maps")],
+  ["hubs", t("tab.hubs")],
+  ["highlights", t("tab.highlights")],
+  ["teammates", t("tab.teammates")],
   ["account", t("tab.trust")],
   ["leetify", t("tab.leetify")],
   ["clips", t("tab.clips")],
   ["hltv", t("tab.hltv")],
-  ["teammates", t("tab.teammates")],
   ["steam", t("tab.steam")],
   ["met", t("tab.met")],
   ["nicknames", t("tab.nicknames")],
@@ -1131,7 +1142,29 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                   tab instead of appearing at a different scroll depth per tab. */}
               <AdInline />
 
-              {profileTab === "account" ? (
+              {profileTab === "matches" ? (
+                <>
+                  {/* The detailed ten first — expandable, with full scoreboards
+                      — then the long filterable list for whoever wants to scan
+                      a few hundred rows. Two tools for two different questions,
+                      which is why both live here rather than one replacing the
+                      other. */}
+                  <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
+                  <AllMatches matches={data.all_matches} />
+                </>
+              ) : profileTab === "maps" ? (
+                <>
+                  {/* Best and weakest first: "which map should I pick" is the
+                      question people open this tab with, and the cards answer
+                      it without needing the table underneath explained. */}
+                  <MapHighlights maps={data.map_stats} />
+                  <MapStats maps={data.map_stats} />
+                </>
+              ) : profileTab === "hubs" ? (
+                <PlayerHubs competitions={data.competitions} />
+              ) : profileTab === "highlights" ? (
+                <Highlights highlights={data.highlights} />
+              ) : profileTab === "account" ? (
                 <AccountView nickname={data.nickname} />
               ) : profileTab === "leetify" ? (
                 <LeetifyStats nickname={data.nickname} />
@@ -1140,7 +1173,16 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               ) : profileTab === "hltv" ? (
                 <HltvStats hltv={data.hltv} />
               ) : profileTab === "teammates" ? (
-                <TeammatesFull mates={data.teammates_full} onPick={go} />
+                <>
+                  <TeammatesFull mates={data.teammates_full} onPick={go} />
+                  {/* Who they win with and who beats them, on the same page as
+                      the full list — all three are the same question asked
+                      about different people. */}
+                  <div className="duo">
+                    <div><BestTeammates mates={data.best_teammates} onPick={go} /></div>
+                    <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
+                  </div>
+                </>
               ) : profileTab === "met" ? (
                 <HaveWeMet player={data.nickname} />
               ) : profileTab === "steam" ? (
@@ -1148,6 +1190,12 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               ) : profileTab === "nicknames" ? (
                 <Nicknames nicknames={data.nicknames} />
               ) : (
+                /* Overview is now a summary, not the whole profile. Everything
+                   that answers "show me the detail behind this number" moved to
+                   its own tab; what is left is the shape of the account and how
+                   it is trending. Fourteen sections in one scroll meant the
+                   match list — the thing most people came for — was six
+                   screens down. */
                 <>
                   <OverviewGrid
                     data={data}
@@ -1155,38 +1203,16 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                     mapFilter={mapFilter}
                     onMapFilter={applyMapFilter}
                   />
-                  {/* Best/weakest sits above the skill bars: which map to pick
-                      is the question people came to answer, and it needs no
-                      explanation of how it was scored. */}
-                  <MapHighlights maps={data.map_stats} />
-                  {/* Records go next to the map cards, above the averages:
-                      both answer "what am I actually good at", and both are
-                      concrete in a way the rating bars underneath are not. */}
-                  <Highlights highlights={data.highlights} />
                   <SkillRatings skills={data.skills} />
                   {/* Directly under the ratings: these are the numbers those
                       bars were scored from, so a rating you disagree with can
                       be checked rather than just disbelieved. */}
                   <StatPanels stats={data.stats} />
                   {eloSeries.length > 0 && <EloChart series={eloSeries} />}
-                  <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                   <div className="duo">
-                    <div><MapStats maps={data.map_stats} /></div>
+                    <div><EloProjector elo={data.elo} winRate={data.stats?.win_rate} /></div>
                     <div><Activity activity={data.activity} /></div>
                   </div>
-                  <div className="duo">
-                    <div><BestTeammates mates={data.best_teammates} onPick={go} /></div>
-                    <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
-                  </div>
-                  {/* Under the map table, above the match list: it's the same
-                      "where did these numbers come from" question the map
-                      breakdown asks, only split by competition instead. */}
-                  <PlayerHubs competitions={data.competitions} />
-                  <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
-                  {/* Last on the page: the detailed ten come first because
-                      that's what most people want, and the long filterable
-                      list is there for whoever scrolls past them. */}
-                  <AllMatches matches={data.all_matches} />
                 </>
               )}
 

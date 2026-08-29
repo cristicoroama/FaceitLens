@@ -1021,18 +1021,26 @@ a { color: inherit; }
 /* ============================================================
    Profile tabs
    ============================================================ */
-/* Profile tabs — a rail of words with the active one underlined.
+/* Profile tabs — a rail of words with a single indicator that slides.
 
-   The previous version was a glass tray of rounded pills with an icon in each
-   and an orange gradient on the active one. That is three signals doing one
-   job: the tray, the filled pill, and the brightened icon all said "this tab".
-   A single underline says it once, and the row stops reading as a toolbar
-   bolted above the content and starts reading as part of it.
+   The indicator is ONE pseudo-element on the container, tethered to whichever
+   tab is active with CSS anchor positioning, so switching tabs animates it
+   across instead of blinking a new bar into existence. No JS, no measuring
+   element widths on resize, no ref plumbing — the browser recomputes the
+   anchor geometry itself.
 
-   No container, no background. The bottom rule spans the full width and the
-   active tab overpaints its own segment of it, which is what makes the
-   underline look like a position on a track rather than a box. */
+   Technique per Google Chrome's own guidance (modern-web-guidance,
+   ui-behaviors/anchor-positioning-tab-underline): pseudo-element on the
+   container rather than an extra div, `anchor-name` on the active item,
+   `inset` transitioned. Their doc says no browser supports it yet; that is
+   out of date — MDN compat data puts it at Chrome 125+, Firefox 147+ and
+   Safari 26+. Everything older falls back below.
+
+   Replaces a glass tray of orange pills with an icon in each. That was three
+   signals doing one job: the tray, the fill, and the brightened glyph all said
+   "this tab". One line says it once. */
 .ptabs {
+  position: relative;
   display: flex;
   gap: 4px;
   margin-bottom: 20px;
@@ -1054,22 +1062,47 @@ a { color: inherit; }
   cursor: pointer;
   transition: color 0.18s;
 }
-/* The bar is drawn as a pseudo-element rather than a border so the tab does
-   not change height between states — a border-bottom that appears on activate
-   shifts every other tab by a pixel. */
+.ptab:hover { color: var(--text); }
+.ptab.active { color: var(--text); }
+.ptab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Fallback: a bar drawn on the active tab itself. Static, but correct.
+   Drawn as a pseudo-element rather than a border-bottom because a border that
+   appears on activate adds height and shifts every other tab by a pixel. */
 .ptab::after {
   content: "";
   position: absolute;
   left: 0; right: 0; bottom: -1px;
   height: 2px;
   background: transparent;
-  transition: background 0.18s;
 }
-.ptab:hover { color: var(--text); }
-.ptab:hover::after { background: var(--border-hi); }
-.ptab.active { color: var(--text); }
 .ptab.active::after { background: var(--accent); }
-.ptab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+@supports (anchor-name: --x) {
+  /* The active tab becomes the anchor; the container's indicator follows it. */
+  .ptab.active { anchor-name: --ptab-active; }
+  .ptab::after { display: none; }
+
+  .ptabs::before {
+    content: "";
+    position: absolute;
+    position-anchor: --ptab-active;
+    /* Straddle the container's 1px rule, the same way the fallback's
+       `bottom: -1px` does, so the two versions land in the same place. */
+    inset-block-start: calc(anchor(bottom) - 1px);
+    inset-inline-start: anchor(left);
+    inset-inline-end: anchor(right);
+    block-size: 2px;
+    background: var(--accent);
+  }
+
+  /* Wrapped, not optional: a bar sliding across the screen is exactly the kind
+     of motion someone with vestibular sensitivity turned animation off to
+     avoid. Without the query it still jumps to the right place, just instantly. */
+  @media (prefers-reduced-motion: no-preference) {
+    .ptabs::before { transition: inset 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
+  }
+}
 
 /* ============================================================
    Ban banner / AI panel
