@@ -1149,6 +1149,15 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
+              {/* Between the profile card and the tab rail, full width.
+
+                  It used to sit under the tabs, which put it between a control
+                  and the thing that control operates — you clicked a tab and
+                  an advert was the first thing that answered. Here it is a
+                  band between two sections instead of an interruption inside
+                  one. */}
+              <AdInline />
+
               {/* Sidebar + tabs, side by side. The sidebar is outside the tab
                   switch on purpose: none of what it holds belongs to one tab,
                   and re-mounting the activity heatmap on every tab change
@@ -1171,8 +1180,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
 
               {/* Above the tab content, so it sits in one fixed place on every
                   tab instead of appearing at a different scroll depth per tab. */}
-              <AdInline />
-
               {profileTab === "matches" ? (
                 <>
                   {/* The detailed ten first — expandable, with full scoreboards

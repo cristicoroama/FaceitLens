@@ -171,6 +171,16 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
 
         <div className="ph-info">
           <div className="ph-name">
+            {/* Flag first, the way every tracker in this space puts it. It
+                reads as a property of the name rather than a separate fact
+                filed on the line below, which is how a nationality actually
+                works. Still carries a title, so a flag nobody recognises is
+                one hover away from being named. */}
+            {player.country && (
+              <span className="ph-name-flag" title={player.country.toUpperCase()}>
+                <Flag country={player.country} size={22} />
+              </span>
+            )}
             {player.nickname}
             {/* Icon-only, the way every FACEIT tracker shows these: three small
                 marks in a row, no text and no pill. A word-sized "PREMIUM"
@@ -213,8 +223,9 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
             <NicknameMenu history={player.nickname_history} />
           </div>
           <div className="ph-meta">
+            {/* Code only — the flag moved up beside the nickname, and two of
+                the same flag on one card is one too many. */}
             <span className="ph-country">
-              <Flag country={player.country} />
               {player.country ? player.country.toUpperCase() : "—"}
             </span>
             {/* Outside the top 1,000 the position is just a number, so it
@@ -382,10 +393,13 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
 
       {/* level progress lives inside the hero now */}
       <div className="ph-progress">
+        {/* No `challenger` prop: the badge is already up beside the ELO, and
+            rendering it here too put the same "#236" twice on one card, two
+            rows apart. LevelProgress falls back to its normal current-level
+            tick without it. */}
         <LevelProgress
           elo={player.elo}
           level={player.skill_level}
-          challenger={isChallenger ? rank : null}
           bare
         />
       </div>

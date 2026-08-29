@@ -815,8 +815,21 @@ a { color: inherit; }
    height IS the visible height of the banner. min-height gives the photo
    room to read as a picture instead of a strip, without depending on how
    tall the name and buttons happen to be. */
+/* Stacking order inside the hero, set once and deliberately.
+
+   These rows are siblings that all used to sit at `z-index: 2`. At equal
+   z-index the later element in the DOM wins, so the stats strip painted over
+   the nickname dropdown that opens down out of the row above it — the menu was
+   not clipped, it was buried.
+
+   Raising the MENU does not help: each row is `position: relative` with a
+   z-index, which makes it a stacking context, and a child can never escape its
+   parent's level. The rows themselves have to be ordered.
+
+   Rows that contain a dropdown outrank rows that do not. */
 .ph-top {
-  position: relative; z-index: 2;
+  /* holds the nickname dropdown */
+  position: relative; z-index: 6;
   display: flex; align-items: center; gap: 20px;
   min-height: 150px; padding: 24px 28px 20px;
 }
@@ -944,10 +957,11 @@ a { color: inherit; }
 
 /* actions row inside hero */
 .ph-actions {
+  /* holds the Generate dropdown */
   position: relative; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   padding: 14px 28px; border-top: 1px solid var(--glass-brd);
   background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
-  z-index: 2;
+  z-index: 5;
 }
 .act-btn {
   /* Was emoji + text in one string. Emoji render in the OS font, so they
@@ -6593,3 +6607,12 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .pcmp-go:disabled { opacity: .45; cursor: default; }
 .pcmp-clear { border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); }
 .pcmp-clear:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* Country flag beside the nickname. Sized off the name's cap height rather
+   than a round number, so it sits on the same optical line instead of
+   floating above or below it. */
+.ph-name-flag { display: inline-flex; align-items: center; margin-right: 10px; }
+.ph-name-flag .flag-icon {
+  display: block; border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35);
+}
