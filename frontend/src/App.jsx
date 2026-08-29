@@ -294,16 +294,21 @@ function applyMeta(title, desc, robots = "index, follow") {
   setProp("og:description", desc);
 }
 
+/* Label and key only — no icons.
+   Nine glyphs across a strip of nine words is nine things competing with the
+   words for attention, and none of them says anything the word doesn't. The
+   active tab is marked by an underline instead, which is one signal in one
+   place rather than a filled pill plus a brightened icon. */
 function buildProfileTabs(t) { return [
-  ["overview", t("tab.overview"), Icon.grid1x2],
-  ["account", t("tab.trust"), Icon.shieldCheck],
-  ["leetify", t("tab.leetify"), Icon.graphUpArrow],
-  ["clips", t("tab.clips"), Icon.playBtn],
-  ["hltv", t("tab.hltv"), Icon.barChartLine],
-  ["teammates", t("tab.teammates"), Icon.people],
-  ["steam", t("tab.steam"), Icon.steam],
-  ["met", t("tab.met"), Icon.personCheck],
-  ["nicknames", t("tab.nicknames"), Icon.tags],
+  ["overview", t("tab.overview")],
+  ["account", t("tab.trust")],
+  ["leetify", t("tab.leetify")],
+  ["clips", t("tab.clips")],
+  ["hltv", t("tab.hltv")],
+  ["teammates", t("tab.teammates")],
+  ["steam", t("tab.steam")],
+  ["met", t("tab.met")],
+  ["nicknames", t("tab.nicknames")],
 ]; }
 
 export default function App({ lang = DEFAULT_LOCALE }) {
@@ -1110,13 +1115,13 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               )}
 
               <div className="ptabs">
-                {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label, icon]) => (
+                {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
                   <button
                     key={key}
                     className={`ptab ${profileTab === key ? "active" : ""}`}
                     onClick={() => setProfileTab(key)}
+                    aria-current={profileTab === key ? "page" : undefined}
                   >
-                    {icon}
                     {label}
                   </button>
                 ))}

@@ -1021,25 +1021,55 @@ a { color: inherit; }
 /* ============================================================
    Profile tabs
    ============================================================ */
+/* Profile tabs — a rail of words with the active one underlined.
+
+   The previous version was a glass tray of rounded pills with an icon in each
+   and an orange gradient on the active one. That is three signals doing one
+   job: the tray, the filled pill, and the brightened icon all said "this tab".
+   A single underline says it once, and the row stops reading as a toolbar
+   bolted above the content and starts reading as part of it.
+
+   No container, no background. The bottom rule spans the full width and the
+   active tab overpaints its own segment of it, which is what makes the
+   underline look like a position on a track rather than a box. */
 .ptabs {
-  display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-brd);
-  border-radius: 14px; padding: 5px;
-  box-shadow: inset 0 1px 0 var(--glass-hi);
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
 }
 .ptab {
-  background: none; border: none; border-radius: 10px;
-  padding: 9px 15px; color: var(--text-dim);
-  font-family: var(--font-display); font-weight: 600; font-size: 12.5px;
-  text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.18s;
+  position: relative;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 11px 14px;
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color 0.18s;
 }
-.ptab:hover { color: var(--text); background: var(--glass-bg-2); }
-.ptab.active {
-  color: var(--on-accent);
-  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
-  box-shadow: var(--shadow-sm);
+/* The bar is drawn as a pseudo-element rather than a border so the tab does
+   not change height between states — a border-bottom that appears on activate
+   shifts every other tab by a pixel. */
+.ptab::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: transparent;
+  transition: background 0.18s;
 }
+.ptab:hover { color: var(--text); }
+.ptab:hover::after { background: var(--border-hi); }
+.ptab.active { color: var(--text); }
+.ptab.active::after { background: var(--accent); }
+.ptab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* ============================================================
    Ban banner / AI panel
@@ -2155,11 +2185,13 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 
 /* ---- tab bar with icons ---- */
+/* Nine uppercase words do not wrap onto two lines on a phone without looking
+   like two separate rows of tabs, so below this they scroll sideways instead.
+   The bottom rule scrolls with them, which is correct: it belongs to the rail,
+   not to the page. */
 .ptabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
 .ptabs::-webkit-scrollbar { display: none; }
-.ptab { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; flex-shrink: 0; }
-.ptab svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.8; }
-.ptab.active svg { opacity: 1; }
+.ptab { white-space: nowrap; flex-shrink: 0; }
 
 /* ---- ring gauge (SVG) ---- */
 .ringg { position: relative; display: inline-grid; place-items: center; }
