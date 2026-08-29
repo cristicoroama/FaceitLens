@@ -870,6 +870,21 @@ a { color: inherit; }
 .ph-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; color: var(--text-dim); font-size: 13px; margin-top: 7px; }
 .ph-flag { font-size: 16px; margin-right: 5px; }
 .ph-rank { color: var(--accent); font-family: var(--font-mono); font-weight: 600; }
+/* Account age, in the same meta row as the country and the rank. The date is
+   the fact, so it reads normally; the age is the gloss, so it gets the muted
+   pill. Together they answer "since when" and "how long" without either one
+   needing the other explained. */
+.ph-age { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.ph-age i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(255, 255, 255, .07);
+}
 .ph-elo { text-align: right; flex-shrink: 0; }
 .ph-elo-label {
   color: var(--text-dim); font-size: 10.5px; letter-spacing: 2.5px;

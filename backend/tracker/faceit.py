@@ -4,6 +4,7 @@ Docs: https://developers.faceit.com/docs/tools/data-api
 """
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 import requests
 from django.core.cache import cache
@@ -183,11 +184,22 @@ INTERNAL_BASE = "https://api.faceit.com"
 TWITCH_TTL = 12 * 60 * 60
 
 
-def get_twitch_handle(nickname):
-    """The player's linked Twitch channel name, or None."""
+def get_internal_profile(nickname):
+    """Trimmed payload from FACEIT's internal user endpoint, or None.
+
+    Undocumented, unauthenticated, and not part of the Data API contract — it
+    can vanish without notice, so nothing here is load-bearing. It carries two
+    things the public API does not: the linked Twitch channel and the date the
+    account was created.
+
+    Cached as a small dict rather than the raw body. The real response also
+    carries a `friends` array that runs to hundreds of UUIDs on an old account,
+    none of which we display, and caching that would be storing a few hundred
+    KB per player to read two fields out of it.
+    """
     if not nickname:
         return None
-    key = f"faceit:twitch:{str(nickname).lower()}"
+    key = f"faceit:internal:{str(nickname).lower()}"
     hit = cache.get(key)
     if hit is not None:
         return hit or None
@@ -201,26 +213,54 @@ def get_twitch_handle(nickname):
             headers={"User-Agent": "faceit-lens.com"},
         )
         if resp.status_code != 200:
-            cache.set(key, "", TWITCH_TTL)
+            cache.set(key, {}, TWITCH_TTL)
             return None
         body = resp.json() or {}
     except Exception:
         # Not cached as absent: a timeout or a blip should be retried later,
-        # unlike a 200 that genuinely carries no Twitch id.
+        # unlike a 200 that genuinely carries nothing.
         return None
 
     payload = body.get("payload") or body
-    handle = ((payload.get("streaming") or {}).get("twitch_id") or "").strip()
 
+    handle = ((payload.get("streaming") or {}).get("twitch_id") or "").strip()
     # Same rule as the public platforms map: a handle, never a URL. The value
     # ends up in an href and comes from something a user typed.
     if not handle or _looks_like_url(handle):
-        cache.set(key, "", TWITCH_TTL)
-        return None
+        handle = None
 
-    handle = handle[:64]
-    cache.set(key, handle, TWITCH_TTL)
-    return handle
+    # `created_at` and `activated_at` are the same instant on every account
+    # checked; created_at is the one that means what it says.
+    created = _iso_or_none(payload.get("created_at") or payload.get("activated_at"))
+
+    out = {"twitch": handle[:64] if handle else None, "created_at": created}
+    cache.set(key, out, TWITCH_TTL)
+    return out
+
+
+def _iso_or_none(v):
+    """Normalise an ISO-8601 timestamp to UTC, or return None.
+
+    Validated rather than trusted: this comes from an undocumented endpoint and
+    goes into the page as a date. A string that isn't a date should render as
+    nothing, not as "Invalid Date".
+
+    Parsed with the offset intact rather than truncated at 19 characters. Every
+    value seen so far ends in "Z", but on a "+03:00" one, chopping the offset
+    and appending "Z" would relabel a local time as UTC and move the instant
+    three hours.
+    """
+    if not v or not isinstance(v, str):
+        return None
+    try:
+        # fromisoformat only learned to accept "Z" in 3.11; the swap keeps this
+        # working on older runtimes.
+        dt = datetime.fromisoformat(v.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _looks_like_url(v):
@@ -2913,7 +2953,10 @@ def build_player_summary(nickname):
         f_bans = pool.submit(get_player_bans, player_id)
         f_hubs = pool.submit(get_player_hubs, player_id)
         f_steam = pool.submit(get_steam_info, steam_id)
-        f_twitch = pool.submit(get_twitch_handle, player.get("nickname"))
+        # One call, two fields: the Twitch channel and the account's creation
+        # date. Both come from the same internal endpoint, so asking twice
+        # would be two round-trips for one response.
+        f_internal = pool.submit(get_internal_profile, player.get("nickname"))
 
         stats = f_stats.result()
         history_all = f_history.result()
@@ -2926,7 +2969,8 @@ def build_player_summary(nickname):
         bans = f_bans.result()
         hubs = f_hubs.result()
         steam = f_steam.result()
-        twitch = f_twitch.result()
+        internal = f_internal.result() or {}
+        twitch = internal.get("twitch")
 
     # The first page of recent_all is the same data a separate
     # get_match_stats(limit=50) would return, so slice it instead of re-asking.
@@ -3036,11 +3080,16 @@ def build_player_summary(nickname):
         "elo": current_elo,
         "skill_level": cs2.get("skill_level"),
         "verified": player.get("verified", False),
+        # When the FACEIT account was made. Not in the Data API at all — it
+        # rides along on the same internal call as the Twitch handle. Sent as
+        # the raw ISO instant and aged on the client, so a cached profile can't
+        # serve a stale "13 years" the day after a birthday.
+        "created_at": internal.get("created_at"),
         "steam_id": steam_id,
         "memberships": player.get("memberships", []),
         # Linked third-party accounts, from two different places because FACEIT
         # splits them: `steam` comes from the public API, `twitch` only exists
-        # on the internal one (see get_twitch_handle). Merged into one map so
+        # on the internal one (see get_internal_profile). Merged into one map so
         # the frontend reads `platforms.twitch` without knowing or caring that
         # the two halves travelled different roads.
         "platforms": _merge_platforms(player.get("platforms"), twitch),

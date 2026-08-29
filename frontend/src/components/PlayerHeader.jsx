@@ -2,12 +2,40 @@ import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
-import { Icon } from "../icons.jsx";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
    pool. It's positional, not an ELO band, so it's derived from the ranking
    position the API gives us rather than from ELO. */
 const CHALLENGER_CUTOFF = 1000;
+
+/** "Jul 2013 · 13y" — when the account was made, and how long ago that was.
+ *
+ * The date alone makes you do arithmetic; the age alone loses the fact that
+ * this is a 2013 account, which is the part people find interesting. Both, in
+ * that order, because the date is the fact and the age is the gloss on it.
+ *
+ * Returns null rather than a placeholder when the timestamp is missing: it
+ * comes from an undocumented endpoint that may simply stop answering, and an
+ * empty slot is better than a dash pretending to be data.
+ */
+function accountAge(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+
+  const now = new Date();
+  if (d > now) return null;   // a clock skew shouldn't render "-0y"
+
+  let months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (now.getDate() < d.getDate()) months -= 1;
+  const years = Math.floor(months / 12);
+
+  // Under a year, months are the meaningful unit; a brand-new account would
+  // otherwise read "0y", which says less than nothing.
+  const age = years >= 1 ? `${years}y` : `${Math.max(0, months)}mo`;
+  const when = d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  return { when, age, full: d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) };
+}
 
 /** Quick-stat cell for the hero strip. */
 function PS({ label, value, tone }) {
@@ -38,6 +66,7 @@ export default function PlayerHeader({ player, children }) {
     : s.current_win_streak != null
     ? `${s.current_win_streak}W`
     : null;
+  const age = accountAge(player.created_at);
   const streakTone = player.streak
     ? player.streak.type === "W"
       ? "pos"
@@ -127,6 +156,15 @@ export default function PlayerHeader({ player, children }) {
                 #{rank.toLocaleString()} {player.region || ""}
               </span>
             ) : null}
+            {/* An old account is context for everything else on the page — a
+                1.35 K/D over eleven years is a different claim than the same
+                number over eleven months. */}
+            {age && (
+              <span className="ph-age" title={`FACEIT account created ${age.full}`}>
+                Since {age.when}
+                <i>{age.age}</i>
+              </span>
+            )}
           </div>
 
           {/* Straight through to the source profiles. Each only renders when we
