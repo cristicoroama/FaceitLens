@@ -2,6 +2,7 @@ import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
+import { Icon } from "../icons.jsx";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
    pool. It's positional, not an ELO band, so it's derived from the ranking
@@ -57,6 +58,7 @@ export default function PlayerHeader({ player, children }) {
       ? `https://www.faceit.com/en/players/${encodeURIComponent(player.nickname)}`
       : null);
   const rank = Number(player.ranking) || null;
+  const countryRank = Number(player.ranking_country) || null;
   const isChallenger =
     Number(player.skill_level) === 10 && rank !== null && rank <= CHALLENGER_CUTOFF;
   const wr = s.win_rate != null ? Number(s.win_rate) : null;
@@ -151,9 +153,30 @@ export default function PlayerHeader({ player, children }) {
             {/* Outside the top 1,000 the position is just a number, so it
                 stays plain text; inside it, the leaderboard pill is the
                 recognisable thing and it carries the exact rank itself. */}
+            {/* Two ladders, both real.
+
+                FACEIT publishes no worldwide table — what its docs call the
+                "global ranking of a game" is this per-region one — so the
+                region code is shown rather than a globe implying a world
+                position the number doesn't describe.
+
+                The region rank hides for Challengers because the badge over
+                by the ELO already carries the exact position. The country
+                rank has no such duplicate, so it always shows. */}
             {rank && !isChallenger ? (
-              <span className="ph-rank">
-                #{rank.toLocaleString()} {player.region || ""}
+              <span className="ph-rank" title={`#${rank.toLocaleString()} in ${player.region || "region"}`}>
+                {Icon.globe}
+                #{rank.toLocaleString()}
+                <i>{player.region || ""}</i>
+              </span>
+            ) : null}
+            {countryRank ? (
+              <span
+                className="ph-rank ph-rank-country"
+                title={`#${countryRank.toLocaleString()} in ${(player.country || "").toUpperCase()}`}
+              >
+                <Flag country={player.country} size={14} />
+                #{countryRank.toLocaleString()}
               </span>
             ) : null}
             {/* An old account is context for everything else on the page — a

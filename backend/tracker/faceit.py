@@ -2939,7 +2939,11 @@ def build_player_summary(nickname):
     # parallel instead of paying ~10 round-trips back to back. None of these
     # touch the ORM, so no per-thread DB connections are opened. A failing call
     # still raises out of .result(), same as when these ran sequentially.
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    # One worker per submitted call, plus headroom. These are all I/O-bound and
+    # spend their lives waiting on FACEIT, so a thread costs nothing; sizing
+    # the pool below the number of tasks just makes the last one queue behind
+    # a call that takes three round-trips.
+    with ThreadPoolExecutor(max_workers=10) as pool:
         f_stats = pool.submit(get_player_stats, player_id)
         # 250 rather than 30, to match the stats window: the hub breakdown
         # joins these two on match id, and a stat with no history row beside it
@@ -2950,6 +2954,13 @@ def build_player_summary(nickname):
         f_history = pool.submit(get_recent_history, player_id, total=250)
         f_recent = pool.submit(get_recent_match_stats, player_id, total=250)
         f_ranking = pool.submit(get_player_ranking, player_id, region)
+        # Same ladder, filtered to the player's own country. FACEIT has no
+        # worldwide table — the "global" ranking in its docs is this region
+        # one — so the honest pair to show is region and country, not
+        # world and country.
+        f_ranking_country = pool.submit(
+            get_player_ranking, player_id, region, player.get("country")
+        )
         f_bans = pool.submit(get_player_bans, player_id)
         f_hubs = pool.submit(get_player_hubs, player_id)
         f_steam = pool.submit(get_steam_info, steam_id)
@@ -2966,6 +2977,7 @@ def build_player_summary(nickname):
         history = history_all[:30]
         recent_all = f_recent.result()
         ranking = f_ranking.result()
+        ranking_country = f_ranking_country.result()
         bans = f_bans.result()
         hubs = f_hubs.result()
         steam = f_steam.result()
@@ -3094,6 +3106,8 @@ def build_player_summary(nickname):
         # the two halves travelled different roads.
         "platforms": _merge_platforms(player.get("platforms"), twitch),
         "ranking": ranking,
+        # Position among players from the same country on that same ladder.
+        "ranking_country": ranking_country,
         "bans": bans,
         "streak": session_info["streak"],
         "last_session": session_info["last_session"],

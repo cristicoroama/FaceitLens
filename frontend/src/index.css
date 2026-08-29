@@ -869,7 +869,24 @@ a { color: inherit; }
 }
 .ph-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; color: var(--text-dim); font-size: 13px; margin-top: 7px; }
 .ph-flag { font-size: 16px; margin-right: 5px; }
-.ph-rank { color: var(--accent); font-family: var(--font-mono); font-weight: 600; }
+/* Ladder position. Two of these sit side by side — region and country — so
+   each carries its own mark: the country gets its flag, the region gets a
+   globe plus the code. Without the code the globe would read as "in the
+   world", which is a ladder FACEIT does not publish. */
+.ph-rank {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--accent); font-family: var(--font-mono); font-weight: 600;
+}
+.ph-rank svg { width: 13px; height: 13px; opacity: .75; }
+.ph-rank i {
+  font-style: normal; font-family: var(--font-body);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: var(--text-dim);
+}
+/* The country slice is the smaller, softer number — being 26th in Ukraine is
+   a subset of being 237th in Europe, and the type should say so. */
+.ph-rank-country { color: var(--text); }
+.ph-rank-country .flag-icon { opacity: 1; }
 /* Account age, in the same meta row as the country and the rank. The date is
    the fact, so it reads normally; the age is the gloss, so it gets the muted
    pill. Together they answer "since when" and "how long" without either one
