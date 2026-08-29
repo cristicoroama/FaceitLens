@@ -32,6 +32,44 @@ const LEVEL_GRADIENT = {
 const ARC = "M 6.5, 18.4 A 8.4, 8.4 0 1 1 17.5, 18.4";
 
 /**
+ * The same badge as standalone SVG markup, for canvas.
+ *
+ * ShareCard draws onto a canvas and cannot mount a React component, so it used
+ * to approximate this with a hand-drawn disc — a different shape, a different
+ * colour, and immediately recognisable as not-the-real-badge.
+ *
+ * Built from the same LEVEL_GRADIENT and ARC as the component above, so the
+ * two cannot drift apart. Ids are suffixed per call because several of these
+ * can end up in one document.
+ *
+ * Returns markup, not a data URL: the caller decides how to encode it, and
+ * btoa() would choke on a non-Latin1 character if this ever gains one.
+ */
+export function faceitLevelSvg(level, size = 96) {
+  const lvl = Math.max(1, Math.min(10, Number(level) || 1));
+  const [from, to] = LEVEL_GRADIENT[lvl];
+  const fill = lvl === 10 ? 10.1 : lvl;
+  const u = `c${lvl}`;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none">` +
+    `<defs>` +
+    `<radialGradient id="flt${u}" cx="0.5" cy="0.5" r="0.55">` +
+    `<stop offset="0.4" stop-color="#5d5d5d"/><stop offset="1" stop-color="#242424"/>` +
+    `</radialGradient>` +
+    `<linearGradient id="flf${u}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0.5" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>` +
+    `</linearGradient>` +
+    `</defs>` +
+    `<circle cx="12" cy="12" r="12" fill="#060606"/>` +
+    `<path d="${ARC}" stroke="url(#flt${u})" stroke-width="2.4"/>` +
+    `<path d="${ARC}" stroke="url(#flf${u})" stroke-width="2.4" pathLength="10" stroke-dasharray="${fill} 10000"/>` +
+    `<text x="50%" y="49%" fill="url(#flf${u})" font-size="8" font-family="sans-serif" ` +
+    `font-weight="bold" text-anchor="middle" dominant-baseline="central">${lvl}</text>` +
+    `</svg>`
+  );
+}
+
+/**
  * FACEIT level badge, drawn rather than served as a PNG so it stays sharp at
  * any size.
  *

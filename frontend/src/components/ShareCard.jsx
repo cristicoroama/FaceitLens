@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons.jsx";
+import { faceitLevelSvg } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const S = 1080; // square canvas — works for stories, posts, Discord
@@ -44,10 +45,26 @@ export default function ShareCard({ player, onClose }) {
     const s = player.stats || {};
     let cancelled = false;
 
-    function draw(avatarImg) {
+    function draw(avatarImg, coverImg, levelImg) {
       // background
       ctx.fillStyle = "#05060f";
       ctx.fillRect(0, 0, S, S);
+
+      /* The player's own FACEIT cover, behind everything.
+         Cropped to fill rather than stretched — covers are wide banners and a
+         square card would squash faces — and darkened hard, because every
+         layer above it is white text. The flat fill above stays as the base so
+         a missing or slow cover degrades to the old look instead of a hole. */
+      if (coverImg && coverImg.width && coverImg.height) {
+        const scale = Math.max(S / coverImg.width, S / coverImg.height);
+        const cw = coverImg.width * scale, ch = coverImg.height * scale;
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(coverImg, (S - cw) / 2, (S - ch) / 2, cw, ch);
+        ctx.restore();
+        ctx.fillStyle = "rgba(5,6,15,0.45)";
+        ctx.fillRect(0, 0, S, S);
+      }
       // Aurora blobs.
       //
       // Only drawn for `#rrggbb` values, because the alpha is applied by
@@ -112,24 +129,14 @@ export default function ShareCard({ player, onClose }) {
       }
       ctx.restore();
 
-      /* Level badge, on the avatar ring at 4-o'clock — the same place the
-         profile header puts it, so the card reads as a picture of the page
-         rather than a different design of the same facts.
-
-         Drawn rather than imported: FaceitLevel is an SVG React component,
-         and getting one onto a canvas means serialising it, loading it as an
-         image and waiting for that too. A disc with a number is what it
-         amounts to at this size. */
-      const lvl = player.skill_level;
-      if (lvl != null) {
-        const lx = ax + ar * 0.72, ly = ay + ar * 0.72, lr = 46;
-        ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2);
-        ctx.fillStyle = "#0d0f1c"; ctx.fill();
-        ctx.strokeStyle = t.accent; ctx.lineWidth = 5; ctx.stroke();
-        ctx.fillStyle = t.accent;
-        ctx.font = "800 46px system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(String(lvl), lx, ly + 2);
+      /* The real FACEIT level badge, on the avatar ring at 4-o'clock — same
+         place the profile header puts it, and the same artwork, because it is
+         generated from the same gradient table and arc path the on-page
+         component uses. */
+      if (levelImg) {
+        const lr = 52;
+        const lx = ax + ar * 0.72 - lr, ly = ay + ar * 0.72 - lr;
+        ctx.drawImage(levelImg, lx, ly, lr * 2, lr * 2);
       }
 
       // name, with the verified tick beside it when the account carries one
@@ -198,55 +205,73 @@ export default function ShareCard({ player, onClose }) {
       ctx.textBaseline = "alphabetic";
       ctx.fillText(`faceit-lens.com/player/${player.nickname}`, S / 2, S - 60);
 
-      // export — if the avatar tainted the canvas, retry without it
+      /* Export. If a bitmap tainted the canvas, drop images one at a time
+         rather than all at once — losing the cover is cheaper than losing the
+         avatar, and losing either is cheaper than losing the card. */
       try {
         const data = canvas.toDataURL("image/png");
         if (!cancelled) { setUrl(data); setReady(true); }
       } catch {
-        if (avatarImg) draw(null); // tainted → redraw with initials
+        if (coverImg) draw(avatarImg, null, levelImg);
+        else if (avatarImg) draw(null, null, levelImg);
         else throw new Error("canvas export failed");
       }
     }
 
-    // Load through our own proxy. Straight from FACEIT's CDN the response
-    // carries no CORS header, so with crossOrigin set the load simply fails
-    // and the card silently fell back to initials every single time.
+    /* Both bitmaps go through our own proxy. Straight from FACEIT's CDN the
+       response carries no CORS header, so with crossOrigin set the load simply
+       fails and the card silently fell back to initials every single time. */
+    const proxied = (u) => `${API_BASE}/api/avatar/?url=${encodeURIComponent(u)}`;
+
+    /* Never rejects. A missing cover or a dead avatar is a normal outcome, not
+       an error — the card is drawn with whatever arrived. */
+    const load = (u) =>
+      new Promise((resolve) => {
+        if (!u) return resolve(null);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => {
+          console.warn("ShareCard: image failed to load", { source: u });
+          resolve(null);
+        };
+        img.src = proxied(u);
+      });
+
     /* Every draw goes through here.
        Canvas throws on a surprising range of bad input — an unparseable
        colour, a tainted bitmap, a zero-radius gradient — and this runs inside
        an effect, where an uncaught throw unmounts the tree and blanks the
        page. A share image failing to render is worth a message, not the site. */
-    const safeDraw = (img) => {
+    const safeDraw = (img, cover, lvl) => {
       try {
-        draw(img);
+        draw(img, cover, lvl);
       } catch (err) {
-        if (!cancelled) {
-          setFailed(true);
-          setReady(false);
-        }
+        if (!cancelled) { setFailed(true); setReady(false); }
         console.error("ShareCard: could not render", err);
       }
     };
 
-    if (player.avatar) {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => !cancelled && safeDraw(img);
-      img.onerror = () => {
-        /* Say which URL failed. The fallback to initials is silent by design,
-           which meant an avatar that never loaded looked like a styling choice
-           for months. The proxy rejects hosts it doesn't recognise, so the URL
-           is the one piece of information that identifies the cause. */
-        console.warn(
-          "ShareCard: avatar failed to load, falling back to initials.",
-          { source: player.avatar, via: `${API_BASE}/api/avatar/` }
-        );
-        if (!cancelled) safeDraw(null);
-      };
-      img.src = `${API_BASE}/api/avatar/?url=${encodeURIComponent(player.avatar)}`;
-    } else {
-      safeDraw(null);
-    }
+    /* The level badge as an SVG data URL. encodeURIComponent, not btoa —
+       base64 of a string with any non-Latin1 character throws, and a data URL
+       does not taint the canvas the way a cross-origin bitmap can. */
+    const loadLevel = () =>
+      new Promise((resolve) => {
+        if (player.skill_level == null) return resolve(null);
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src =
+          "data:image/svg+xml;charset=utf-8," +
+          encodeURIComponent(faceitLevelSvg(player.skill_level, 104));
+      });
+
+    Promise.all([load(player.avatar), load(player.cover), loadLevel()]).then(
+      ([avatarImg, coverImg, levelImg]) => {
+        if (!cancelled) safeDraw(avatarImg, coverImg, levelImg);
+      }
+    );
+
     return () => { cancelled = true; };
   }, [player]);
 
