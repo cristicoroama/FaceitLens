@@ -1,4 +1,4 @@
-import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
+import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL, TELEGRAM_URL } from "../links.js";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
 /* Flag by association, not by language code — Ukrainian is `uk` but flies
@@ -66,7 +66,7 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
         <span className="site-foot-sep">·</span>
         <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Discord</a>
         <span className="site-foot-sep">·</span>
-        <a href="https://t.me/cristicor1" target="_blank" rel="noopener noreferrer">Telegram</a>
+        <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer">Telegram</a>
         <span className="site-foot-sep">·</span>
         <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
         {langSwitch}

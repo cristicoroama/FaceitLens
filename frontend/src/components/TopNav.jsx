@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 
-import { DISCORD_INVITE } from "../links.js";
+import { DISCORD_INVITE, TELEGRAM_URL, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
 import { Icon } from "../icons.jsx";
+import { DiscordIcon, TelegramIcon, GitHubIcon, MailIcon } from "./BrandIcons.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
 /* Short codes for the bar — the full names would push the nav off a laptop
@@ -13,15 +14,16 @@ import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "..
 const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
 const LOCALE_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
 
-/* Discord's own mark. It was inline in three places; one copy now, because
-   three copies of a 900-character path is three chances to fix a bug twice. */
-export function DiscordMark({ size = 18 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
-      <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.6 1.25a18.3 18.3 0 0 0-5.5 0 12.6 12.6 0 0 0-.61-1.25.08.08 0 0 0-.08-.04c-1.7.3-3.33.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.05 19.9 19.9 0 0 0 6 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.29 1.23-1.99a.08.08 0 0 0-.04-.11c-.65-.25-1.27-.55-1.87-.89a.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01 14.2 14.2 0 0 0 12.06 0 .07.07 0 0 1 .08 0l.37.3a.08.08 0 0 1-.01.13c-.6.35-1.22.64-1.87.89a.08.08 0 0 0-.04.11c.36.7.78 1.36 1.23 1.99a.08.08 0 0 0 .08.03 19.8 19.8 0 0 0 6.01-3.03.08.08 0 0 0 .03-.05c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.21 0 2.18 1.09 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42s.95-2.42 2.16-2.42c1.22 0 2.18 1.09 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z" />
-    </svg>
-  );
-}
+/* The outbound row in the bar. Order is deliberate: the two places you can
+   talk to someone, then the two where you look something up or write in.
+   Labels double as the tooltip and the screen-reader name, so each says where
+   it goes rather than just naming the service. */
+const SOCIALS = [
+  { label: "Discord", href: DISCORD_INVITE, icon: <DiscordIcon size={18} /> },
+  { label: "Telegram", href: TELEGRAM_URL, icon: <TelegramIcon size={18} /> },
+  { label: "Source on GitHub", href: GITHUB_REPO, icon: <GitHubIcon size={18} /> },
+  { label: `Email — ${CONTACT_EMAIL}`, href: `mailto:${CONTACT_EMAIL}`, icon: <MailIcon size={18} /> },
+];
 
 function LangFlag({ code, size = 18 }) {
   return (
@@ -224,6 +226,32 @@ export default function TopNav({
           )}
         </nav>
 
+        {/* Icons only, between the nav and the search box — the last thing on
+            the left-hand side rather than four more items competing with the
+            account controls on the right.
+
+            Discord used to be a full-width banner at the foot of the home
+            page, which meant it was missing from every other page and, on the
+            one page it did appear, was the largest thing on it. */}
+        <div className="tn-socials">
+          {SOCIALS.map((s) => (
+            <a
+              key={s.label}
+              className="tn-social"
+              href={s.href}
+              /* mailto: opens a mail client, so a new tab would leave a blank
+                 one behind. The other three are real destinations. */
+              {...(s.href.startsWith("mailto:")
+                ? {}
+                : { target: "_blank", rel: "noopener noreferrer" })}
+              title={s.label}
+              aria-label={s.label}
+            >
+              {s.icon}
+            </a>
+          ))}
+        </div>
+
         <div className="tn-search">{search}</div>
 
         <div className="tn-item tn-lang" ref={langRef}>
@@ -262,23 +290,6 @@ export default function TopNav({
         </div>
 
         <div className="tn-actions">{actions}</div>
-
-        {/* Icon only, and after the actions — a link out to somewhere else
-            belongs past the buttons that act on this site.
-
-            It used to be a full-width banner at the foot of the home page,
-            which meant it was missing from every other page and, on the one
-            page it did appear, was the largest thing on it. */}
-        <a
-          className="tn-social"
-          href={DISCORD_INVITE}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t("chrome.joinDiscord")}
-          aria-label={t("chrome.joinDiscord")}
-        >
-          <DiscordMark size={18} />
-        </a>
 
         <button
           className="tn-burger"

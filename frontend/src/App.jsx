@@ -59,13 +59,14 @@ import { AdBanner, AdInline } from "./components/AdSlot.jsx";
 import WhatsNew, {
   useChangelog, WhatsNewPopup, WhatsNewButton,
 } from "./components/WhatsNew.jsx";
-import TopNav, { DiscordMark } from "./components/TopNav.jsx";
+import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import Faq from "./components/Faq.jsx";
 import NotFound from "./components/NotFound.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 import { DISCORD_INVITE } from "./links.js";
+import { DiscordIcon } from "./components/BrandIcons.jsx";
 import { Icon } from "./icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -189,7 +190,7 @@ function buildNav(t, lang) { return [
     /* Actions, not reference links — in the footer nobody would press them. */
     tail: [
       { label: t("chrome.joinDiscord"), href: DISCORD_INVITE, cls: "tn-discord",
-        icon: <DiscordMark size={16} /> },
+        icon: <DiscordIcon size={16} /> },
       { label: "Buy me a coffee", href: "https://buymeacoffee.com/lordukiki", cls: "tn-coffee",
         icon: (
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"

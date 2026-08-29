@@ -12,3 +12,7 @@ export const DISCORD_INVITE = "https://discord.gg/p5GeaTEYdt";
 
 export const GITHUB_REPO = "https://github.com/cristicoroama/FaceitLens";
 export const CONTACT_EMAIL = "coroamamh@gmail.com";
+
+// Was hardcoded in SiteFooter.jsx only; the top bar links to it too now, and
+// two copies of a handle is one copy too many.
+export const TELEGRAM_URL = "https://t.me/cristicor1";
