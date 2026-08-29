@@ -160,6 +160,85 @@ def _rate(won, total):
     return round((w or 0) / t * 100)
 
 
+# --- Twitch handle, from FACEIT's internal API ------------------------------ #
+#
+# THIS IS NOT THE PUBLIC API. It is api.faceit.com, the one faceit.com itself
+# calls, and it is undocumented, unversioned and covered by no terms. It is
+# used here because the public Data API v4 genuinely does not carry this:
+# `Player.platforms` is declared as a free-form map but only ever returns
+# `steam`, verified against donk666, ropz and ZywOo. The word "twitch" appears
+# exactly once in the whole v4 spec, under Organizer, never under Player.
+#
+# What the internal one returns, for /users/v1/nicknames/<nickname>:
+#     "streaming": { "twitch_id": "s1mple" }
+#
+# No key, no auth, no bot check — it is what every browser hits when it opens a
+# FACEIT profile. But FACEIT promised it to nobody and can change or close it
+# tomorrow, so every failure here is swallowed and the caller gets None. A
+# missing Twitch button is the correct outcome of that; a broken profile page
+# is not. If this ever stops working, delete the function — nothing else in
+# the payload depends on it.
+
+INTERNAL_BASE = "https://api.faceit.com"
+TWITCH_TTL = 12 * 60 * 60
+
+
+def get_twitch_handle(nickname):
+    """The player's linked Twitch channel name, or None."""
+    if not nickname:
+        return None
+    key = f"faceit:twitch:{str(nickname).lower()}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+
+    try:
+        # Short timeout on purpose: this is a decoration on a page that has
+        # seven other calls to make, and it must never be the slow one.
+        resp = requests.get(
+            f"{INTERNAL_BASE}/users/v1/nicknames/{nickname}",
+            timeout=4,
+            headers={"User-Agent": "faceit-lens.com"},
+        )
+        if resp.status_code != 200:
+            cache.set(key, "", TWITCH_TTL)
+            return None
+        body = resp.json() or {}
+    except Exception:
+        # Not cached as absent: a timeout or a blip should be retried later,
+        # unlike a 200 that genuinely carries no Twitch id.
+        return None
+
+    payload = body.get("payload") or body
+    handle = ((payload.get("streaming") or {}).get("twitch_id") or "").strip()
+
+    # Same rule as the public platforms map: a handle, never a URL. The value
+    # ends up in an href and comes from something a user typed.
+    if not handle or _looks_like_url(handle):
+        cache.set(key, "", TWITCH_TTL)
+        return None
+
+    handle = handle[:64]
+    cache.set(key, handle, TWITCH_TTL)
+    return handle
+
+
+def _looks_like_url(v):
+    """True if this is a link rather than a handle.
+
+    Deliberately not a blanket ban on ":" — the first version of this checked
+    for a bare colon and silently dropped every Steam id, because FACEIT
+    returns them as "STEAM_0:1:36968273". Colons are legal in a handle; a
+    scheme, a host or a query is not.
+    """
+    s = v.lower()
+    return (
+        "//" in s
+        or s.startswith(("http:", "https:", "www."))
+        or any(c in s for c in "/\\?#& ")
+    )
+
+
 def _clean_platforms(raw):
     """Linked third-party accounts, whitelisted and stripped.
 
@@ -167,18 +246,25 @@ def _clean_platforms(raw):
     platforms the UI knows how to link. A whitelist rather than a pass-through
     because the values go straight into an href: an unknown key with a
     surprising value would be a link the site builds out of data it never
-    checked. Handles only — no URLs, no protocols, nothing with a slash.
+    checked.
     """
     known = {"steam", "twitch", "youtube", "discord"}
     out = {}
     for key, value in (raw or {}).items():
         k = str(key).strip().lower()
-        v = str(value or "").strip()
-        # A handle, not a link. Anything carrying a scheme, a host or a path
-        # is not what this field is supposed to hold, so it is dropped rather
-        # than repaired.
-        if k in known and v and not any(c in v for c in "/\\:?#& "):
+        # The internal API nests these ({"steam": {"id64": ...}}); the public
+        # one is flat. Take the flat string and ignore anything structured.
+        v = str(value or "").strip() if not isinstance(value, dict) else ""
+        if k in known and v and not _looks_like_url(v):
             out[k] = v[:64]
+    return out or None
+
+
+def _merge_platforms(raw, twitch_handle):
+    """The public platforms map plus the Twitch handle, as one dict."""
+    out = _clean_platforms(raw) or {}
+    if twitch_handle:
+        out["twitch"] = twitch_handle
     return out or None
 
 
@@ -2559,7 +2645,7 @@ def build_player_summary(nickname):
     # parallel instead of paying ~10 round-trips back to back. None of these
     # touch the ORM, so no per-thread DB connections are opened. A failing call
     # still raises out of .result(), same as when these ran sequentially.
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         f_stats = pool.submit(get_player_stats, player_id)
         f_history = pool.submit(get_player_history, player_id, limit=30)
         f_recent = pool.submit(get_recent_match_stats, player_id, total=250)
@@ -2567,6 +2653,7 @@ def build_player_summary(nickname):
         f_bans = pool.submit(get_player_bans, player_id)
         f_hubs = pool.submit(get_player_hubs, player_id)
         f_steam = pool.submit(get_steam_info, steam_id)
+        f_twitch = pool.submit(get_twitch_handle, player.get("nickname"))
 
         stats = f_stats.result()
         history = f_history.result()
@@ -2575,6 +2662,7 @@ def build_player_summary(nickname):
         bans = f_bans.result()
         hubs = f_hubs.result()
         steam = f_steam.result()
+        twitch = f_twitch.result()
 
     # The first page of recent_all is the same data a separate
     # get_match_stats(limit=50) would return, so slice it instead of re-asking.
@@ -2686,11 +2774,12 @@ def build_player_summary(nickname):
         "verified": player.get("verified", False),
         "steam_id": steam_id,
         "memberships": player.get("memberships", []),
-        # Third-party accounts the player linked on FACEIT — twitch, youtube,
-        # discord, steam. This is where every tracker gets the Twitch handle
-        # from; there is no separate endpoint for it. FACEIT returns handles,
-        # not URLs, so the frontend builds the link.
-        "platforms": _clean_platforms(player.get("platforms")),
+        # Linked third-party accounts, from two different places because FACEIT
+        # splits them: `steam` comes from the public API, `twitch` only exists
+        # on the internal one (see get_twitch_handle). Merged into one map so
+        # the frontend reads `platforms.twitch` without knowing or caring that
+        # the two halves travelled different roads.
+        "platforms": _merge_platforms(player.get("platforms"), twitch),
         "ranking": ranking,
         "bans": bans,
         "streak": session_info["streak"],
