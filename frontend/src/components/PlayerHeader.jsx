@@ -3,7 +3,6 @@ import LevelProgress from "./LevelProgress.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
 import { ResultChip } from "./FormStrip.jsx";
-import { Icon } from "../icons.jsx";
 import { useState } from "react";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
@@ -228,22 +227,22 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
             <span className="ph-country">
               {player.country ? player.country.toUpperCase() : "—"}
             </span>
-            {/* Outside the top 1,000 the position is just a number, so it
-                stays plain text; inside it, the leaderboard pill is the
-                recognisable thing and it carries the exact rank itself. */}
-            {/* Two ladders, both real.
+            {/* Region rank.
 
-                FACEIT publishes no worldwide table — what its docs call the
-                "global ranking of a game" is this per-region one — so the
-                region code is shown rather than a globe implying a world
-                position the number doesn't describe.
+                Europe gets the EU flag; every other region gets no mark at
+                all, because none of them has one that isn't a lie — there is
+                no flag for "North America" or "South East Asia", and using a
+                member country's would be worse than nothing. The region code
+                carries the meaning in all cases.
 
-                The region rank hides for Challengers because the badge over
-                by the ELO already carries the exact position. The country
-                rank has no such duplicate, so it always shows. */}
+                Hidden for Challengers: the badge over by the ELO already
+                carries the exact position. The country rank has no such
+                duplicate, so that one always shows. */}
             {rank && !isChallenger ? (
               <span className="ph-rank" title={`#${rank.toLocaleString()} in ${player.region || "region"}`}>
-                {Icon.globe}
+                {player.region === "EU" && (
+                  <img className="ph-rank-flag" src="/flags/eu.svg" alt="" loading="lazy" />
+                )}
                 #{rank.toLocaleString()}
                 <i>{player.region || ""}</i>
               </span>

@@ -35,6 +35,7 @@ export default function ShareCard({ player, onClose }) {
   const canvasRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,8 +48,20 @@ export default function ShareCard({ player, onClose }) {
       // background
       ctx.fillStyle = "#05060f";
       ctx.fillRect(0, 0, S, S);
-      // aurora blobs
+      // Aurora blobs.
+      //
+      // Only drawn for `#rrggbb` values, because the alpha is applied by
+      // string concatenation. The theme currently sets --aur-a/b/c to
+      // `transparent`, which made this build "transparentcc" and hand it to
+      // addColorStop, which throws a SyntaxError — and since that happens
+      // inside an effect, the whole card took the page down with it.
+      //
+      // A decorative gradient must never be able to do that. An unusable
+      // value now means one blob fewer, which is exactly what `transparent`
+      // was asking for anyway.
+      const HEX6 = /^#[0-9a-f]{6}$/i;
       const blob = (x, y, r, col) => {
+        if (!HEX6.test(col)) return;
         const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
         grd.addColorStop(0, col + "cc");
         grd.addColorStop(1, col + "00");
@@ -148,20 +161,38 @@ export default function ShareCard({ player, onClose }) {
         if (!cancelled) { setUrl(data); setReady(true); }
       } catch {
         if (avatarImg) draw(null); // tainted → redraw with initials
+        else throw new Error("canvas export failed");
       }
     }
 
     // Load through our own proxy. Straight from FACEIT's CDN the response
     // carries no CORS header, so with crossOrigin set the load simply fails
     // and the card silently fell back to initials every single time.
+    /* Every draw goes through here.
+       Canvas throws on a surprising range of bad input — an unparseable
+       colour, a tainted bitmap, a zero-radius gradient — and this runs inside
+       an effect, where an uncaught throw unmounts the tree and blanks the
+       page. A share image failing to render is worth a message, not the site. */
+    const safeDraw = (img) => {
+      try {
+        draw(img);
+      } catch (err) {
+        if (!cancelled) {
+          setFailed(true);
+          setReady(false);
+        }
+        console.error("ShareCard: could not render", err);
+      }
+    };
+
     if (player.avatar) {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => !cancelled && draw(img);
-      img.onerror = () => !cancelled && draw(null);
+      img.onload = () => !cancelled && safeDraw(img);
+      img.onerror = () => !cancelled && safeDraw(null);
       img.src = `${API_BASE}/api/avatar/?url=${encodeURIComponent(player.avatar)}`;
     } else {
-      draw(null);
+      safeDraw(null);
     }
     return () => { cancelled = true; };
   }, [player]);
@@ -180,7 +211,12 @@ export default function ShareCard({ player, onClose }) {
         <button className="hltv-modal-close" onClick={onClose} title="Close">{Icon.xLg}</button>
         <div className="sharecard-preview">
           <canvas ref={canvasRef} width={S} height={S} className="sharecard-canvas" />
-          {!ready && <div className="sharecard-loading">Rendering card…</div>}
+          {!ready && !failed && <div className="sharecard-loading">Rendering card…</div>}
+          {failed && (
+            <div className="sharecard-loading">
+              Couldn't render the card. The rest of the profile is unaffected.
+            </div>
+          )}
         </div>
         <button className="btn-primary sharecard-dl" onClick={download} disabled={!ready}>
           {Icon.download} Download PNG

@@ -896,9 +896,15 @@ a { color: inherit; }
    world", which is a ladder FACEIT does not publish. */
 .ph-rank {
   display: inline-flex; align-items: center; gap: 6px;
-  color: var(--accent); font-family: var(--font-mono); font-weight: 600;
+  /* White, not accent. Orange on a dark cover photo is the least legible
+     thing on the row, and the accent is doing enough work already on the ELO
+     figure a few centimetres to the right. */
+  color: var(--text); font-family: var(--font-mono); font-weight: 600;
 }
-.ph-rank svg { width: 13px; height: 13px; opacity: .75; }
+.ph-rank-flag {
+  width: 15px; height: auto; display: block; border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35);
+}
 .ph-rank i {
   font-style: normal; font-family: var(--font-body);
   font-size: 11px; font-weight: 700; letter-spacing: .04em;
