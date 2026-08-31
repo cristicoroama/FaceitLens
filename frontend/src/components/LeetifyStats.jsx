@@ -153,13 +153,24 @@ export function LeetifyView({ data }) {
                   </td>
                 </tr>
               )}
-              {ranks.wingman != null && Number(ranks.wingman) > 0 && (
+              {/* Shown when EITHER figure exists.
+                  Gating on the current rank alone hid the whole row for anyone
+                  who has played Wingman but has no live rank right now —
+                  which is most people, since Wingman ranks decay. They still
+                  have a peak, and that peak is the more interesting half. */}
+              {(Number(ranks.wingman) > 0 || Number(ranks.wingman_best) > 0) && (
                 <tr>
                   <th scope="row">Wingman</th>
-                  <td><div className="rankcell"><CompRank rank={ranks.wingman} height={28} /></div></td>
                   <td>
                     <div className="rankcell">
-                      {ranks.wingman_best != null && Number(ranks.wingman_best) > 0
+                      {Number(ranks.wingman) > 0
+                        ? <CompRank rank={ranks.wingman} height={28} />
+                        : <span className="leet-none">Unranked</span>}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="rankcell">
+                      {Number(ranks.wingman_best) > 0
                         ? <CompRank rank={ranks.wingman_best} height={28} />
                         : <span className="leet-none">—</span>}
                     </div>

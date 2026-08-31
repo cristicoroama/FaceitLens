@@ -117,19 +117,43 @@ RATING_FIELDS = [
 ]
 
 
-def _first(src: dict, *keys):
-    """First key present with a non-null value, or None.
+# Which `rank_type` on a match means which ladder. Read off a real response:
+# Premier matches carry 11, Wingman 7, and FACEIT matches identify themselves
+# by `data_source` instead of a rank type.
+RANK_TYPE_PREMIER = 11
+RANK_TYPE_WINGMAN = 7
 
-    For fields we know exist in the upstream product but whose exact name in
-    the API we haven't confirmed. Guessing one name and getting it wrong fails
-    silently; trying the plausible ones costs nothing and the wrong guesses
-    simply never match.
+
+def _peak(matches, *, rank_type=None, data_source=None):
+    """Highest rank reached across the match history, or None.
+
+    There is no peak field in the API — `ranks` carries seven keys and not one
+    of them is a best. The upstream product shows CURRENT and BEST side by
+    side anyway, and this is where the second number comes from: every match
+    records the rank the player held after it, so the peak is simply the
+    largest of those.
+
+    Verified rather than assumed: on a real profile the largest `rank` among
+    rank_type 11 matches is 15,100, which is exactly the BEST that profile
+    displays.
+
+    Zeros are skipped. A match played while unranked, or one whose rank the
+    API doesn't know, stores 0 — counting those as a rank would be harmless
+    here (0 never wins a max) but the filter documents that 0 means absent.
     """
-    for k in keys:
-        v = (src or {}).get(k)
-        if v is not None:
-            return v
-    return None
+    best = None
+    for m in matches or []:
+        if rank_type is not None and m.get("rank_type") != rank_type:
+            continue
+        if data_source is not None and m.get("data_source") != data_source:
+            continue
+        try:
+            r = int(m.get("rank") or 0)
+        except (TypeError, ValueError):
+            continue
+        if r > 0 and (best is None or r > best):
+            best = r
+    return best
 
 
 def _shape(data: dict, steamid: str) -> dict:
@@ -211,17 +235,15 @@ def _shape(data: dict, steamid: str) -> dict:
             "wingman": ranks.get("wingman"),
             "renown": ranks.get("renown"),
             "competitive": ranks.get("competitive") or [],
-            # Peak values, for the BEST column beside CURRENT.
+            # Peak values for the BEST column, derived from the match history
+            # because the API has no peak field of its own. See _peak().
             #
-            # Leetify's own profile shows both, so the figures exist on their
-            # side; what is NOT confirmed is the key names, because we have
-            # never looked at a raw response. Several plausible spellings are
-            # tried and whichever answers wins. A peak we can't find renders as
-            # an empty cell, which is honest — inventing one by taking the
-            # current value would silently claim the player is at their best.
-            "premier_best": _first(ranks, "premier_best", "best_premier", "premier_peak"),
-            "faceit_best": _first(ranks, "faceit_best", "best_faceit", "faceit_peak"),
-            "wingman_best": _first(ranks, "wingman_best", "best_wingman", "wingman_peak"),
+            # Only as deep as `recent_matches` reaches, so this is "best we can
+            # see", not "best ever" — a player past their peak by more matches
+            # than the API returns will show a best equal to their current.
+            "premier_best": _peak(recent, rank_type=RANK_TYPE_PREMIER),
+            "wingman_best": _peak(recent, rank_type=RANK_TYPE_WINGMAN),
+            "faceit_best": _peak(recent, data_source="faceit"),
         },
         # Kept for the existing UI, which reads rating.aim / .positioning / .utility.
         "rating": {

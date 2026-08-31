@@ -2,8 +2,11 @@
 
 The profile page reads this figure from the cache to turn a bare position
 ("#52,240") into a percentile ("better than 93.4% of Europe"). It never
-computes it on demand: finding the number is a binary search over the rankings
-endpoint, twenty-two requests, and no page load should pay for that.
+computes it on demand: finding the number is a doubling probe plus a bisection
+over the rankings endpoint — about 41 requests for a region the size of
+Europe — and no page load should pay for that.
+
+Five regions, so budget roughly 200 requests per run.
 
 So something has to fill the cache. Run this daily, alongside snapshot_elo:
 

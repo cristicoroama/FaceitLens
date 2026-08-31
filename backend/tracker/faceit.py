@@ -798,12 +798,15 @@ def get_region_population(region, compute=False):
 
     FACEIT publishes no total — `get_leaderboard` says so a few lines up — so
     the only way to learn it is to find the last offset that still returns a
-    player. That's a binary search: ~22 requests for a number that changes by
-    fractions of a percent per day.
+    player. That's a doubling probe followed by a bisection: measured at 41
+    requests for a pool the size of Europe's, for a number that changes by
+    fractions of a percent per day. (Roughly 20 to overshoot a million, then
+    21 to close the gap — it is NOT ~22 total, which is what this comment
+    claimed before anyone counted.)
 
     `compute=False` (the default, and what the profile uses) reads the cache
-    and nothing else. A profile request must never pay for 22 round-trips, and
-    a missing percentile is a missing line, not a broken page.
+    and nothing else. A profile request must never pay for forty round-trips,
+    and a missing percentile is a missing line, not a broken page.
 
     Exactly one caller at a time may compute, guarded by a short-lived lock:
     without it, five people hitting a cold cache would fire a hundred requests
