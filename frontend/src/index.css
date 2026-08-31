@@ -1846,7 +1846,9 @@ a { color: inherit; }
   padding: 0 9px;
   height: 24px;
   align-content: center;
-  background: color-mix(in srgb, var(--pc) 30%, #100a18);
+  /* The darkened tier colour straight, not a mix into black — see the
+     BRACKETS comment in PremierBadge.jsx for why mixing washed it out. */
+  background: var(--pcd);
   transform: skewX(-12deg);
   /* The body font, not the mono one.
      The reference sets these digits in Poppins — its own body face — and mono

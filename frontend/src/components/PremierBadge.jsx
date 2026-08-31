@@ -33,16 +33,24 @@
  * real thing, the fix is to check that tier's computed colour, not to nudge
  * this one by hand.
  *
- * `c` is the tier colour (bars and glow), `d` the plate beneath.
+ * `c` is the BARS — Valve's colour lightened 37% toward white.
+ * `d` is the PLATE — the same colour darkened 30% toward black.
+ *
+ * Two derivations from one base, in opposite directions. The plate was
+ * previously built by mixing the already-lightened `c` into near-black, which
+ * produced rgb(65,49,93): a muddy grey-violet, because mixing toward black
+ * strips saturation and `c` had little left to give. Darkening the SATURATED
+ * base keeps the hue intact, which is what the reference plate actually looks
+ * like.
  */
 const BRACKETS = [
-  [30000, { c: "#ffe38f", d: "#3a2f10" }], // gold
-  [25000, { c: "#f28e8e", d: "#3a1416" }], // red
-  [20000, { c: "#e37aef", d: "#33122f" }], // pink
-  [15000, { c: "#b48bff", d: "#241540" }], // purple  (measured)
-  [10000, { c: "#8ea0ff", d: "#131c45" }], // blue
-  [5000,  { c: "#b6d3ff", d: "#16243a" }], // light blue
-  [0,     { c: "#cdd9e7", d: "#252b33" }], // gray
+  [30000, { c: "#ffe38f", d: "#b39437" }], // gold
+  [25000, { c: "#f28e8e", d: "#a53535" }], // red
+  [20000, { c: "#e37aef", d: "#941fa1" }], // pink
+  [15000, { c: "#b48bff", d: "#5f32b3" }], // purple  (c measured)
+  [10000, { c: "#8ea0ff", d: "#354ab3" }], // blue
+  [5000,  { c: "#b6d3ff", d: "#6182b3" }], // light blue
+  [0,     { c: "#cdd9e7", d: "#7b8998" }], // gray
 ];
 
 function bracket(rating) {
