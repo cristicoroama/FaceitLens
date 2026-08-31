@@ -914,6 +914,21 @@ a { color: inherit; }
    a subset of being 237th in Europe, and the type should say so. */
 .ph-rank-country { color: var(--text); }
 .ph-rank-country .flag-icon { opacity: 1; }
+
+/* "Top 6%" — the only thing on this row that is an interpretation rather than
+   a fact, so it gets the accent to mark it as the takeaway. Everything beside
+   it is a raw number; this one is the number that means something. */
+.ph-pct {
+  padding: 2px 9px;
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-soft);
+  cursor: help;
+}
 /* Account age, in the same meta row as the country and the rank. The date is
    the fact, so it reads normally; the age is the gloss, so it gets the muted
    pill. Together they answer "since when" and "how long" without either one
@@ -1717,23 +1732,43 @@ a { color: inherit; }
 
 /* In-game Premier "CS Rating" plate (drawn, bracket-colored) */
 .prem-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 14px 5px 10px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 13px 4px 9px;
   background: linear-gradient(180deg, var(--pcd), color-mix(in srgb, var(--pcd) 55%, #000));
   border: 1px solid color-mix(in srgb, var(--pc) 65%, transparent);
   border-radius: 5px;
   transform: skewX(-10deg);
   box-shadow: 0 0 16px color-mix(in srgb, var(--pc) 22%, transparent), inset 0 1px 0 color-mix(in srgb, var(--pc) 30%, transparent);
 }
-.prem-badge .prem-sl {
-  color: var(--pc); font-family: var(--font-mono); font-weight: 800;
-  font-size: 15px; letter-spacing: -2px; opacity: 0.95;
+/* The two bars. Counter-skewed against the plate: the wrapper is skewed -10deg
+   to give the plate its lean, and the bars already carry their own slant in
+   the path, so without this they would come out at twice the angle. */
+.prem-badge .prem-bars {
+  width: 11px;
+  height: 21px;
+  flex-shrink: 0;
+  fill: var(--pc);
+  transform: skewX(10deg);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--pc) 55%, transparent));
 }
-.prem-badge b {
-  font-family: var(--font-mono); font-style: italic; font-weight: 800;
-  font-size: 17px; color: #fff; letter-spacing: 0.5px;
+
+/* Baseline-aligned, not centred: the two number parts are different sizes, and
+   centring them would leave the small half floating in the middle of the tall
+   one instead of sitting on the same line. */
+.prem-num {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-weight: 800;
+  color: #fff;
   text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent);
 }
+.prem-num b { font: inherit; font-size: 18px; letter-spacing: 0.5px; }
+/* The last three digits: same weight, smaller. It is the size step that reads
+   as "tier, then position within it" — dimming it as well would make it look
+   like secondary information, which it isn't. */
+.prem-num i { font: inherit; font-size: 13px; letter-spacing: 0.5px; }
 
 /* Competitive per-map (official skill-group badges) */
 .leet-comp-grid {

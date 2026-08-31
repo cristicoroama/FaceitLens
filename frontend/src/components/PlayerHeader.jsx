@@ -119,6 +119,9 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
       : null);
   const rank = Number(player.ranking) || null;
   const countryRank = Number(player.ranking_country) || null;
+  /* Absent until the region's population has been measured by the
+     refresh_region_population command — a missing line, never a wrong one. */
+  const pct = player.percentile || null;
   const isChallenger =
     Number(player.skill_level) === 10 && rank !== null && rank <= CHALLENGER_CUTOFF;
   const wr = s.win_rate != null ? Number(s.win_rate) : null;
@@ -242,6 +245,19 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 <i>{player.region || ""}</i>
               </span>
             ) : null}
+            {/* What that rank actually means.
+                "#52,240" is unreadable on its own — the same number is elite
+                in one region and mid-table in another. The percentage is the
+                part people can act on, so it leads, and the raw counts sit in
+                the tooltip for whoever wants to check the arithmetic. */}
+            {pct && (
+              <span
+                className="ph-pct"
+                title={`#${pct.position.toLocaleString()} of ${pct.population.toLocaleString()} ranked players in ${player.region || "the region"}`}
+              >
+                Top {pct.top_percent < 1 ? pct.top_percent : Math.round(pct.top_percent)}%
+              </span>
+            )}
             {countryRank ? (
               <span
                 className="ph-rank ph-rank-country"

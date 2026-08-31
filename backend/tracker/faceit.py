@@ -785,6 +785,107 @@ def get_country_stats():
     return result
 
 
+# How many ranked players a region could conceivably hold. The binary search
+# below never probes past this, and a result that lands ON it is treated as
+# "the API capped us", not as a real population.
+POPULATION_CEILING = 4_000_000
+POPULATION_TTL = 24 * 60 * 60
+POPULATION_LOCK_TTL = 5 * 60
+
+
+def get_region_population(region, compute=False):
+    """How many players are ranked in a region, or None if we don't know.
+
+    FACEIT publishes no total — `get_leaderboard` says so a few lines up — so
+    the only way to learn it is to find the last offset that still returns a
+    player. That's a binary search: ~22 requests for a number that changes by
+    fractions of a percent per day.
+
+    `compute=False` (the default, and what the profile uses) reads the cache
+    and nothing else. A profile request must never pay for 22 round-trips, and
+    a missing percentile is a missing line, not a broken page.
+
+    Exactly one caller at a time may compute, guarded by a short-lived lock:
+    without it, five people hitting a cold cache would fire a hundred requests
+    at the same endpoint.
+    """
+    region = (region or "").upper()
+    if region not in REGIONS:
+        return None
+
+    key = f"faceit:pop:{region}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+    if not compute:
+        return None
+
+    lock = f"{key}:lock"
+    if not cache.add(lock, "1", POPULATION_LOCK_TTL):
+        return None  # someone else is already doing it
+
+    try:
+        def occupied(offset):
+            """Is there a player at this offset?"""
+            try:
+                page = get_leaderboard(region, offset=offset, limit=1)
+            except FaceitError:
+                return False
+            return bool(page.get("items"))
+
+        if not occupied(0):
+            return None
+
+        # Grow until we overshoot, then bisect. Doubling first means an empty
+        # region costs two requests instead of twenty-two.
+        lo, hi = 0, 1
+        while hi < POPULATION_CEILING and occupied(hi):
+            lo, hi = hi, hi * 2
+        if hi >= POPULATION_CEILING:
+            # Either a region with four million ranked players or, far more
+            # likely, an offset cap. Refuse to guess.
+            return None
+
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            if occupied(mid):
+                lo = mid
+            else:
+                hi = mid
+
+        total = lo + 1  # offsets are zero-based
+        cache.set(key, total, POPULATION_TTL)
+        return total
+    finally:
+        cache.delete(lock)
+
+
+def build_percentile(position, population):
+    """"Better than 93.4% of EU" — the sentence a bare rank cannot say.
+
+    #52,240 means nothing without a denominator; the same number is elite in
+    one region and mid-table in another. Returns None rather than a figure
+    whenever either half is missing or nonsensical, because a percentile is
+    exactly the kind of number people quote and it has to be right.
+    """
+    try:
+        pos = int(position)
+        pop = int(population)
+    except (TypeError, ValueError):
+        return None
+    if pos < 1 or pop < 1 or pos > pop:
+        return None
+    # Players BELOW you, over the whole pool. Rank 1 of 100 is better than 99%,
+    # not 100% — nobody is better than everyone including themselves.
+    better_than = (pop - pos) / pop * 100
+    return {
+        "position": pos,
+        "population": pop,
+        "better_than": round(better_than, 2),
+        "top_percent": round(100 - better_than, 2),
+    }
+
+
 def get_player_ranking(player_id, region, country=None):
     """Player's position on a region's ladder, or on their country's slice of
     it when `country` is given. Returns the position or None."""
@@ -3194,6 +3295,10 @@ def build_player_summary(nickname):
         "ranking": ranking,
         # Position among players from the same country on that same ladder.
         "ranking_country": ranking_country,
+        # "Better than 93.4% of EU". Cache-only: if the region population has
+        # never been measured, this is simply absent rather than making the
+        # profile wait on twenty-two ranking requests.
+        "percentile": build_percentile(ranking, get_region_population(region)),
         "bans": bans,
         "streak": session_info["streak"],
         "last_session": session_info["last_session"],
