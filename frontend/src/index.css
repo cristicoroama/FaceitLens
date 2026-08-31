@@ -1781,20 +1781,33 @@ a { color: inherit; }
 }
 
 /* In-game Premier "CS Rating" plate (drawn, bracket-colored) */
-/* The plate.
-   A solid block, not a bordered pill. The previous version had a vertical
-   gradient, a 1px outline and a 5px radius, and together those read as a UI
-   chip with a rank inside it. The in-game plate is a flat parallelogram —
-   the shape IS the decoration, so everything else has to get out of the way. */
+/* The outer badge carries NO plate.
+ *
+ * Measured off the reference's own computed styles, not guessed: background
+ * rgba(0,0,0,0), transform none, border-radius 0, border-width 0,
+ * box-shadow none, height 24px, gap 8px.
+ *
+ * Every one of those contradicted what was here before — a gradient-filled,
+ * outlined, rounded, skewed pill. The lean comes only from the slant baked
+ * into the bar paths; there is no transform on the container at all, and
+ * skewing it was leaning the digits a second time.
+ *
+ * The colour lives behind the NUMBER (.prem-num), which is where the
+ * reference puts it too — its own background sits on the label wrapper, one
+ * level in, not on this element. */
 .prem-badge {
-  /* gap: .5rem, straight off the reference's `.rank` rule. */
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 3px 12px 3px 8px;
-  background: color-mix(in srgb, var(--pc) 26%, #0b0710);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0;
+  background: none;
   border: 0;
-  border-radius: 3px;
-  transform: skewX(-12deg);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--pc) 18%, transparent);
+  border-radius: 0;
+  transform: none;
+  box-shadow: none;
+  color: #fff;
 }
 
 /* The bars lean WITH the plate.
@@ -1804,8 +1817,10 @@ a { color: inherit; }
    standing nearly upright, which is the single most obvious tell. The path's
    slant and the plate's skew are meant to compound. */
 .prem-badge .prem-bars {
-  width: 10px;
-  height: 20px;
+  /* 24px tall, matching the container height off the reference's computed
+     styles. Width follows the 17:32 viewBox so the bars aren't stretched. */
+  width: 12.75px;
+  height: 24px;
   flex-shrink: 0;
   fill: var(--pc);
 }
@@ -1817,27 +1832,38 @@ a { color: inherit; }
    Upright, not italic. The plate is already skewed -12deg, and italic on top
    of that leaned the digits twice — the numerals ended up at a steeper angle
    than the plate carrying them. */
+/* This is the plate — the coloured block sits behind the number, not behind
+   the whole badge. Skewed here rather than on the container, which measured
+   `transform: none`, so the bars keep the lean their paths already carry and
+   the digits get theirs from this one place.
+
+   Counter-skewed on the inner text so the digits stand upright inside a
+   leaning block, the way the in-game plate does. */
 .prem-num {
   display: inline-flex;
   align-items: baseline;
+  gap: 0;
+  padding: 0 9px;
+  height: 24px;
+  align-content: center;
+  background: color-mix(in srgb, var(--pc) 30%, #100a18);
+  transform: skewX(-12deg);
   /* The body font, not the mono one.
      The reference sets these digits in Poppins — its own body face — and mono
-     was the biggest single reason the two plates didn't match: monospaced
-     numerals are wide and even, so "15,100" came out noticeably longer and
-     flatter than the geometric original. Inter is our body face and behaves
-     the same way here. */
+     was the biggest single reason the two didn't match: monospaced numerals
+     are wide and even, so "15,100" came out noticeably longer and flatter
+     than the geometric original. Inter is our body face and behaves the same. */
   font-family: var(--font-display);
   font-style: normal;
-  /* 700, off the reference's computed styles — not the 800 this started at.
-     At this size the extra weight closed up the counters in the 8 and the 0. */
   font-weight: 700;
   color: #fff;
 }
-.prem-num b { font: inherit; font-size: 17px; letter-spacing: 0; }
+.prem-num > * { transform: skewX(12deg); }
+.prem-num b { font: inherit; font-size: 16px; letter-spacing: 0; line-height: 24px; }
 /* The last three digits: same weight, smaller. It is the size step that reads
    as "tier, then position within it" — dimming it as well would make it look
    like secondary information, which it isn't. */
-.prem-num i { font: inherit; font-size: 12px; letter-spacing: 0; }
+.prem-num i { font: inherit; font-size: 12px; letter-spacing: 0; line-height: 24px; }
 
 /* Competitive per-map (official skill-group badges) */
 .leet-comp-grid {
