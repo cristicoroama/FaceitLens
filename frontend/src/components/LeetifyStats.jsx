@@ -14,6 +14,19 @@ function ratingColor(v) {
   return "#ef4444";
 }
 
+/** A signed, rounded rating: "+3.80", "-1.20", "0.00".
+ *
+ * Exists because a raw float went to screen once and rendered
+ * "4.130000000000001". Anything that has been through arithmetic has to be
+ * formatted before it is displayed — binary floating point simply cannot hold
+ * most decimal values exactly, and toFixed is what hides that.
+ */
+function signed(v, places = 2) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return (n > 0 ? "+" : "") + n.toFixed(places);
+}
+
 function fmt(value, unit) {
   if (value == null) return "—";
   if (unit === "ms") return Math.round(value).toLocaleString();
@@ -90,42 +103,91 @@ export function LeetifyView({ data }) {
     <>
       {hasRanks && (
         <>
+          {/* One row per platform, with CURRENT and BEST side by side.
+              A row of separate cards showed only where a player is now; the
+              pair shows where they've been, which is the more interesting half
+              — 13,354 reads very differently under a peak of 15,100.
+
+              A `<table>` because it is one: platforms down, two measures
+              across. It's laid out with grid so the columns can size to
+              content, but the markup stays a table so a screen reader still
+              gets row and column headers. */}
           <div className="section-title">Ranks</div>
-          <div className="leet-ranks">
-            {ranks.premier != null && (
-              <div className="leet-rank">
-                <div className="leet-rank-val"><PremierBadge rating={ranks.premier} /></div>
-                <div className="leet-rank-label">Premier</div>
-              </div>
-            )}
-            {ranks.faceit != null && (
-              <div className="leet-rank">
-                <div className="leet-rank-val faceit">
-                  <FaceitLevel level={ranks.faceit} size={34} />
-                  {ranks.faceit_elo != null && <span className="leet-elo">{ranks.faceit_elo} ELO</span>}
-                </div>
-                <div className="leet-rank-label">FACEIT</div>
-              </div>
-            )}
-            {ranks.wingman != null && Number(ranks.wingman) > 0 && (
-              <div className="leet-rank">
-                <div className="leet-rank-val"><CompRank rank={ranks.wingman} height={30} /></div>
-                <div className="leet-rank-label">Wingman</div>
-              </div>
-            )}
-            {ranks.leetify != null && (
-              <div className="leet-rank">
-                <div className="leet-rank-val">{ranks.leetify}</div>
-                <div className="leet-rank-label">Leetify Rating</div>
-              </div>
-            )}
-            {ranks.renown != null && (
-              <div className="leet-rank">
-                <div className="leet-rank-val">{Number(ranks.renown).toLocaleString()}</div>
-                <div className="leet-rank-label">Renown</div>
-              </div>
-            )}
-          </div>
+          <table className="leet-ranks">
+            <thead>
+              <tr>
+                <th scope="col">Platform</th>
+                <th scope="col">Current</th>
+                <th scope="col">Best</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranks.premier != null && (
+                <tr>
+                  <th scope="row">Premier</th>
+                  <td><div className="rankcell"><PremierBadge rating={ranks.premier} /></div></td>
+                  <td>
+                    <div className="rankcell">
+                      {ranks.premier_best != null
+                        ? <PremierBadge rating={ranks.premier_best} />
+                        : <span className="leet-none">—</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {ranks.faceit != null && (
+                <tr>
+                  <th scope="row">FACEIT</th>
+                  <td>
+                    <div className="rankcell">
+                      <FaceitLevel level={ranks.faceit} size={30} />
+                      {ranks.faceit_elo != null && <span className="leet-elo">{ranks.faceit_elo} ELO</span>}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="rankcell">
+                      {ranks.faceit_best != null
+                        ? <FaceitLevel level={ranks.faceit_best} size={30} />
+                        : <span className="leet-none">—</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {ranks.wingman != null && Number(ranks.wingman) > 0 && (
+                <tr>
+                  <th scope="row">Wingman</th>
+                  <td><div className="rankcell"><CompRank rank={ranks.wingman} height={28} /></div></td>
+                  <td>
+                    <div className="rankcell">
+                      {ranks.wingman_best != null && Number(ranks.wingman_best) > 0
+                        ? <CompRank rank={ranks.wingman_best} height={28} />
+                        : <span className="leet-none">—</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {ranks.leetify != null && (
+                <tr>
+                  <th scope="row">Leetify rating</th>
+                  {/* Rounded, and signed.
+                      Printed raw this rendered "4.130000000000001" — the number
+                      arrives as a float that has been through arithmetic, and
+                      binary floating point cannot hold 4.13 exactly.
+                      The sign stays because this is a delta against the
+                      average: -1.2 and +1.2 are opposite verdicts. */}
+                  <td><div className="rankcell num">{signed(ranks.leetify)}</div></td>
+                  <td><div className="rankcell"><span className="leet-none">—</span></div></td>
+                </tr>
+              )}
+              {ranks.renown != null && (
+                <tr>
+                  <th scope="row">Renown</th>
+                  <td><div className="rankcell num">{Number(ranks.renown).toLocaleString()}</div></td>
+                  <td><div className="rankcell"><span className="leet-none">—</span></div></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </>
       )}
 
@@ -227,12 +289,17 @@ export function LeetifyView({ data }) {
                   className={`leet-form-cell ${m.outcome === "win" ? "win" : m.outcome === "loss" ? "loss" : ""}`}
                   key={m.id}
                   title={`${(m.map_name || "").replace(/^(de|cs)_/, "")} · ${(m.score || []).join("-")}` +
-                         (r != null ? ` · rating ${Math.round(r * 1000) / 1000}` : "")}
+                         (r != null ? ` · rating ${signed(r)}` : "")}
                 >
                   <div className="leet-form-map">{(m.map_name || "").replace(/^(de|cs)_/, "").slice(0, 4)}</div>
                   {r != null && (
+                    /* Same formatter as the headline figure. The old
+                       Math.round(r * 100) / 100 dodged the float artefact but
+                       dropped trailing zeros, so a column of ratings read
+                       "+4.1 / +3.85 / +2" — three different widths for the
+                       same kind of number. */
                     <div className="leet-form-rating" style={{ color: good ? "#22c55e" : "#ef4444" }}>
-                      {good ? "+" : ""}{Math.round(r * 100) / 100}
+                      {signed(r)}
                     </div>
                   )}
                 </div>

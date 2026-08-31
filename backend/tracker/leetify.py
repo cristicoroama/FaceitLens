@@ -117,6 +117,21 @@ RATING_FIELDS = [
 ]
 
 
+def _first(src: dict, *keys):
+    """First key present with a non-null value, or None.
+
+    For fields we know exist in the upstream product but whose exact name in
+    the API we haven't confirmed. Guessing one name and getting it wrong fails
+    silently; trying the plausible ones costs nothing and the wrong guesses
+    simply never match.
+    """
+    for k in keys:
+        v = (src or {}).get(k)
+        if v is not None:
+            return v
+    return None
+
+
 def _shape(data: dict, steamid: str) -> dict:
     ranks = data.get("ranks") or {}
     rating = data.get("rating") or {}
@@ -196,6 +211,17 @@ def _shape(data: dict, steamid: str) -> dict:
             "wingman": ranks.get("wingman"),
             "renown": ranks.get("renown"),
             "competitive": ranks.get("competitive") or [],
+            # Peak values, for the BEST column beside CURRENT.
+            #
+            # Leetify's own profile shows both, so the figures exist on their
+            # side; what is NOT confirmed is the key names, because we have
+            # never looked at a raw response. Several plausible spellings are
+            # tried and whichever answers wins. A peak we can't find renders as
+            # an empty cell, which is honest — inventing one by taking the
+            # current value would silently claim the player is at their best.
+            "premier_best": _first(ranks, "premier_best", "best_premier", "premier_peak"),
+            "faceit_best": _first(ranks, "faceit_best", "best_faceit", "faceit_peak"),
+            "wingman_best": _first(ranks, "wingman_best", "best_wingman", "wingman_peak"),
         },
         # Kept for the existing UI, which reads rating.aim / .positioning / .utility.
         "rating": {

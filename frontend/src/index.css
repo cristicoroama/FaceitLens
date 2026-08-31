@@ -1720,55 +1720,124 @@ a { color: inherit; }
 /* ============================================================
    Leetify tab
    ============================================================ */
-.leet-ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
-.leet-rank { padding: 14px 16px; text-align: center; }
-.leet-rank-val {
-  font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--text);
-  min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
+/* Ranks table: platform down the side, CURRENT and BEST across.
+   `display: grid` on the table with the reference's own column recipe — the
+   platform column sizes to its longest label but may grow, the two value
+   columns split what's left evenly and are allowed to shrink to zero rather
+   than forcing the table wider than its container. */
+.leet-ranks {
+  display: grid;
+  grid-template-columns: minmax(max-content, 3fr) repeat(2, minmax(0, 2fr));
+  width: 100%;
+  margin-bottom: 20px;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
-.leet-rank-val.group { font-size: 15px; line-height: 1.25; }
-.leet-rank-val.faceit .leet-elo { font-family: var(--font-mono); font-size: 15px; }
-.leet-rank-label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
+/* A grid table needs its row groups made transparent to layout, or thead and
+   tbody would each become a single grid item and the columns would collapse. */
+.leet-ranks thead,
+.leet-ranks tbody,
+.leet-ranks tr { display: contents; }
+
+.leet-ranks th,
+.leet-ranks td {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.leet-ranks thead th {
+  border-top: 0;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  text-align: center;
+}
+.leet-ranks thead th:first-child { text-align: left; }
+/* Row headers carry the platform name — left-aligned and readable, not the
+   quiet uppercase treatment the column headers get. */
+.leet-ranks tbody th {
+  text-align: left;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap;
+}
+
+/* gap: .5rem and centred, straight off the reference's own `.rank` rule. */
+.rankcell {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 32px;
+}
+.rankcell.num {
+  font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--text);
+}
+.leet-elo { font-family: var(--font-mono); font-size: 14px; color: var(--text); }
+.leet-none { color: var(--text-dim); }
+
+@media (max-width: 560px) {
+  .leet-ranks th, .leet-ranks td { padding: 9px 8px; }
+  .leet-ranks tbody th { font-size: 12px; }
+}
 
 /* In-game Premier "CS Rating" plate (drawn, bracket-colored) */
+/* The plate.
+   A solid block, not a bordered pill. The previous version had a vertical
+   gradient, a 1px outline and a 5px radius, and together those read as a UI
+   chip with a rank inside it. The in-game plate is a flat parallelogram —
+   the shape IS the decoration, so everything else has to get out of the way. */
 .prem-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 13px 4px 9px;
-  background: linear-gradient(180deg, var(--pcd), color-mix(in srgb, var(--pcd) 55%, #000));
-  border: 1px solid color-mix(in srgb, var(--pc) 65%, transparent);
-  border-radius: 5px;
-  transform: skewX(-10deg);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--pc) 22%, transparent), inset 0 1px 0 color-mix(in srgb, var(--pc) 30%, transparent);
+  /* gap: .5rem, straight off the reference's `.rank` rule. */
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 3px 12px 3px 8px;
+  background: color-mix(in srgb, var(--pc) 26%, #0b0710);
+  border: 0;
+  border-radius: 3px;
+  transform: skewX(-12deg);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--pc) 18%, transparent);
 }
-/* The two bars. Counter-skewed against the plate: the wrapper is skewed -10deg
-   to give the plate its lean, and the bars already carry their own slant in
-   the path, so without this they would come out at twice the angle. */
+
+/* The bars lean WITH the plate.
+   They were counter-skewed here on the theory that the path already carried
+   its own slant and the plate's -12deg would double it. Side by side with the
+   real thing that was plainly wrong: cancelling the plate's lean left them
+   standing nearly upright, which is the single most obvious tell. The path's
+   slant and the plate's skew are meant to compound. */
 .prem-badge .prem-bars {
-  width: 11px;
-  height: 21px;
+  width: 10px;
+  height: 20px;
   flex-shrink: 0;
   fill: var(--pc);
-  transform: skewX(10deg);
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--pc) 55%, transparent));
 }
 
 /* Baseline-aligned, not centred: the two number parts are different sizes, and
    centring them would leave the small half floating in the middle of the tall
-   one instead of sitting on the same line. */
+   one instead of sitting on the same line.
+
+   Upright, not italic. The plate is already skewed -12deg, and italic on top
+   of that leaned the digits twice — the numerals ended up at a steeper angle
+   than the plate carrying them. */
 .prem-num {
   display: inline-flex;
   align-items: baseline;
-  font-family: var(--font-mono);
-  font-style: italic;
-  font-weight: 800;
+  /* The body font, not the mono one.
+     The reference sets these digits in Poppins — its own body face — and mono
+     was the biggest single reason the two plates didn't match: monospaced
+     numerals are wide and even, so "15,100" came out noticeably longer and
+     flatter than the geometric original. Inter is our body face and behaves
+     the same way here. */
+  font-family: var(--font-display);
+  font-style: normal;
+  /* 700, off the reference's computed styles — not the 800 this started at.
+     At this size the extra weight closed up the counters in the 8 and the 0. */
+  font-weight: 700;
   color: #fff;
-  text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent);
 }
-.prem-num b { font: inherit; font-size: 18px; letter-spacing: 0.5px; }
+.prem-num b { font: inherit; font-size: 17px; letter-spacing: 0; }
 /* The last three digits: same weight, smaller. It is the size step that reads
    as "tier, then position within it" — dimming it as well would make it look
    like secondary information, which it isn't. */
-.prem-num i { font: inherit; font-size: 13px; letter-spacing: 0.5px; }
+.prem-num i { font: inherit; font-size: 12px; letter-spacing: 0; }
 
 /* Competitive per-map (official skill-group badges) */
 .leet-comp-grid {
