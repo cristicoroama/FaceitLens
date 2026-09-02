@@ -67,6 +67,8 @@ export const PAGE_META = {
     "How the trust score and skill ratings are calculated, how fresh the stats are, what data is stored, and why ELO history is an estimate."],
   privacy: ["Privacy Policy",
     "What Faceit-Lens stores, what it doesn't, and how to get your data removed. No tracking cookies, no ad networks."],
+  support: ["Support & API Access — Faceit-Lens",
+    "Report a bug, ask for a data correction, or request an API key. Ticket-based, no account needed."],
   terms: ["Terms of Service",
     "Terms for using Faceit-Lens: fair use, API limits, and why trust scores and skill ratings are estimates rather than accusations."],
 };
@@ -84,6 +86,7 @@ export const TOOL_PAGES = new Set([
   "squad", "hubs", "teams", "competitions", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew", "feedback", "privacy", "terms", "faq", "overlay",
+  "support",
 ]);
 
 /**

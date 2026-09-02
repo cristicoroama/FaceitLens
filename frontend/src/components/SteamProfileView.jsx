@@ -4,6 +4,8 @@ import Medals from "./Medals.jsx";
 import Inventory from "./Inventory.jsx";
 import PremierBadge from "./PremierBadge.jsx";
 import { Flag } from "./RankIcons.jsx";
+import { SteamIcon } from "./BrandIcons.jsx";
+import { Icon } from "../icons.jsx";
 import { LeetifyView } from "./LeetifyStats.jsx";
 
 /** Steam-first profile — works for players with no FACEIT account.
@@ -34,7 +36,7 @@ export default function SteamProfileView({ profile }) {
           <div className="ph-info">
             <div className="ph-name">
               {profile.persona || `Player ${profile.steamid.slice(-5)}`}
-              <span className="acct-badge steam" title="Steam profile (no FACEIT needed)">Steam</span>
+              <span className="acct-badge steam" title="Steam profile (no FACEIT needed)" aria-label="Steam profile"><SteamIcon size={13} /></span>
               {profile.vac_banned && (
                 <span className="acct-badge vac" title="VAC banned">VAC BAN</span>
               )}
@@ -60,7 +62,9 @@ export default function SteamProfileView({ profile }) {
 
         <div className="ph-actions">
           <a className="act-btn" href={profile.profile_url} target="_blank" rel="noopener noreferrer">
-            Open Steam profile ↗
+            <SteamIcon size={15} />
+            Open Steam profile
+            {Icon.boxArrowUpRight}
           </a>
           {profile.faceit_nickname && (
             <button

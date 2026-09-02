@@ -171,7 +171,7 @@ export default function ApiDocs() {
             The FaceitLens API exposes the same data that powers the app — player
             summaries, trust scores, inventories, match histories, the HLTV pro
             scene and more. Everything is read-only, returns JSON, and is cached
-            hard. No key required.
+            hard. An API key is required — request one from the support page.
           </p>
 
           <StatusPanel data={status} loading={statusLoading} />
@@ -181,7 +181,7 @@ export default function ApiDocs() {
 
           <h2 className="apidoc-h2">What you'll find</h2>
           <ul className="apidoc-list">
-            <li><b>Authentication</b> — none needed, it's open.</li>
+            <li><b>Authentication</b> — one header, <code>X-API-Key</code>. Keys are issued on request.</li>
             <li><b>Rate limits</b> — be gentle; responses are cached.</li>
             <li><b>Attribution</b> — a link back is appreciated.</li>
             <li><b>Endpoints</b> — every URL the API supports, with live "Try it".</li>
@@ -191,19 +191,40 @@ export default function ApiDocs() {
         <section id="doc-auth" className="apidoc-sec">
           <h2 className="apidoc-h2">Authentication</h2>
           <p className="apidoc-p">
-            None. The API is public and read-only — just call the URLs directly.
-            There are no keys, tokens or headers to set.
+            Every endpoint needs a key. Send it as the <code>X-API-Key</code> header:
+          </p>
+          <pre className="apidoc-pre"><code>{`curl -H "X-API-Key: fl_your_key_here" \\
+  "https://api.faceit-lens.com/api/player/donk666/"`}</code></pre>
+          <p className="apidoc-p">
+            A <code>Bearer</code> token in the <code>Authorization</code> header works
+            too. Requests without a valid key get a <code>401</code>.
+          </p>
+          <p className="apidoc-p">
+            Keys are free and issued by hand. <a href="/support?category=api">Request one
+            on the support page</a> — say what you're building and roughly how many
+            requests a minute you need, and you'll get a key with limits to match.
           </p>
         </section>
 
         <section id="doc-limits" className="apidoc-sec">
           <h2 className="apidoc-h2">Rate limits</h2>
           <p className="apidoc-p">
-            No hard limit yet, but please be reasonable — this runs on a hobby
-            budget. Every response is cached (player summaries ~3 min, match &
+            Each key has a per-minute and a per-day quota, set when the key is
+            issued and based on what you said you needed. Every response carries
+            what's left:
+          </p>
+          <pre className="apidoc-pre"><code>{`X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 57
+X-RateLimit-Daily-Remaining: 9840`}</code></pre>
+          <p className="apidoc-p">
+            Over the limit returns <code>429</code>. If you need more, reply on
+            your ticket rather than opening a second one.
+          </p>
+          <p className="apidoc-p">
+            Every response is cached anyway (player summaries ~3 min, match and
             inventory data hours), so hammering the same endpoint won't get you
-            fresher data, just a slower site for everyone. Cache your own results
-            where you can.
+            fresher data — just a slower site for everyone. Cache your own
+            results where you can.
           </p>
         </section>
 

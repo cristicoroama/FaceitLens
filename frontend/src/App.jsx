@@ -66,6 +66,7 @@ import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import Faq from "./components/Faq.jsx";
+import Support from "./components/Support.jsx";
 import NotFound from "./components/NotFound.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
 import { DISCORD_INVITE } from "./links.js";
@@ -189,6 +190,8 @@ function buildNav(t, lang) { return [
       hint: t("hint.faq") },
     { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
       hint: t("hint.feedback") },
+    { id: "support", label: t("nav.support"), href: localePath(lang, "/support"), icon: Icon.shieldCheck,
+      hint: t("hint.support") },
   ],
     /* Actions, not reference links — in the footer nobody would press them. */
     tail: [
@@ -1058,6 +1061,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
             />
           )}
           {mode === "faq" && <Faq />}
+          {mode === "support" && <Support initialCategory={searchParams.get("category") || undefined} />}
           {mode === "privacy" && <PrivacyPolicy />}
           {mode === "terms" && <Terms />}
           {mode === "settings" && (
