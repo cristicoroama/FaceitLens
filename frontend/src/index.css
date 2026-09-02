@@ -1822,7 +1822,9 @@ a { color: inherit; }
   width: 12.75px;
   height: 24px;
   flex-shrink: 0;
-  fill: var(--pc);
+  /* The raw Valve hue. --pc is the lighter tone and belongs to the number;
+     filling the bars with it was the earlier mistake. */
+  fill: var(--pb);
 }
 
 /* Baseline-aligned, not centred: the two number parts are different sizes, and
@@ -1843,29 +1845,30 @@ a { color: inherit; }
   display: inline-flex;
   align-items: baseline;
   gap: 0;
-  padding: 0 9px;
+  padding: 0 8px 0 10px;
   height: 24px;
-  align-content: center;
-  /* The darkened tier colour straight, not a mix into black — see the
-     BRACKETS comment in PremierBadge.jsx for why mixing washed it out. */
   background: var(--pcd);
-  transform: skewX(-12deg);
-  /* The body font, not the mono one.
-     The reference sets these digits in Poppins — its own body face — and mono
-     was the biggest single reason the two didn't match: monospaced numerals
-     are wide and even, so "15,100" came out noticeably longer and flatter
-     than the geometric original. Inter is our body face and behaves the same. */
+  /* -10deg, off the reference's transform matrix: the c value is -0.176327,
+     and atan(0.176327) is 10.0 degrees. This was -12 by guess. */
+  transform: skewX(-10deg);
+  /* Both measured: there IS a hairline, and the corners are barely rounded.
+     Scaled back up from the reference's own numbers — its badge renders at
+     0.633x, so its 1.425px radius is 2.25px at full size. */
+  border: 1px solid color-mix(in srgb, var(--pb) 55%, transparent);
+  border-radius: 2px;
   font-family: var(--font-display);
   font-style: normal;
   font-weight: 700;
-  color: #fff;
+  /* The number takes the tier's light tone, not white. */
+  color: var(--pc);
 }
-.prem-num > * { transform: skewX(12deg); }
+.prem-num > * { transform: skewX(10deg); }
 .prem-num b { font: inherit; font-size: 16px; letter-spacing: 0; line-height: 24px; }
-/* The last three digits: same weight, smaller. It is the size step that reads
-   as "tier, then position within it" — dimming it as well would make it look
-   like secondary information, which it isn't. */
-.prem-num i { font: inherit; font-size: 12px; letter-spacing: 0; line-height: 24px; }
+/* 13.5px, not 12: the reference's two label sizes are 8.23px and 6.97px, a
+   ratio of 1.18. At 16px for the large half that puts this at 13.5, and the
+   old 12px made the step too steep — the last three digits read as a footnote
+   rather than as part of the same number. */
+.prem-num i { font: inherit; font-size: 13.5px; letter-spacing: 0; line-height: 24px; }
 
 /* Competitive per-map (official skill-group badges) */
 .leet-comp-grid {

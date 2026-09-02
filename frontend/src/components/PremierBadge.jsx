@@ -19,38 +19,42 @@
  * deciding whether lifting someone's path data is fine.
  */
 
-/* Valve's item-rarity ramp — which Premier reuses for its rating tiers —
-   lightened 37% toward white.
+/* Valve's item-rarity ramp, which Premier reuses for its rating tiers, in the
+ * three roles the badge actually needs.
  *
- * The lightening is not a taste call. The reference's tier-3 colour computes
- * to rgb(180, 139, 255); Valve's purple is #8847ff = rgb(136, 71, 255); and
- * mixing that with white gives exactly 180 and 139 at t = 0.37 on both
- * channels. One confirmed value, one consistent relationship, so the rest of
- * the ramp is derived rather than eyeballed — a single lighter tone among six
- * saturated ones would have looked like a mistake.
+ * All three come from the reference's own computed styles on a tier-2 (blue)
+ * badge, and the relationships they imply then rebuild that tier exactly:
  *
- * Only the purple is measured. If another tier ever looks off against the
- * real thing, the fix is to check that tier's computed colour, not to nudge
- * this one by hand.
+ *   b — the BARS. The raw Valve colour. Measured rgb(76,106,255) against
+ *       Valve's #4b69ff: one point of deviation, on one channel.
  *
- * `c` is the BARS — Valve's colour lightened 37% toward white.
- * `d` is the PLATE — the same colour darkened 30% toward black.
+ *       This overturned an earlier reading. A previous dump showed
+ *       rgb(180,139,255) on a purple badge and that went in as the bar colour
+ *       — but it was the element's `color`, which is the TEXT. The bars are
+ *       filled with the undiluted Valve hue.
  *
- * Two derivations from one base, in opposite directions. The plate was
- * previously built by mixing the already-lightened `c` into near-black, which
- * produced rgb(65,49,93): a muddy grey-violet, because mixing toward black
- * strips saturation and `c` had little left to give. Darkening the SATURATED
- * base keeps the hue intact, which is what the reference plate actually looks
- * like.
+ *   c — the NUMBER. Valve's colour lightened 37% toward white. Measured
+ *       rgb(138,157,254) against a computed #8ea0ff: four points at worst.
+ *       Not white, which is what this rendered before.
+ *
+ *   d — the PLATE. Same hue, saturation 80%, lightness 12%. Measured
+ *       rgb(6,14,55); rebuilding it from Valve's blue through that rule gives
+ *       #060e37, digit for digit. Mixing toward black instead — the previous
+ *       approach — stripped the saturation and produced grey-violet mud.
+ *
+ * Only the blue tier is measured. The other six are derived through those same
+ * three rules, so if one ever looks wrong the fix is to measure that tier, not
+ * to nudge a value by eye.
  */
 const BRACKETS = [
-  [30000, { c: "#ffe38f", d: "#b39437" }], // gold
-  [25000, { c: "#f28e8e", d: "#a53535" }], // red
-  [20000, { c: "#e37aef", d: "#941fa1" }], // pink
-  [15000, { c: "#b48bff", d: "#5f32b3" }], // purple  (c measured)
-  [10000, { c: "#8ea0ff", d: "#354ab3" }], // blue
-  [5000,  { c: "#b6d3ff", d: "#6182b3" }], // light blue
-  [0,     { c: "#cdd9e7", d: "#7b8998" }], // gray
+  //          bars (Valve)   text (+37% white)  plate (same hue, S80 L12)
+  [30000, { b: "#ffd34e", c: "#ffe38f", d: "#372b06" }], // gold
+  [25000, { b: "#eb4b4b", c: "#f28e8e", d: "#370606" }], // red
+  [20000, { b: "#d32ce6", c: "#e37aef", d: "#320637" }], // pink
+  [15000, { b: "#8847ff", c: "#b48bff", d: "#170637" }], // purple
+  [10000, { b: "#4b69ff", c: "#8ea0ff", d: "#060e37" }], // blue   (all three measured)
+  [5000,  { b: "#8bb9ff", c: "#b6d3ff", d: "#061a37" }], // light blue
+  [0,     { b: "#b0c3d9", c: "#cdd9e7", d: "#061d37" }], // gray
 ];
 
 function bracket(rating) {
@@ -70,13 +74,13 @@ function split(rating) {
 
 export default function PremierBadge({ rating }) {
   if (rating == null) return null;
-  const { c, d } = bracket(rating);
+  const { b, c, d } = bracket(rating);
   const [big, small] = split(rating);
 
   return (
     <span
       className="prem-badge"
-      style={{ "--pc": c, "--pcd": d }}
+      style={{ "--pb": b, "--pc": c, "--pcd": d }}
       title={`Premier CS Rating: ${Math.round(rating).toLocaleString("en-US")}`}
     >
       {/* Two bars leaning ~9deg — about 5 units of drift across 32 of height.
