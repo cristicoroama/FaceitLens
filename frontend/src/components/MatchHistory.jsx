@@ -330,9 +330,103 @@ function MatchRow({ m, me, onPick }) {
  * ADR and utility for free — no demo worker, no bandwidth.
  * Loaded lazily: only when someone actually opens the match.
  */
+const LM_SHORT = {
+  leetify_rating: "Rating",
+  ct_leetify_rating: "CT",
+  t_leetify_rating: "T",
+  total_kills: "K",
+  total_deaths: "D",
+  total_assists: "A",
+  kd_ratio: "K/D",
+  total_damage: "DMG",
+  dpr: "ADR",
+  total_hs_kills: "HS",
+  mvps: "MVP",
+  score: "Score",
+  rounds_count: "Rds",
+  rounds_won: "W",
+  rounds_lost: "L",
+  rounds_survived: "Surv",
+  rounds_survived_percentage: "Surv%",
+  multi1k: "1K", multi2k: "2K", multi3k: "3K", multi4k: "4K", multi5k: "5K",
+  preaim: "Preaim",
+  reaction_time: "React",
+  accuracy: "Acc",
+  accuracy_enemy_spotted: "Acc spotted",
+  accuracy_head: "Acc head",
+  spray_accuracy: "Spray",
+  counter_strafing_shots_good_ratio: "C-strafe%",
+  counter_strafing_shots_all: "C-strafe all",
+  counter_strafing_shots_good: "C-strafe good",
+  counter_strafing_shots_bad: "C-strafe bad",
+  shots_fired: "Fired",
+  shots_fired_enemy_spotted: "Fired spotted",
+  shots_hit_enemy_spotted: "Hit spotted",
+  shots_hit_foe: "Hit foe",
+  shots_hit_foe_head: "Hit foe head",
+  shots_hit_friend: "Hit friend",
+  shots_hit_friend_head: "Hit friend head",
+  flash_assist: "Flash assist",
+  flashbang_thrown: "Flashes",
+  flashbang_hit_foe: "Enemies flashed",
+  flashbang_hit_friend: "Friends flashed",
+  flashbang_hit_foe_avg_duration: "Flash dur",
+  flashbang_leading_to_kill: "Flash→kill",
+  he_thrown: "HE",
+  he_foes_damage_avg: "HE dmg foes",
+  he_friends_damage_avg: "HE dmg friends",
+  molotov_thrown: "Molly",
+  smoke_thrown: "Smoke",
+  utility_on_death_avg: "Util on death",
+  trade_kill_opportunities: "TK opp",
+  trade_kill_attempts: "TK att",
+  trade_kills_succeed: "TK ok",
+  trade_kill_attempts_percentage: "TK att%",
+  trade_kills_success_percentage: "TK succ%",
+  trade_kill_opportunities_per_round: "TK opp/rd",
+  traded_death_opportunities: "TD opp",
+  traded_death_attempts: "TD att",
+  traded_deaths_succeed: "TD ok",
+  traded_death_attempts_percentage: "TD att%",
+  traded_deaths_success_percentage: "TD succ%",
+  traded_deaths_opportunities_per_round: "TD opp/rd",
+};
+
+const LM_RATINGS = new Set(["leetify_rating", "ct_leetify_rating", "t_leetify_rating"]);
+const LM_PERCENT = new Set([
+  "accuracy", "accuracy_enemy_spotted", "accuracy_head", "spray_accuracy",
+  "counter_strafing_shots_good_ratio", "rounds_survived_percentage",
+  "trade_kill_attempts_percentage", "trade_kills_success_percentage",
+  "traded_death_attempts_percentage", "traded_deaths_success_percentage",
+]);
+const LM_ONE_DP = new Set([
+  "dpr", "he_foes_damage_avg", "he_friends_damage_avg",
+  "utility_on_death_avg", "flashbang_hit_foe_avg_duration",
+]);
+
+function lmFormat(key, v) {
+  if (v == null) return "—";
+  if (LM_RATINGS.has(key)) {
+    const r = Math.round(v * 1000) / 1000;
+    return `${r >= 0 ? "+" : ""}${r}`;
+  }
+  if (LM_PERCENT.has(key)) {
+    const pct = v > 1.5 ? v : v * 100;
+    return `${Math.round(pct * 10) / 10}%`;
+  }
+  if (key === "reaction_time") {
+    const ms = v > 10 ? v : v * 1000;
+    return `${Math.round(ms)}ms`;
+  }
+  if (key === "preaim") return `${Math.round(v * 10) / 10}°`;
+  if (LM_ONE_DP.has(key)) return Math.round(v * 10) / 10;
+  return Number.isInteger(v) ? v : Math.round(v * 100) / 100;
+}
+
 function LeetifyMatch({ matchId, me }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [group, setGroup] = useState("core");
 
   useEffect(() => {
     let alive = true;
@@ -347,24 +441,66 @@ function LeetifyMatch({ matchId, me }) {
   if (loading) return <div className="match-detail-loading">Checking Leetify…</div>;
   if (!data?.available || !data.players?.length) return null;
 
-  const n = (v, d = 2) => (v == null ? "—" : Math.round(v * 10 ** d) / 10 ** d);
+  const used = (f) => data.players.some((p) => p[f.key] != null);
+  const allFields = (data.fields || []).filter(used);
+  const groups = (data.groups || []).filter((g) =>
+    allFields.some((f) => f.group === g.key)
+  );
+  const active = groups.some((g) => g.key === group) ? group : groups[0]?.key;
+  const cols = groups.length
+    ? allFields.filter((f) => f.group === active)
+    : allFields;
+
+  if (!cols.length) return null;
 
   return (
     <div className="lm-wrap">
       <div className="lm-head">
         <span className="lm-title">Demo stats</span>
+        {data.has_banned_player && (
+          <span className="lm-flag" title="Leetify has since banned at least one player from this match">
+            Banned player
+          </span>
+        )}
         <a className="lm-credit" href="https://leetify.com/" target="_blank" rel="noopener noreferrer">
           via Leetify
         </a>
       </div>
+      {(data.map_name || data.data_source || (data.team_scores || []).length > 0) && (
+        <div className="lm-meta">
+          {[
+            data.map_name,
+            data.data_source,
+            (data.team_scores || []).length
+              ? data.team_scores.map((t) => t.score).join(" – ")
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      )}
+      {groups.length > 1 && (
+        <div className="lm-tabs">
+          {groups.map((g) => (
+            <button
+              key={g.key}
+              type="button"
+              className={`lm-tab ${g.key === active ? "on" : ""}`}
+              onClick={() => setGroup(g.key)}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="lm-scroll">
         <table className="lm-table">
           <thead>
             <tr>
               <th className="lm-l">Player</th>
-              <th>Rating</th><th>K</th><th>D</th><th>A</th>
-              <th>ADR</th><th>HS</th><th>MVP</th>
-              <th>3K</th><th>4K</th><th>5K</th>
+              {cols.map((f) => (
+                <th key={f.key} title={f.label}>{LM_SHORT[f.key] || f.label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -372,18 +508,18 @@ function LeetifyMatch({ matchId, me }) {
               <tr key={p.steam64_id}
                   className={me && p.name && p.name.toLowerCase() === me.toLowerCase() ? "lm-me" : ""}>
                 <td className="lm-l">{p.name}</td>
-                <td style={{ color: (p.leetify_rating ?? 0) >= 0 ? "#22c55e" : "#ef4444" }}>
-                  {p.leetify_rating != null ? `${p.leetify_rating >= 0 ? "+" : ""}${n(p.leetify_rating, 3)}` : "—"}
-                </td>
-                <td>{p.total_kills ?? "—"}</td>
-                <td>{p.total_deaths ?? "—"}</td>
-                <td>{p.total_assists ?? "—"}</td>
-                <td>{n(p.dpr, 1)}</td>
-                <td>{p.total_hs_kills ?? "—"}</td>
-                <td>{p.mvps ?? "—"}</td>
-                <td>{p.multi3k || 0}</td>
-                <td>{p.multi4k || 0}</td>
-                <td>{p.multi5k || 0}</td>
+                {cols.map((f) => (
+                  <td
+                    key={f.key}
+                    style={
+                      LM_RATINGS.has(f.key) && p[f.key] != null
+                        ? { color: p[f.key] >= 0 ? "#22c55e" : "#ef4444" }
+                        : undefined
+                    }
+                  >
+                    {lmFormat(f.key, p[f.key])}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>

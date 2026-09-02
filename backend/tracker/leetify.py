@@ -264,35 +264,82 @@ def _shape(data: dict, steamid: str) -> dict:
 # Per-player fields in a parsed match. Leetify has already done the demo work,
 # so this is the data our own demoparser worker exists to produce — for any
 # match they've processed we can skip that entirely.
+MATCH_STAT_GROUPS = [
+    ("core", "Scoreboard"),
+    ("rounds", "Rounds"),
+    ("aim", "Aim"),
+    ("utility", "Utility"),
+    ("trading", "Trading"),
+]
+
 MATCH_STAT_FIELDS = [
-    ("leetify_rating", "Leetify Rating"),
-    ("ct_leetify_rating", "CT Leetify Rating"),
-    ("t_leetify_rating", "T Leetify Rating"),
-    ("total_kills", "Total Kills"),
-    ("total_deaths", "Total Deaths"),
-    ("total_assists", "Total Assists"),
-    ("kd_ratio", "K/D Ratio"),
-    ("total_damage", "Total Damage"),
-    ("dpr", "DPR"),
-    ("total_hs_kills", "Total HS Kills"),
-    ("mvps", "MVPs"),
-    ("rounds_survived", "Rounds Survived"),
-    ("rounds_survived_percentage", "Rounds Survived Percentage"),
-    ("multi1k", "1K"), ("multi2k", "2K"), ("multi3k", "3K"),
-    ("multi4k", "4K"), ("multi5k", "5K"),
-    ("preaim", "Preaim"),
-    ("reaction_time", "Reaction Time"),
-    ("accuracy", "Accuracy"),
-    ("accuracy_head", "Accuracy (Head)"),
-    ("spray_accuracy", "Spray Accuracy"),
-    ("flash_assist", "Flash Assist"),
-    ("flashbang_thrown", "Flashbang Thrown"),
-    ("he_thrown", "HE Thrown"),
-    ("molotov_thrown", "Molotov Thrown"),
-    ("smoke_thrown", "Smoke Thrown"),
-    ("utility_on_death_avg", "Utility On Death (avg)"),
-    ("trade_kills_success_percentage", "Trade Kills Success Percentage"),
-    ("traded_deaths_success_percentage", "Traded Deaths Success Percentage"),
+    ("leetify_rating", "Leetify Rating", "core"),
+    ("ct_leetify_rating", "CT Leetify Rating", "core"),
+    ("t_leetify_rating", "T Leetify Rating", "core"),
+    ("total_kills", "Total Kills", "core"),
+    ("total_deaths", "Total Deaths", "core"),
+    ("total_assists", "Total Assists", "core"),
+    ("kd_ratio", "K/D Ratio", "core"),
+    ("total_damage", "Total Damage", "core"),
+    ("dpr", "DPR", "core"),
+    ("total_hs_kills", "Total HS Kills", "core"),
+    ("mvps", "MVPs", "core"),
+    ("score", "Score", "core"),
+
+    ("rounds_count", "Rounds Count", "rounds"),
+    ("rounds_won", "Rounds Won", "rounds"),
+    ("rounds_lost", "Rounds Lost", "rounds"),
+    ("rounds_survived", "Rounds Survived", "rounds"),
+    ("rounds_survived_percentage", "Rounds Survived Percentage", "rounds"),
+    ("multi1k", "1K", "rounds"),
+    ("multi2k", "2K", "rounds"),
+    ("multi3k", "3K", "rounds"),
+    ("multi4k", "4K", "rounds"),
+    ("multi5k", "5K", "rounds"),
+
+    ("preaim", "Preaim", "aim"),
+    ("reaction_time", "Reaction Time", "aim"),
+    ("accuracy", "Accuracy", "aim"),
+    ("accuracy_enemy_spotted", "Accuracy (Enemy Spotted)", "aim"),
+    ("accuracy_head", "Accuracy (Head)", "aim"),
+    ("spray_accuracy", "Spray Accuracy", "aim"),
+    ("counter_strafing_shots_good_ratio", "Counter Strafing Shots Good Ratio", "aim"),
+    ("counter_strafing_shots_all", "Counter Strafing Shots (All)", "aim"),
+    ("counter_strafing_shots_good", "Counter Strafing Shots (Good)", "aim"),
+    ("counter_strafing_shots_bad", "Counter Strafing Shots (Bad)", "aim"),
+    ("shots_fired", "Shots Fired", "aim"),
+    ("shots_fired_enemy_spotted", "Shots Fired (Enemy Spotted)", "aim"),
+    ("shots_hit_enemy_spotted", "Shots Hit (Enemy Spotted)", "aim"),
+    ("shots_hit_foe", "Shots Hit Foe", "aim"),
+    ("shots_hit_foe_head", "Shots Hit Foe (Head)", "aim"),
+    ("shots_hit_friend", "Shots Hit Friend", "aim"),
+    ("shots_hit_friend_head", "Shots Hit Friend (Head)", "aim"),
+
+    ("flash_assist", "Flash Assist", "utility"),
+    ("flashbang_thrown", "Flashbang Thrown", "utility"),
+    ("flashbang_hit_foe", "Flashbang Hit Foe", "utility"),
+    ("flashbang_hit_friend", "Flashbang Hit Friend", "utility"),
+    ("flashbang_hit_foe_avg_duration", "Flashbang Hit Foe (avg duration)", "utility"),
+    ("flashbang_leading_to_kill", "Flashbang Leading To Kill", "utility"),
+    ("he_thrown", "HE Thrown", "utility"),
+    ("he_foes_damage_avg", "HE Foes Damage (avg)", "utility"),
+    ("he_friends_damage_avg", "HE Friends Damage (avg)", "utility"),
+    ("molotov_thrown", "Molotov Thrown", "utility"),
+    ("smoke_thrown", "Smoke Thrown", "utility"),
+    ("utility_on_death_avg", "Utility On Death (avg)", "utility"),
+
+    ("trade_kill_opportunities", "Trade Kill Opportunities", "trading"),
+    ("trade_kill_attempts", "Trade Kill Attempts", "trading"),
+    ("trade_kills_succeed", "Trade Kills Succeed", "trading"),
+    ("trade_kill_attempts_percentage", "Trade Kill Attempts Percentage", "trading"),
+    ("trade_kills_success_percentage", "Trade Kills Success Percentage", "trading"),
+    ("trade_kill_opportunities_per_round", "Trade Kill Opportunities Per Round", "trading"),
+    ("traded_death_opportunities", "Traded Death Opportunities", "trading"),
+    ("traded_death_attempts", "Traded Death Attempts", "trading"),
+    ("traded_deaths_succeed", "Traded Deaths Succeed", "trading"),
+    ("traded_death_attempts_percentage", "Traded Death Attempts Percentage", "trading"),
+    ("traded_deaths_success_percentage", "Traded Deaths Success Percentage", "trading"),
+    ("traded_deaths_opportunities_per_round", "Traded Deaths Opportunities Per Round", "trading"),
 ]
 
 
@@ -304,11 +351,8 @@ def _shape_match(data: dict) -> dict:
             "steam64_id": p.get("steam64_id"),
             "name": p.get("name"),
             "team": p.get("initial_team_number"),
-            "rounds_count": p.get("rounds_count"),
-            "rounds_won": p.get("rounds_won"),
-            "rounds_lost": p.get("rounds_lost"),
         }
-        for key, label in MATCH_STAT_FIELDS:
+        for key, _label, _group in MATCH_STAT_FIELDS:
             if p.get(key) is not None:
                 row[key] = p[key]
         players.append(row)
@@ -327,7 +371,8 @@ def _shape_match(data: dict) -> dict:
         "has_banned_player": data.get("has_banned_player"),
         "team_scores": data.get("team_scores") or [],
         "players": players,
-        "fields": [{"key": k, "label": v} for k, v in MATCH_STAT_FIELDS],
+        "fields": [{"key": k, "label": v, "group": g} for k, v, g in MATCH_STAT_FIELDS],
+        "groups": [{"key": k, "label": v} for k, v in MATCH_STAT_GROUPS],
     }
 
 
@@ -418,6 +463,7 @@ def get_player_matches(steamid: str, limit: int = 20) -> dict:
         shaped["me"] = me
         shaped.pop("players", None)
         shaped.pop("fields", None)
+        shaped.pop("groups", None)
         matches.append(shaped)
 
     return {"available": True, "matches": matches, "count": len(matches),
