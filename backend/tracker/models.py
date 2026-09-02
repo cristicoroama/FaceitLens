@@ -629,3 +629,93 @@ class StreamOverlay(models.Model):
     def new_token():
         import secrets
         return secrets.token_urlsafe(18)[:24]
+
+
+def _ticket_ref():
+    import secrets
+    return "FL-" + secrets.token_hex(3).upper()
+
+
+class SupportTicket(models.Model):
+    CATEGORY = [
+        ("support", "Support"),
+        ("bug", "Bug report"),
+        ("api", "API access request"),
+        ("data", "Data correction"),
+        ("other", "Other"),
+    ]
+    STATUS = [
+        ("open", "Open"),
+        ("waiting", "Waiting on user"),
+        ("progress", "In progress"),
+        ("resolved", "Resolved"),
+        ("rejected", "Rejected"),
+    ]
+
+    ref = models.CharField(max_length=16, unique=True, default=_ticket_ref, db_index=True)
+    email = models.EmailField(db_index=True)
+    category = models.CharField(max_length=16, choices=CATEGORY, default="support")
+    subject = models.CharField(max_length=160)
+    body = models.TextField()
+    status = models.CharField(max_length=16, choices=STATUS, default="open", db_index=True)
+
+    api_use_case = models.TextField(blank=True)
+    api_expected_rpm = models.PositiveIntegerField(null=True, blank=True)
+    api_project_url = models.URLField(blank=True)
+
+    ip_hash = models.CharField(max_length=64, blank=True, db_index=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.ref} [{self.status}] {self.subject[:50]}"
+
+
+class TicketMessage(models.Model):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name="messages")
+    body = models.TextField()
+    from_staff = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        who = "staff" if self.from_staff else "user"
+        return f"{self.ticket.ref} ({who}) {self.body[:40]}"
+
+
+def _api_key():
+    import secrets
+    return "fl_" + secrets.token_urlsafe(32)
+
+
+class ApiKey(models.Model):
+    key = models.CharField(max_length=64, unique=True, default=_api_key, db_index=True)
+    label = models.CharField(max_length=120)
+    email = models.EmailField(db_index=True)
+    ticket = models.ForeignKey(
+        SupportTicket, on_delete=models.SET_NULL, null=True, blank=True, related_name="api_keys"
+    )
+    active = models.BooleanField(default=True, db_index=True)
+    rate_per_minute = models.PositiveIntegerField(default=60)
+    rate_per_day = models.PositiveIntegerField(default=10000)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    request_count = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        state = "active" if self.active else "revoked"
+        return f"{self.label} ({state})"
+
+    @property
+    def masked(self):
+        return f"{self.key[:6]}…{self.key[-4:]}"

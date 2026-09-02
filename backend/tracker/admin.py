@@ -9,6 +9,9 @@ from .models import (
     DemoPlayerStat,
     SteamProfile,
     Favorite,
+    SupportTicket,
+    TicketMessage,
+    ApiKey,
 )
 
 
@@ -321,3 +324,86 @@ class StreamOverlayAdmin(admin.ModelAdmin):
     # business being editable, and it doesn't belong in a list view either.
     readonly_fields = ("profile", "token", "created_at", "last_seen")
     ordering = ("-last_seen",)
+
+
+class TicketMessageInline(admin.TabularInline):
+    model = TicketMessage
+    extra = 1
+    fields = ("body", "from_staff", "created_at")
+    readonly_fields = ("created_at",)
+
+
+class ApiKeyInline(admin.TabularInline):
+    model = ApiKey
+    extra = 0
+    fields = ("label", "key", "active", "rate_per_minute", "rate_per_day", "request_count")
+    readonly_fields = ("key", "request_count")
+
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = ("ref", "status", "category", "subject", "email", "created_at")
+    list_filter = ("status", "category", "created_at")
+    search_fields = ("ref", "email", "subject", "body")
+    readonly_fields = ("ref", "ip_hash", "user_agent", "created_at", "updated_at")
+    ordering = ("-created_at",)
+    inlines = [TicketMessageInline, ApiKeyInline]
+    actions = ["issue_api_key", "mark_resolved", "mark_rejected", "mark_in_progress"]
+    fieldsets = (
+        (None, {"fields": ("ref", "status", "category", "email", "subject", "body")}),
+        ("API request", {
+            "fields": ("api_use_case", "api_expected_rpm", "api_project_url"),
+            "classes": ("collapse",),
+        }),
+        ("Origin", {"fields": ("ip_hash", "user_agent", "created_at", "updated_at"),
+                    "classes": ("collapse",)}),
+    )
+
+    @admin.action(description="Issue an API key for the selected tickets")
+    def issue_api_key(self, request, queryset):
+        made = 0
+        for ticket in queryset:
+            if ticket.api_keys.filter(active=True).exists():
+                continue
+            rpm = ticket.api_expected_rpm or 60
+            ApiKey.objects.create(
+                label=ticket.subject[:120] or ticket.ref,
+                email=ticket.email,
+                ticket=ticket,
+                rate_per_minute=max(10, min(600, rpm)),
+                rate_per_day=max(1000, min(200000, rpm * 60 * 8)),
+            )
+            ticket.status = "resolved"
+            ticket.save(update_fields=["status", "updated_at"])
+            made += 1
+        self.message_user(request, f"Issued {made} key(s). The requester sees it on the support page.")
+
+    @admin.action(description="Mark resolved")
+    def mark_resolved(self, request, queryset):
+        queryset.update(status="resolved")
+
+    @admin.action(description="Mark rejected")
+    def mark_rejected(self, request, queryset):
+        queryset.update(status="rejected")
+
+    @admin.action(description="Mark in progress")
+    def mark_in_progress(self, request, queryset):
+        queryset.update(status="progress")
+
+
+@admin.register(ApiKey)
+class ApiKeyAdmin(admin.ModelAdmin):
+    list_display = ("label", "masked", "email", "active", "rate_per_minute", "request_count", "last_used_at")
+    list_filter = ("active", "created_at")
+    search_fields = ("label", "email", "key")
+    readonly_fields = ("key", "request_count", "last_used_at", "created_at")
+    ordering = ("-created_at",)
+    actions = ["revoke", "reactivate"]
+
+    @admin.action(description="Revoke")
+    def revoke(self, request, queryset):
+        queryset.update(active=False)
+
+    @admin.action(description="Reactivate")
+    def reactivate(self, request, queryset):
+        queryset.update(active=True)
