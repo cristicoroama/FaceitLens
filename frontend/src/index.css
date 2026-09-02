@@ -1780,95 +1780,16 @@ a { color: inherit; }
   .leet-ranks tbody th { font-size: 12px; }
 }
 
-/* In-game Premier "CS Rating" plate (drawn, bracket-colored) */
-/* The outer badge carries NO plate.
- *
- * Measured off the reference's own computed styles, not guessed: background
- * rgba(0,0,0,0), transform none, border-radius 0, border-width 0,
- * box-shadow none, height 24px, gap 8px.
- *
- * Every one of those contradicted what was here before — a gradient-filled,
- * outlined, rounded, skewed pill. The lean comes only from the slant baked
- * into the bar paths; there is no transform on the container at all, and
- * skewing it was leaning the digits a second time.
- *
- * The colour lives behind the NUMBER (.prem-num), which is where the
- * reference puts it too — its own background sits on the label wrapper, one
- * level in, not on this element. */
+/* In-game Premier "CS Rating" plate.
+   The badge is now a single self-contained SVG — plate, bars and number all
+   inside it, colours passed as attributes — so the only thing left for CSS is
+   how it sits in a line of text. Everything that used to live here (.prem-num,
+   .prem-bars, the skews, the border, the tier variables) went with it. */
 .prem-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 24px;
-  padding: 0;
-  background: none;
-  border: 0;
-  border-radius: 0;
-  transform: none;
-  box-shadow: none;
-  color: #fff;
-}
-
-/* The bars lean WITH the plate.
-   They were counter-skewed here on the theory that the path already carried
-   its own slant and the plate's -12deg would double it. Side by side with the
-   real thing that was plainly wrong: cancelling the plate's lean left them
-   standing nearly upright, which is the single most obvious tell. The path's
-   slant and the plate's skew are meant to compound. */
-.prem-badge .prem-bars {
-  /* 24px tall, matching the container height off the reference's computed
-     styles. Width follows the 17:32 viewBox so the bars aren't stretched. */
-  width: 12.75px;
-  height: 24px;
+  display: inline-block;
+  vertical-align: middle;
   flex-shrink: 0;
-  /* The raw Valve hue. --pc is the lighter tone and belongs to the number;
-     filling the bars with it was the earlier mistake. */
-  fill: var(--pb);
 }
-
-/* Baseline-aligned, not centred: the two number parts are different sizes, and
-   centring them would leave the small half floating in the middle of the tall
-   one instead of sitting on the same line.
-
-   Upright, not italic. The plate is already skewed -12deg, and italic on top
-   of that leaned the digits twice — the numerals ended up at a steeper angle
-   than the plate carrying them. */
-/* This is the plate — the coloured block sits behind the number, not behind
-   the whole badge. Skewed here rather than on the container, which measured
-   `transform: none`, so the bars keep the lean their paths already carry and
-   the digits get theirs from this one place.
-
-   Counter-skewed on the inner text so the digits stand upright inside a
-   leaning block, the way the in-game plate does. */
-.prem-num {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  padding: 0 8px 0 10px;
-  height: 24px;
-  background: var(--pcd);
-  /* -10deg, off the reference's transform matrix: the c value is -0.176327,
-     and atan(0.176327) is 10.0 degrees. This was -12 by guess. */
-  transform: skewX(-10deg);
-  /* Both measured: there IS a hairline, and the corners are barely rounded.
-     Scaled back up from the reference's own numbers — its badge renders at
-     0.633x, so its 1.425px radius is 2.25px at full size. */
-  border: 1px solid color-mix(in srgb, var(--pb) 55%, transparent);
-  border-radius: 2px;
-  font-family: var(--font-display);
-  font-style: normal;
-  font-weight: 700;
-  /* The number takes the tier's light tone, not white. */
-  color: var(--pc);
-}
-.prem-num > * { transform: skewX(10deg); }
-.prem-num b { font: inherit; font-size: 16px; letter-spacing: 0; line-height: 24px; }
-/* 13.5px, not 12: the reference's two label sizes are 8.23px and 6.97px, a
-   ratio of 1.18. At 16px for the large half that puts this at 13.5, and the
-   old 12px made the step too steep — the last three digits read as a footnote
-   rather than as part of the same number. */
-.prem-num i { font: inherit; font-size: 13.5px; letter-spacing: 0; line-height: 24px; }
 
 /* Competitive per-map (official skill-group badges) */
 .leet-comp-grid {

@@ -1,60 +1,45 @@
 /**
  * CS2 Premier "CS Rating" plate.
  *
- * Drawn in code rather than served as artwork, because the number is dynamic —
- * there is no image to ship for 15,100.
+ * One self-contained SVG: plate, bars and number in a single element.
  *
- * Two details make it read as the in-game plate rather than a coloured pill:
+ * The previous version was three DOM nodes — a flex row, an SVG for the bars,
+ * a skewed span for the number — and every visual property had to be kept in
+ * agreement across them by hand. The lean was the worst of it: the bars carried
+ * a slant in their path, the plate carried a `skewX`, and the digits carried
+ * both plus an italic, so anything that leaned leaned two or three times. Four
+ * separate rounds of fixes went into that coordination problem.
  *
- *  - The mark is two skewed bars as SVG geometry, not a "//" typed in a mono
- *    font. Slash glyphs carry the font's own angle and side bearings, so they
- *    sat at the wrong slant and drifted whenever the font changed.
+ * As one SVG there is nothing to coordinate. The plate's lean is its geometry,
+ * the bars' lean is theirs, and the number leans because it is italic. The
+ * whole thing scales from one height and cannot drift.
  *
- *  - The number is split. Valve sets the thousands large and the last three
- *    digits small, which is why "15,100" reads as a tier and a position within
- *    it rather than as a five-digit number.
- *
- * Bars are drawn here rather than copied from anyone's markup: two slanted
- * parallelograms is geometry, and re-deriving it takes less effort than
- * deciding whether lifting someone's path data is fine.
+ * The three path strings come from the reference's own markup, rounded to two
+ * decimals. Saying otherwise would be easy and wrong — they were not redrawn.
+ * What they describe is a rounded parallelogram and two slanted bars, which is
+ * the shape CS2 itself puts on screen, but the coordinates are theirs.
  */
 
-/* Valve's item-rarity ramp, which Premier reuses for its rating tiers, in the
- * three roles the badge actually needs.
+/* Premier tier colours.
  *
- * All three come from the reference's own computed styles on a tier-2 (blue)
- * badge, and the relationships they imply then rebuild that tier exactly:
+ * These are NOT Valve's item-rarity ramp, which is what this used before —
+ * they are a Tailwind-derived palette with hand-picked dark surfaces, read
+ * straight from the reference's own CSS variables:
  *
- *   b — the BARS. The raw Valve colour. Measured rgb(76,106,255) against
- *       Valve's #4b69ff: one point of deviation, on one channel.
+ *   --color-premier-blue: #3b82f6   --color-premier-blue-surface: #0a1530
  *
- *       This overturned an earlier reading. A previous dump showed
- *       rgb(180,139,255) on a purple badge and that went in as the bar colour
- *       — but it was the element's `color`, which is the TEXT. The bars are
- *       filled with the undiluted Valve hue.
- *
- *   c — the NUMBER. Valve's colour lightened 37% toward white. Measured
- *       rgb(138,157,254) against a computed #8ea0ff: four points at worst.
- *       Not white, which is what this rendered before.
- *
- *   d — the PLATE. Same hue, saturation 80%, lightness 12%. Measured
- *       rgb(6,14,55); rebuilding it from Valve's blue through that rule gives
- *       #060e37, digit for digit. Mixing toward black instead — the previous
- *       approach — stripped the saturation and produced grey-violet mud.
- *
- * Only the blue tier is measured. The other six are derived through those same
- * three rules, so if one ever looks wrong the fix is to measure that tier, not
- * to nudge a value by eye.
+ * `c` paints the border, the bars and the number; `s` is the surface behind
+ * them. Two values per tier, both given rather than derived, so there is no
+ * relationship left to get wrong.
  */
 const BRACKETS = [
-  //          bars (Valve)   text (+37% white)  plate (same hue, S80 L12)
-  [30000, { b: "#ffd34e", c: "#ffe38f", d: "#372b06" }], // gold
-  [25000, { b: "#eb4b4b", c: "#f28e8e", d: "#370606" }], // red
-  [20000, { b: "#d32ce6", c: "#e37aef", d: "#320637" }], // pink
-  [15000, { b: "#8847ff", c: "#b48bff", d: "#170637" }], // purple
-  [10000, { b: "#4b69ff", c: "#8ea0ff", d: "#060e37" }], // blue   (all three measured)
-  [5000,  { b: "#8bb9ff", c: "#b6d3ff", d: "#061a37" }], // light blue
-  [0,     { b: "#b0c3d9", c: "#cdd9e7", d: "#061d37" }], // gray
+  [30000, { c: "#facc15", s: "#2a2207" }], // gold
+  [25000, { c: "#ef4444", s: "#2f0a0a" }], // red
+  [20000, { c: "#ec4899", s: "#2f0a1e" }], // pink
+  [15000, { c: "#a855f7", s: "#1e0d30" }], // purple
+  [10000, { c: "#3b82f6", s: "#0a1530" }], // blue
+  [5000,  { c: "#93c5fd", s: "#0f1c2c" }], // sky
+  [0,     { c: "#9ca3af", s: "#1d1f25" }], // gray
 ];
 
 function bracket(rating) {
@@ -62,8 +47,8 @@ function bracket(rating) {
   return BRACKETS[BRACKETS.length - 1][1];
 }
 
-/** "15,100" -> ["15,", "100"].  Under a thousand there is nothing to split,
-    so the whole figure stays large and the small span is skipped entirely. */
+/** "15,100" -> ["15,", "100"]. Under a thousand there is nothing to split, so
+    the whole figure stays large and the small tspan is skipped. */
 function split(rating) {
   const n = Math.max(0, Math.round(rating));
   if (n < 1000) return [String(n), ""];
@@ -72,30 +57,51 @@ function split(rating) {
   return [s.slice(0, cut), s.slice(cut)];
 }
 
-export default function PremierBadge({ rating }) {
+export default function PremierBadge({ rating, height = 24 }) {
   if (rating == null) return null;
-  const { b, c, d } = bracket(rating);
+  const { c, s } = bracket(rating);
   const [big, small] = split(rating);
+  const label = Math.round(rating).toLocaleString("en-US");
 
   return (
-    <span
+    <svg
       className="prem-badge"
-      style={{ "--pb": b, "--pc": c, "--pcd": d }}
-      title={`Premier CS Rating: ${Math.round(rating).toLocaleString("en-US")}`}
+      viewBox="0 0 125 40"
+      height={height}
+      width={(125 / 40) * height}
+      role="img"
+      aria-label={`Premier CS Rating ${label}`}
     >
-      {/* Two bars leaning ~9deg — about 5 units of drift across 32 of height.
-          The first pass drifted 1.3 units, which is a slant you can only see
-          if you already know it's there; side by side with the real plate they
-          read as two upright ticks. Measured off the reference, then drawn
-          with plain corners rather than its rounded ones. */}
-      <svg className="prem-bars" viewBox="0 0 17 32" aria-hidden="true">
-        <path d="M5.4 0H9.5L4.4 32H0.3Z" />
-        <path d="M11.8 0H16.9L11.8 32H6.7Z" />
-      </svg>
-      <span className="prem-num">
-        <b>{big}</b>
-        {small && <i>{small}</i>}
-      </span>
-    </span>
+      <title>{`Premier CS Rating: ${label}`}</title>
+
+      {/* The plate: a parallelogram leaning ~6deg, rounded at the corners.
+          Stroked in the tier colour rather than filled with it — the fill is
+          the dark surface, which is what keeps a bright rating readable. */}
+      <path
+        d="M10.54 1H118.41C121.47 1 123.81 3.72 123.36 6.74L119.16 34.74C118.79 37.19 116.69 39 114.21 39H6.34C3.29 39 0.95 36.28 1.40 33.26L5.60 5.26C5.97 2.81 8.07 1 10.54 1Z"
+        fill={s}
+        stroke={c}
+        strokeWidth="2"
+      />
+
+      {/* Two bars outside the plate, leaning with it. */}
+      <path d="M4.84 3.41C5.14 1.45 6.82 0 8.80 0H13.36L7.36 40H4.00C1.56 40 -0.32 37.83 0.04 35.41L4.84 3.41Z" fill={c} />
+      <path d="M17.26 0H26.26L20.26 40H11.26L17.26 0Z" fill={c} />
+
+      {/* Italic, and in the tier colour rather than white — both measured.
+          The thousands are set larger than the last three digits, which is
+          what makes the figure read as a tier plus a position inside it. */}
+      <text
+        x="68"
+        y="27"
+        fill={c}
+        textAnchor="middle"
+        fontStyle="italic"
+        fontFamily="var(--font-display)"
+      >
+        <tspan fontSize="22" fontWeight="700">{big}</tspan>
+        {small && <tspan fontSize="20" fontWeight="700">{small}</tspan>}
+      </text>
+    </svg>
   );
 }
