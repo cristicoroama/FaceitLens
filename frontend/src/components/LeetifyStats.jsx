@@ -6,6 +6,8 @@ import { FaceitLevel, CompRank, groupName } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+const FORM_LIMIT = 20;
+
 // Skill ratings are 0-100 (higher better). Colour by tier, don't rescale.
 function ratingColor(v) {
   if (v >= 70) return "#22c55e";
@@ -290,9 +292,12 @@ export function LeetifyView({ data }) {
 
       {recent.length > 1 && (
         <>
-          <div className="section-title">Recent form</div>
+          <div className="section-title">
+            Recent form
+            <span className="leet-form-note">last {Math.min(recent.length, FORM_LIMIT)} matches</span>
+          </div>
           <div className="leet-form">
-            {recent.slice().reverse().map((m) => {
+            {recent.slice(0, FORM_LIMIT).reverse().map((m) => {
               const r = m.leetify_rating;
               const good = r != null && r >= 0;
               return (
@@ -304,11 +309,6 @@ export function LeetifyView({ data }) {
                 >
                   <div className="leet-form-map">{(m.map_name || "").replace(/^(de|cs)_/, "").slice(0, 4)}</div>
                   {r != null && (
-                    /* Same formatter as the headline figure. The old
-                       Math.round(r * 100) / 100 dodged the float artefact but
-                       dropped trailing zeros, so a column of ratings read
-                       "+4.1 / +3.85 / +2" — three different widths for the
-                       same kind of number. */
                     <div className="leet-form-rating" style={{ color: good ? "#22c55e" : "#ef4444" }}>
                       {signed(r)}
                     </div>
