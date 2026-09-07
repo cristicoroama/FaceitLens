@@ -825,6 +825,149 @@ def csrep_stats(request, nickname):
     return JsonResponse(data)
 
 
+# A CSRep refresh is a write against a 5,000/month allowance, so it gets the
+# same per-IP budget treatment as the billable AI endpoint. csrep.refresh_player
+# adds a second, per-player cooldown on top.
+CSREP_WRITE_LIMIT = int(os.environ.get("CSREP_WRITE_RATE_LIMIT", "5"))
+CSREP_WRITE_WINDOW = 60 * 60
+
+
+def _over_csrep_write_limit(request):
+    key = f"rl:csrep:{_client_ip(request)}"
+    try:
+        used = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, CSREP_WRITE_WINDOW)
+        used = 1
+    if used > CSREP_WRITE_LIMIT:
+        return JsonResponse(
+            {"error": "Too many CSRep refreshes from this address. Try again later."},
+            status=429,
+            headers={"Retry-After": str(CSREP_WRITE_WINDOW)},
+        )
+    return None
+
+
+@csrf_exempt
+@require_POST
+def csrep_refresh(request, nickname):
+    """
+    POST /api/player/<nickname>/csrep/refresh/ - ask CSRep to re-scan this
+    player's profile.
+
+    Rate-limited twice over: per client address here, and per player inside
+    csrep.refresh_player, which honours the 300s manual cooldown CSRep's own
+    site advertises. Without both, one visitor holding down a refresh button
+    could spend a month's allowance in an afternoon.
+
+    The two /matches/import endpoints are deliberately NOT exposed. They push
+    demos into CSRep rather than reading from it, and a public, unauthenticated
+    route that submits arbitrary share codes under our key is an abuse vector
+    with no matching feature in this UI. csrep.import_match and
+    csrep.import_faceit_match exist for a future admin-triggered flow.
+    """
+    over = _over_csrep_write_limit(request)
+    if over:
+        return over
+
+    try:
+        summary = faceit.build_player_summary(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    steamid = summary.get("steam_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import csrep
+        return JsonResponse(csrep.refresh_player(steamid))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+@require_GET
+def csrep_match(request):
+    """
+    GET /api/csrep/match/?source=faceit&id=<match_id> - CSRep's record of a
+    match, including the behavioural `analysis` object.
+
+    `source` picks which id you hold: "faceit" (what FaceitLens stores),
+    "gamersclub", or "csrep" for CSRep's own match id. The optional `for`
+    parameter is passed through to their `for` query param on the csrep source.
+    """
+    source = request.GET.get("source", "faceit")
+    match_id = request.GET.get("id", "")
+    if not match_id:
+        return JsonResponse({"error": "id is required."}, status=400)
+    if source not in ("faceit", "gamersclub", "csrep"):
+        return JsonResponse(
+            {"error": "source must be faceit, gamersclub or csrep."}, status=400)
+
+    try:
+        from . import csrep
+        if source == "faceit":
+            return JsonResponse(csrep.get_faceit_match(match_id))
+        if source == "gamersclub":
+            return JsonResponse(csrep.get_gamersclub_match(match_id))
+        return JsonResponse(csrep.get_match(match_id, request.GET.get("for", "")))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+@require_GET
+def csrep_players(request):
+    """
+    GET /api/csrep/players/?ids=<a>,<b>,... - CSRep profiles for several Steam
+    IDs at once.
+
+    The quota-efficient path: a full ten-player scoreboard costs one request
+    against the monthly allowance instead of ten. Capped so a crafted URL
+    cannot turn one call into an unbounded upstream payload.
+    """
+    raw = request.GET.get("ids", "")
+    ids = [s.strip() for s in raw.split(",") if s.strip()][:20]
+    if not ids:
+        return JsonResponse({"error": "ids is required."}, status=400)
+
+    try:
+        from . import csrep
+        return JsonResponse(csrep.get_players(ids))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+@require_GET
+def csrep_search(request):
+    """
+    GET /api/csrep/search/?query=<q>&for=<steamid> - search CSRep for players.
+
+    Their API requires a `forPlayer` scope, so `for` is mandatory here too.
+    Restricted profiles are filtered out inside csrep.search_players: §4
+    forbids surfacing those through discovery features, and a search box is
+    precisely that.
+    """
+    query = request.GET.get("query", "").strip()
+    for_player = request.GET.get("for", "").strip()
+    if not query:
+        return JsonResponse({"error": "query is required."}, status=400)
+    if not for_player:
+        return JsonResponse({"error": "for (a SteamID64) is required."}, status=400)
+
+    try:
+        from . import csrep
+        return JsonResponse(csrep.search_players(query, for_player))
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
 @require_GET
 def real_stats(request, nickname):
     """

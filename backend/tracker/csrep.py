@@ -136,10 +136,15 @@ def _quota_spend() -> None:
 
 # --- transport -------------------------------------------------------------
 
-def _get(path: str, params: dict | None = None) -> requests.Response:
-    kwargs = {"headers": _headers(), "timeout": 15, "params": params or {}}
+def _request(method: str, path: str, params: dict | None = None,
+             payload: dict | None = None) -> requests.Response:
+    kwargs = {"headers": _headers(), "timeout": 20}
+    if params:
+        kwargs["params"] = params
+    if payload is not None:
+        kwargs["json"] = payload
     try:
-        return requests.get(f"{BASE}{path}", **kwargs)
+        return requests.request(method, f"{BASE}{path}", **kwargs)
     except requests.exceptions.SSLError:
         # Same corporate-proxy escape hatch as the Steam and Leetify layers.
         if os.environ.get("STEAM_INSECURE", "").lower() not in ("1", "true", "yes"):
@@ -147,13 +152,25 @@ def _get(path: str, params: dict | None = None) -> requests.Response:
         import urllib3
         urllib3.disable_warnings()
         kwargs["verify"] = False
-        return requests.get(f"{BASE}{path}", **kwargs)
+        return requests.request(method, f"{BASE}{path}", **kwargs)
 
 
 def _fetch(path: str, params: dict | None = None, cache_key: str = "") -> dict:
-    """One authenticated GET, unwrapped from the {status, result} envelope.
+    """A cached GET — the shape almost every read endpoint wants."""
+    return _call("GET", path, params=params, cache_key=cache_key)
+
+
+def _call(method: str, path: str, params: dict | None = None,
+          payload: dict | None = None, cache_key: str = "",
+          allow_empty: bool = False) -> dict:
+    """One authenticated call, unwrapped from the {status, result} envelope.
 
     Returns {available: True, data: <result>} or {available: False, reason}.
+
+    `allow_empty` covers endpoints that answer 200 with no envelope at all —
+    /players/{id}/refresh is documented as "Player refresh was succesfully
+    requested" and publishes no response schema, so demanding status == "OK"
+    there would report a successful queue as a failure.
     """
     if cache_key:
         hit = cache.get(cache_key)
@@ -166,7 +183,7 @@ def _fetch(path: str, params: dict | None = None, cache_key: str = "") -> dict:
         return {"available": False, "reason": "quota_exhausted"}
 
     try:
-        r = _get(path, params)
+        r = _request(method, path, params=params, payload=payload)
     except requests.exceptions.SSLError:
         return {"available": False, "reason": "ssl"}
     except requests.RequestException:
@@ -186,17 +203,19 @@ def _fetch(path: str, params: dict | None = None, cache_key: str = "") -> dict:
         result = {"available": False, "reason": "not_found"}
     elif r.status_code == 429:
         result = {"available": False, "reason": "ratelimited"}
-    elif r.status_code != 200:
+    elif r.status_code not in (200, 201, 202):
         result = {"available": False, "reason": f"http{r.status_code}"}
     else:
         try:
             body = r.json()
         except ValueError:
             body = None
-        if not isinstance(body, dict) or body.get("status") != "OK":
-            result = {"available": False, "reason": "error_status"}
-        else:
+        if isinstance(body, dict) and body.get("status") == "OK":
             result = {"available": True, "data": body.get("result")}
+        elif allow_empty:
+            result = {"available": True, "data": body}
+        else:
+            result = {"available": False, "reason": "error_status"}
 
     if cache_key:
         cache.set(cache_key, result, CACHE_TTL if result.get("available") else FAIL_TTL)
@@ -451,23 +470,29 @@ def get_players(steamids: list) -> dict:
             "attribution": attribution()}
 
 
-def get_faceit_match(match_id: str) -> dict:
-    """CSRep's record of a FACEIT match, by the FACEIT match id we already hold.
+_MATCH_EXPLICIT_FIELDS = {
+    "id", "type", "status", "date", "date_valid", "source", "source_id",
+    "imported_by", "share_code", "demo_url", "visibility", "map", "score",
+    "players", "winner", "analysis", "analysis_url", "analyzed_at",
+    "created_at", "updated_at",
+}
+
+
+def _shape_match(m: dict) -> dict:
+    """One CSRep match, with every field the API returned.
 
     §4: a match marked PRIVATE is suppressed the same way a restricted profile
     is — the caller gets availability, not contents.
+
+    `analysis` is passed through verbatim. Its schema is published as an empty
+    object (`MatchAnalysisSchema` declares no properties), which is exactly how
+    `reputation` was published before a live call showed it carrying the trust
+    score and its breakdown — so assume this holds real analysis data and
+    forward it untouched rather than guessing at a shape.
     """
-    if not match_id:
-        return {"available": False, "reason": "no match id"}
-
-    res = _fetch(f"/matches/faceit/{match_id}",
-                 cache_key=f"csrep:match:faceit:{match_id}")
-    if not res.get("available"):
-        return res
-
-    m = res.get("data")
     if not isinstance(m, dict):
         return {"available": False, "reason": "badshape"}
+
     if m.get("visibility") == "PRIVATE":
         return {"available": True, "restricted": True, "id": m.get("id"),
                 "attribution": attribution()}
@@ -479,6 +504,9 @@ def get_faceit_match(match_id: str) -> dict:
         "type": m.get("type"),
         "status": m.get("status"),
         "date": m.get("date"),
+        "date_valid": m.get("date_valid"),
+        "source": m.get("source"),
+        "source_id": m.get("source_id"),
         "map": m.get("map"),
         "score": m.get("score") or [],
         "winner": m.get("winner"),
@@ -493,7 +521,169 @@ def get_faceit_match(match_id: str) -> dict:
             for pl in (m.get("players") or [])
             if pl.get("id")
         ],
+
+        # The behavioural analysis, verbatim (§4).
+        "analysis": m.get("analysis"),
         "analysis_url": m.get("analysis_url"),
         "analyzed_at": m.get("analyzed_at"),
+
+        # Provenance. `demo_url` is the source demo CSRep parsed — useful to
+        # know it exists; downloading and re-hosting it would be the mirroring
+        # §6.C prohibits, so it is surfaced as a link, never fetched here.
+        "imported_by": m.get("imported_by"),
+        "share_code": m.get("share_code"),
+        "demo_url": m.get("demo_url"),
+        "created_at": m.get("created_at"),
+        "updated_at": m.get("updated_at"),
+
+        "extra": {
+            k: v for k, v in m.items()
+            if k not in _MATCH_EXPLICIT_FIELDS
+            and v is not None
+            and isinstance(v, (str, int, float, bool))
+        },
         "attribution": attribution(),
     }
+
+
+def get_faceit_match(match_id: str) -> dict:
+    """CSRep's record of a FACEIT match, by the FACEIT match id we already hold.
+
+    The highest-value read here: FaceitLens already stores FACEIT match ids, so
+    this needs no new identifier to join on.
+    """
+    if not match_id:
+        return {"available": False, "reason": "no match id"}
+    res = _fetch(f"/matches/faceit/{match_id}",
+                 cache_key=f"csrep:match:faceit:{match_id}")
+    return _shape_match(res["data"]) if res.get("available") else res
+
+
+def get_gamersclub_match(match_id: str) -> dict:
+    """CSRep's record of a Gamers Club match, by that platform's match id."""
+    if not match_id:
+        return {"available": False, "reason": "no match id"}
+    res = _fetch(f"/matches/gamersclub/{match_id}",
+                 cache_key=f"csrep:match:gc:{match_id}")
+    return _shape_match(res["data"]) if res.get("available") else res
+
+
+def get_match(match_id: str, for_player: str = "") -> dict:
+    """A match by CSRep's own id.
+
+    `for_player` is their optional `for` query parameter; it is passed straight
+    through, and the cache key includes it so one player's view of a match is
+    never served to another.
+    """
+    if not match_id:
+        return {"available": False, "reason": "no match id"}
+    params = {"for": for_player} if for_player else None
+    res = _fetch(f"/matches/{match_id}", params=params,
+                 cache_key=f"csrep:match:{match_id}:{for_player}")
+    return _shape_match(res["data"]) if res.get("available") else res
+
+
+def search_players(query: str, for_player: str) -> dict:
+    """Search CSRep for players matching a query.
+
+    Both parameters are required by the API — `forPlayer` scopes the search to
+    a viewer, which is presumably how they rank or filter results.
+
+    §4 forbids surfacing restricted profiles through discovery features, and a
+    search box is exactly that, so restricted hits are dropped here rather than
+    returned for a caller to remember to filter.
+    """
+    if not query or not for_player:
+        return {"available": False, "reason": "missing_params"}
+
+    res = _fetch("/players/search",
+                 params={"query": query, "forPlayer": for_player},
+                 cache_key=f"csrep:search:{for_player}:{query.lower()}")
+    if not res.get("available"):
+        return res
+
+    rows = res.get("data")
+    if not isinstance(rows, list):
+        return {"available": False, "reason": "badshape"}
+
+    players = []
+    for p in rows:
+        if not isinstance(p, dict) or _restricted(p):
+            continue
+        pid = str(p.get("id") or "")
+        if pid:
+            players.append(_shape_player(p, pid))
+
+    return {"available": True, "players": players, "count": len(players),
+            "attribution": attribution()}
+
+
+# CSRep's own site config advertises a 300s manual refresh cooldown. Honouring
+# it locally keeps us from spending quota on calls their backend would ignore.
+REFRESH_COOLDOWN = int(os.environ.get("CSREP_REFRESH_COOLDOWN", "300"))
+
+
+def refresh_player(steamid: str) -> dict:
+    """Ask CSRep to re-scan a player's profile.
+
+    A write, and a quota cost, so it is never called automatically — the
+    cooldown below is the second line of defence after the view's per-IP rate
+    limit.
+    """
+    if not steamid:
+        return {"available": False, "reason": "no steamid"}
+
+    cooldown_key = f"csrep:refresh:{steamid}"
+    if cache.get(cooldown_key):
+        return {"available": False, "reason": "cooldown",
+                "retry_after": REFRESH_COOLDOWN}
+
+    res = _call("POST", f"/players/{steamid}/refresh", allow_empty=True)
+    if res.get("available"):
+        cache.set(cooldown_key, 1, REFRESH_COOLDOWN)
+        # The profile CSRep is about to rewrite is the one we have cached.
+        cache.delete(f"csrep:player:{steamid}")
+        return {"available": True, "queued": True,
+                "cooldown": REFRESH_COOLDOWN,
+                "attribution": attribution(steamid)}
+    return res
+
+
+def import_match(share_code: str = "", file_id: str = "") -> dict:
+    """Submit a Valve share code (or an uploaded demo id) for CSRep to analyse.
+
+    A write that hands CSRep new data rather than reading theirs, so it is
+    deliberately not wired to a public HTTP endpoint — see the note in
+    views.csrep_refresh. Exposed here so the capability exists for a
+    server-side or admin-triggered flow.
+    """
+    if not share_code and not file_id:
+        return {"available": False, "reason": "missing_params"}
+    payload = {}
+    if share_code:
+        payload["share_code"] = share_code
+    if file_id:
+        payload["file_id"] = file_id
+
+    res = _call("POST", "/matches/import", payload=payload)
+    return _shape_match(res["data"]) if res.get("available") else res
+
+
+def import_faceit_match(url: str = "", match_id: str = "", file_id: str = "") -> dict:
+    """Submit a FACEIT match for CSRep to analyse.
+
+    Takes either a signed demo URL, or a FACEIT match id paired with an
+    uploaded demo file id. Same exposure caveat as `import_match`.
+    """
+    if not url and not match_id and not file_id:
+        return {"available": False, "reason": "missing_params"}
+    payload = {}
+    if url:
+        payload["url"] = url
+    if match_id:
+        payload["match_id"] = match_id
+    if file_id:
+        payload["file_id"] = file_id
+
+    res = _call("POST", "/matches/import/faceit", payload=payload)
+    return _shape_match(res["data"]) if res.get("available") else res

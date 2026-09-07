@@ -106,9 +106,26 @@ that same cache — resets with it. The allowance can then be spent in days with
 no warning. See "Redis" below.
 
 Optional tuning:
-  CSREP_CACHE_TTL       = 21600   (seconds; default 6h, hard-capped at 24h)
-  CSREP_MONTHLY_QUOTA   = 5000    (match whatever CSRep granted your key)
-  CSREP_QUOTA_HEADROOM  = 100     (calls held back so debugging still works)
+  CSREP_CACHE_TTL         = 21600 (seconds; default 6h, hard-capped at 24h)
+  CSREP_MONTHLY_QUOTA     = 5000  (match whatever CSRep granted your key)
+  CSREP_QUOTA_HEADROOM    = 100   (calls held back so debugging still works)
+  CSREP_REFRESH_COOLDOWN  = 300   (seconds between refreshes of one player)
+  CSREP_WRITE_RATE_LIMIT  = 5     (refreshes per hour per client address)
+
+Endpoints exposed by the backend:
+  GET  /api/player/<nickname>/csrep/          profile + reputation
+  POST /api/player/<nickname>/csrep/refresh/  ask CSRep to re-scan the player
+  GET  /api/csrep/match/?source=faceit&id=    a match, incl. its analysis
+  GET  /api/csrep/players/?ids=a,b,c          up to 20 profiles in ONE call
+  GET  /api/csrep/search/?query=&for=         player search
+
+Prefer /api/csrep/players/ wherever more than one player is on screen: a
+ten-player scoreboard costs one request against the allowance instead of ten.
+
+CSRep's two demo-import endpoints are reachable from `csrep.import_match` /
+`csrep.import_faceit_match` but are deliberately NOT given a public route —
+they push data into CSRep under our key, and an unauthenticated route that
+submits arbitrary share codes is an abuse vector with no matching UI here.
 
 CSRep's Developer API Terms constrain the integration: their data is cached at
 most 24h and never written to the database, restricted / privacy-mode profiles
