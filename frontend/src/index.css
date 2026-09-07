@@ -1926,9 +1926,14 @@ a { color: inherit; }
 /* A probabilistic indicator, not a verdict — a neutral notice, not an alarm.
    It carries the disclaimer as its title. */
 .csrep-autoflag {
+  display: inline-flex; align-items: baseline; gap: 7px;
   padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
   letter-spacing: 0.6px; color: #eab308; cursor: help;
   background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.35);
+}
+.csrep-autoflag-meta {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  opacity: .72; white-space: nowrap;
 }
 
 /* --- headline ------------------------------------------------------- */
@@ -1938,9 +1943,30 @@ a { color: inherit; }
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
 }
 .csrep-hero-gauge { flex-shrink: 0; }
-.csrep-hero-meters {
-  flex: 1 1 300px; min-width: 260px; display: grid; gap: 12px;
+.csrep-hero-body { flex: 1 1 320px; min-width: 260px; }
+.csrep-hero-meters { display: grid; gap: 12px; }
+
+.csrep-tallies {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 14px; padding-top: 13px;
+  border-top: 1px solid var(--glass-brd);
 }
+.csrep-tally {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 11px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-brd);
+}
+.csrep-tally-val {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 800;
+  color: var(--text-dim);
+}
+.csrep-tally-label {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.9px;
+  color: var(--text-dim); font-weight: 600;
+}
+.csrep-tally.hit { border-color: rgba(234, 179, 8, 0.34); background: rgba(234, 179, 8, 0.09); }
+.csrep-tally.hit .csrep-tally-val { color: #eab308; }
 
 .csrep-meter-top {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -1962,11 +1988,11 @@ a { color: inherit; }
 
 /* --- grouped rows ---------------------------------------------------- */
 .csrep-cols {
-  display: grid; gap: 14px; margin-bottom: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  columns: 250px 3; column-gap: 14px; margin-bottom: 16px;
 }
 .csrep-group {
-  padding: 14px 16px; border-radius: 12px;
+  break-inside: avoid; -webkit-column-break-inside: avoid;
+  margin-bottom: 14px; padding: 14px 16px; border-radius: 12px;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
 }
 .csrep-group-head {
@@ -2006,14 +2032,22 @@ a { color: inherit; }
 /* --- outbound links -------------------------------------------------- */
 .csrep-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .csrep-chip {
-  display: inline-flex; align-items: center; padding: 7px 14px;
-  border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0;
+  border-radius: 10px; font-size: 12px; font-weight: 700; text-decoration: none;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
-  color: var(--text); transition: border-color 0.15s ease, background 0.15s ease;
+  color: var(--text);
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
 }
-.csrep-chip:hover { background: rgba(255, 255, 255, 0.06); }
+.csrep-chip:hover { background: rgba(255, 255, 255, 0.07); transform: translateY(-1px); }
+.csrep-chip svg { width: 16px; height: 16px; display: block; }
+.csrep-chip-text { width: auto; padding: 0 12px; white-space: nowrap; }
+.csrep-chip:has(.csrep-chip-text) { width: auto; padding: 0 13px; }
 .csrep-chip-faceit { color: #ff5500; border-color: rgba(255, 85, 0, 0.4); }
-.csrep-chip-gamersclub { color: #22c55e; border-color: rgba(34, 197, 94, 0.4); }
+.csrep-chip-gamersclub {
+  color: #22c55e; border-color: rgba(34, 197, 94, 0.4);
+  width: auto; padding: 0 13px;
+}
 .csrep-chip-steam { color: #66c0f4; border-color: rgba(102, 192, 244, 0.4); }
 
 /* Record-keeping. Real data, but nobody opened the tab for it. */

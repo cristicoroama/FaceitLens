@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import csrepLogo from "../assets/csrep-logo.webp";
 import RingGauge from "./RingGauge.jsx";
+import { SteamIcon, FaceitIcon } from "./BrandIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -129,6 +130,18 @@ function Group({ title, children }) {
   );
 }
 
+/** Is this number a 0-1 proportion, or a tally of things found?
+ *
+ * It decides whether a value gets a bar. Drawing `anomalies: 1` as a bar
+ * clamped to [0,1] renders one anomaly as a FULL track — visually "maxed
+ * out" — when it is a count of one. Counts are shown as counts. */
+const RATIO_KEY = /trust|statistical|bonus|ratio|rate|score|confidence|percent/i;
+
+function isRatio(key, n) {
+  if (n < 0 || n > 1) return false;
+  return !Number.isInteger(n) || RATIO_KEY.test(key);
+}
+
 /** One breakdown component, as a proportional bar plus its literal value.
  *
  * The bar is a graphical encoding of the number, not a replacement for it —
@@ -151,6 +164,15 @@ function Meter({ label, value }) {
   );
 }
 
+function Tally({ label, value }) {
+  return (
+    <div className={`csrep-tally ${value > 0 ? "hit" : ""}`} title={String(value)}>
+      <span className="csrep-tally-val">{fmtNum(value)}</span>
+      <span className="csrep-tally-label">{label}</span>
+    </div>
+  );
+}
+
 /** The reputation block: one gauge, everything else subordinate to it.
  *
  * Deliberately NOT colour-coded by threshold, unlike this project's own
@@ -161,12 +183,15 @@ function Reputation({ reputation }) {
   if (!reputation || typeof reputation !== "object") return null;
   const { trust_score: score, breakdown, ...rest } = reputation;
 
-  const meters = [
+  const numbers = [
     ...Object.entries(breakdown || {}),
     ...Object.entries(rest),
-  ].filter(([, v]) => typeof v === "number");
+  ].filter(([, v]) => typeof v === "number" && Number.isFinite(v));
 
-  if (score == null && !meters.length) return null;
+  const meters = numbers.filter(([k, v]) => isRatio(k, v));
+  const tallies = numbers.filter(([k, v]) => !isRatio(k, v));
+
+  if (score == null && !numbers.length) return null;
 
   return (
     <div className="csrep-hero">
@@ -184,11 +209,22 @@ function Reputation({ reputation }) {
           />
         </div>
       )}
-      {!!meters.length && (
-        <div className="csrep-hero-meters">
-          {meters.map(([k, v]) => (
-            <Meter key={k} label={humanise(k)} value={v} />
-          ))}
+      {!!numbers.length && (
+        <div className="csrep-hero-body">
+          {!!meters.length && (
+            <div className="csrep-hero-meters">
+              {meters.map(([k, v]) => (
+                <Meter key={k} label={humanise(k)} value={v} />
+              ))}
+            </div>
+          )}
+          {!!tallies.length && (
+            <div className="csrep-tallies">
+              {tallies.map(([k, v]) => (
+                <Tally key={k} label={humanise(k)} value={v} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -227,18 +263,19 @@ function Bans({ bans }) {
  *  debugging, and means nothing to a visitor reading the page. */
 function Platforms({ data }) {
   const links = [
-    ["FACEIT", data.faceit_url, data.faceit_id, "faceit"],
-    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub"],
-    ["Steam", data.steam_vanity_url, data.id, "steam"],
+    ["FACEIT", data.faceit_url, data.faceit_id, "faceit", <FaceitIcon size={15} />],
+    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub", null],
+    ["Steam", data.steam_vanity_url, data.id, "steam", <SteamIcon size={15} />],
   ].filter(([, url]) => url);
   if (!links.length) return null;
 
   return (
     <div className="csrep-chips">
-      {links.map(([name, url, id, key]) => (
+      {links.map(([name, url, id, key, icon]) => (
         <a key={name} href={url} target="_blank" rel="noopener noreferrer"
-           className={`csrep-chip csrep-chip-${key}`} title={id || undefined}>
-          {name}
+           className={`csrep-chip csrep-chip-${key}`}
+           title={id ? `${name} · ${id}` : name} aria-label={name}>
+          {icon || <span className="csrep-chip-text">{name}</span>}
         </a>
       ))}
     </div>
@@ -314,7 +351,17 @@ export function CsrepView({ data }) {
         </div>
         {data.autoflag && (
           <div className="csrep-autoflag" title={data.attribution?.disclaimer}>
-            Auto-flagged
+            <span>Auto-flagged</span>
+            {(data.autoflag.created_at || data.autoflag.has_snapshot) && (
+              <span className="csrep-autoflag-meta">
+                {[
+                  data.autoflag.created_at ? fmtDate(data.autoflag.created_at) : null,
+                  data.autoflag.has_snapshot ? "snapshot" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            )}
           </div>
         )}
       </div>
