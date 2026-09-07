@@ -274,11 +274,79 @@ def _shape_bans(p: dict) -> list:
     ]
 
 
+def _faceit_url(url: str | None) -> str | None:
+    """FACEIT profile links arrive templated: ".../{lang}/players/<nick>".
+
+    Rendered as-is the placeholder is literal and the link 404s. There is no
+    per-locale content behind it worth preserving here, so it is filled with
+    the neutral English locale.
+    """
+    if not url:
+        return None
+    return url.replace("{lang}", "en")
+
+
+def _shape_user(p: dict) -> dict | None:
+    """The CSRep account linked to this Steam profile, if the player has one.
+
+    Declared required in the spec but absent from real responses, so it is
+    optional here. It carries its own `redacted` flag — a linked account can
+    be restricted independently of the player profile, and §4 applies to it
+    just the same.
+    """
+    u = p.get("user")
+    if not isinstance(u, dict):
+        return None
+    if u.get("redacted"):
+        return {"redacted": True}
+    return {
+        "redacted": False,
+        "handle": u.get("handle"),
+        "name": u.get("name"),
+        "avatar": u.get("avatar"),
+        "roles": u.get("roles") or [],
+        "created_at": u.get("created_at"),
+    }
+
+
+# Every field laid out explicitly below. Anything CSRep returns that is NOT in
+# this set still reaches the UI, through `extra` — the published spec already
+# lags the live API (it never mentions `cybershoke_registered_at`, and marks
+# `user` and `faceit_latest_match_date` required when both can be absent), so
+# treating this list as complete would mean quietly dropping new data the
+# moment they ship it.
+_EXPLICIT_FIELDS = {
+    "id", "name", "avatar", "redacted", "anonymous", "privacy", "deleted_at",
+    "reputation", "autoflag", "commendations", "bans", "ranks", "medals",
+    "steam_status", "steam_active_game", "steam_level", "steam_vanity_url",
+    "steam_privacy", "steam_created_at", "cs2_hours", "inventory_value",
+    "faceit_id", "faceit_url", "faceit_latest_match_date",
+    "gamersclub_id", "gamersclub_url", "cybershoke_registered_at",
+    "refreshed_at", "created_at", "updated_at", "views", "user",
+}
+
+
+def _extra(p: dict) -> dict:
+    """Fields the API returned that this module does not lay out by hand.
+
+    Only scalars are forwarded: an unrecognised nested object has no sensible
+    generic rendering, and guessing at one risks presenting a signal in a
+    shape its owner never intended (§4).
+    """
+    return {
+        k: v
+        for k, v in p.items()
+        if k not in _EXPLICIT_FIELDS
+        and v is not None
+        and isinstance(v, (str, int, float, bool))
+    }
+
+
 def _shape_player(p: dict, steamid: str) -> dict:
     """A CSRep player, or its restricted stand-in.
 
-    `reputation` and `autoflag` are handed over untouched. Their internal
-    shape is not published in the v2 spec, and §4 forbids renaming or
+    `reputation`, `autoflag` and `commendations` are handed over untouched.
+    Their internal shape is not published, and §4 forbids renaming or
     rescaling them anyway, so passing the raw object through is both the only
     thing we can do and the only thing we are allowed to do. They must never
     be fed into trust.compute_trust.
@@ -302,18 +370,33 @@ def _shape_player(p: dict, steamid: str) -> dict:
         # Ladders, as {current, peak} per ladder key.
         "ranks": p.get("ranks") or {},
 
-        # Account context. Overlaps signals trust.py already derives from
-        # Steam — kept for display only, never merged into our own score.
+        # Steam account context. Overlaps signals trust.py already derives
+        # itself — kept for display only, never merged into our own score.
+        "steam_status": p.get("steam_status"),
+        "steam_active_game": p.get("steam_active_game"),
         "steam_level": p.get("steam_level"),
-        "steam_created_at": p.get("steam_created_at"),
+        "steam_vanity_url": p.get("steam_vanity_url"),
         "steam_privacy": p.get("steam_privacy"),
+        "steam_created_at": p.get("steam_created_at"),
         "cs2_hours": p.get("cs2_hours"),
         "inventory_value": p.get("inventory_value"),
-        "faceit_id": p.get("faceit_id"),
-        "faceit_url": p.get("faceit_url"),
         "medals": p.get("medals") or [],
 
+        # Other platforms CSRep has linked to this account.
+        "faceit_id": p.get("faceit_id"),
+        "faceit_url": _faceit_url(p.get("faceit_url")),
+        "faceit_latest_match_date": p.get("faceit_latest_match_date"),
+        "gamersclub_id": p.get("gamersclub_id"),
+        "gamersclub_url": p.get("gamersclub_url"),
+        "cybershoke_registered_at": p.get("cybershoke_registered_at"),
+
+        "user": _shape_user(p),
+        "views": p.get("views"),
         "refreshed_at": p.get("refreshed_at"),
+        "created_at": p.get("created_at"),
+        "updated_at": p.get("updated_at"),
+
+        "extra": _extra(p),
         "attribution": attribution(steamid),
     }
 

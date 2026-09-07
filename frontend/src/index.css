@@ -1851,8 +1851,37 @@ a { color: inherit; }
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
 }
+.csrep-ident { display: flex; align-items: center; gap: 14px; }
+.csrep-avatar {
+  width: 52px; height: 52px; border-radius: 12px; object-fit: cover;
+  border: 1px solid var(--glass-brd); flex-shrink: 0;
+}
 .csrep-title { margin: 0; font-size: 18px; letter-spacing: 0.3px; }
 .csrep-sub { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+.csrep-note { color: var(--text-dim); font-size: 13px; margin: 0; }
+
+.csrep-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.csrep-links li {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 10px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+}
+.csrep-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+.csrep-link:hover { text-decoration: underline; }
+.csrep-link-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--text-dim); word-break: break-all;
+}
+
+/* Collectible ids with no published lookup table — shown compactly so the
+   raw data is present without dominating the tab. */
+.csrep-medals {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; line-height: 1.7; color: var(--text-dim);
+  padding: 12px 14px; border-radius: 10px; word-break: break-word;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+  max-height: 140px; overflow-y: auto;
+}
 .csrep-h4 {
   margin: 20px 0 10px; font-size: 12px; text-transform: uppercase;
   letter-spacing: 1.2px; color: var(--text-dim);

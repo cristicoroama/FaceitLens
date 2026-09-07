@@ -17,12 +17,17 @@ const BRAND = {
   leetify: "Leetify",
 };
 
-/** Humanise a raw API field name without reinterpreting it.
+/** Steam's own persona-state and profile-visibility enums.
  *
- * CSRep's terms forbid renaming or rescaling their signals, and their spec
- * publishes no display names, so the only honest label is the field's own
- * name made readable: "trust_score" -> "Trust Score". No semantic mapping
- * table, because a mapping table is where a rename sneaks in. */
+ * Decoding these is not reinterpreting a CSRep signal — they are Valve's
+ * integers, and 1 means "Online" everywhere Steam is documented. Unknown
+ * values fall back to the raw number rather than being hidden. */
+const STEAM_STATUS = [
+  "Offline", "Online", "Busy", "Away", "Snooze",
+  "Looking to Trade", "Looking to Play",
+];
+const STEAM_PRIVACY = { 1: "Private", 2: "Friends Only", 3: "Public" };
+
 function humanise(key) {
   const raw = String(key);
   if (BRAND[raw]) return BRAND[raw];
@@ -39,7 +44,6 @@ function humanise(key) {
   if (words.length === 1 && words[0].length <= 3 && words[0] === words[0].toUpperCase()) {
     return words[0];
   }
-
   return words
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
@@ -65,15 +69,14 @@ function rankLabel(key) {
  * point has to be formatted before it reaches a screen; LeetifyStats carries
  * the same note for the same reason. */
 function fmtNum(n) {
-  if (Number.isInteger(n)) return String(n);
-  const r = Math.round(n * 1000) / 1000;
-  return String(r);
+  if (Number.isInteger(n)) return n.toLocaleString();
+  return String(Math.round(n * 1000) / 1000);
 }
 
 function fmtDate(v) {
-  if (!v) return "—";
+  if (!v) return null;
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
 }
 
 function scalar(v) {
@@ -117,6 +120,24 @@ function Cell({ label, value, title }) {
   );
 }
 
+/** A grid of [label, value] pairs. Entries whose value is null are dropped —
+ *  the API returns null for anything it has no data on, and a wall of "—"
+ *  cells communicates nothing. Renders nothing at all if none survive. */
+function Section({ title, rows }) {
+  const kept = rows.filter(([, v]) => v != null && v !== "");
+  if (!kept.length) return null;
+  return (
+    <>
+      {title && <h4 className="csrep-h4">{title}</h4>}
+      <div className="csrep-grid">
+        {kept.map(([label, value, hint]) => (
+          <Cell key={label} label={label} value={value} title={hint} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** Reputation, rendered verbatim.
  *
  * `trust_score` leads because it is the headline signal; the remaining
@@ -126,19 +147,12 @@ function Cell({ label, value, title }) {
  * exactly what §4 forbids. The numbers speak for themselves. */
 function Reputation({ reputation }) {
   if (!reputation || typeof reputation !== "object") return null;
-
   const { trust_score: trustScore, breakdown, ...rest } = reputation;
-  const restRows = Object.entries(rest)
-    .map(([k, v]) => [k, scalar(v), v])
-    .filter(([, v]) => v !== null);
-  const breakdownRows =
-    breakdown && typeof breakdown === "object"
-      ? Object.entries(breakdown)
-          .map(([k, v]) => [k, scalar(v), v])
-          .filter(([, v]) => v !== null)
-      : [];
 
-  if (trustScore == null && !restRows.length && !breakdownRows.length) return null;
+  const pairs = (obj) =>
+    Object.entries(obj || {})
+      .map(([k, v]) => [humanise(k), scalar(v), String(v)])
+      .filter(([, v]) => v !== null);
 
   return (
     <>
@@ -148,42 +162,8 @@ function Reputation({ reputation }) {
           <div className="csrep-hero-label">Trust Score</div>
         </div>
       )}
-
-      {!!restRows.length && (
-        <div className="csrep-grid">
-          {restRows.map(([k, v, raw]) => (
-            <Cell key={k} label={humanise(k)} value={v} title={String(raw)} />
-          ))}
-        </div>
-      )}
-
-      {!!breakdownRows.length && (
-        <>
-          <h4 className="csrep-h4">Breakdown</h4>
-          <div className="csrep-grid">
-            {breakdownRows.map(([k, v, raw]) => (
-              <Cell key={k} label={humanise(k)} value={v} title={String(raw)} />
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
-function Commendations({ commendations }) {
-  const rows = Object.entries(commendations || {}).filter(
-    ([, v]) => typeof v === "number",
-  );
-  if (!rows.length) return null;
-  return (
-    <>
-      <h4 className="csrep-h4">Commendations</h4>
-      <div className="csrep-grid">
-        {rows.map(([k, v]) => (
-          <Cell key={k} label={humanise(k)} value={v.toLocaleString()} />
-        ))}
-      </div>
+      <Section rows={pairs(rest)} />
+      <Section title="Breakdown" rows={pairs(breakdown)} />
     </>
   );
 }
@@ -238,10 +218,79 @@ function Bans({ bans }) {
             </span>
             <span className="csrep-ban-src">{b.source}</span>
             {b.reason && <span className="csrep-ban-reason">{b.reason}</span>}
-            <span className="csrep-ban-date">{fmtDate(b.starts_at || b.created_at)}</span>
+            <span className="csrep-ban-date">
+              {fmtDate(b.starts_at || b.created_at) || "—"}
+            </span>
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+/** Linked platform profiles. Each is a link out, so it is a list rather than
+ *  a stat grid — the id beside it is what CSRep matched on. */
+function Platforms({ data }) {
+  const links = [
+    ["FACEIT", data.faceit_url, data.faceit_id],
+    ["Gamers Club", data.gamersclub_url, data.gamersclub_id],
+    ["Steam", data.steam_vanity_url, null],
+  ].filter(([, url]) => url);
+  if (!links.length) return null;
+
+  return (
+    <>
+      <h4 className="csrep-h4">Linked profiles</h4>
+      <ul className="csrep-links">
+        {links.map(([name, url, id]) => (
+          <li key={name}>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="csrep-link">
+              {name}
+            </a>
+            {id && <span className="csrep-link-id">{id}</span>}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** Steam collectibles, returned as bare numeric ids.
+ *
+ * CSRep publishes no lookup table for them, so there is nothing to translate
+ * these into — the count is the readable signal, and the raw ids are shown
+ * beneath it rather than dropped, since they are data the API did return. */
+function Medals({ medals }) {
+  if (!medals || !medals.length) return null;
+  return (
+    <>
+      <h4 className="csrep-h4">Medals ({medals.length})</h4>
+      <div className="csrep-medals">{medals.join(" · ")}</div>
+    </>
+  );
+}
+
+function LinkedAccount({ user }) {
+  if (!user) return null;
+  if (user.redacted) {
+    return (
+      <>
+        <h4 className="csrep-h4">CSRep account</h4>
+        <p className="csrep-note">This player&apos;s linked CSRep account is restricted.</p>
+      </>
+    );
+  }
+  return (
+    <>
+      <h4 className="csrep-h4">CSRep account</h4>
+      <Section
+        rows={[
+          ["Handle", user.handle],
+          ["Name", user.name],
+          ["Roles", (user.roles || []).map(humanise).join(", ")],
+          ["Member Since", fmtDate(user.created_at)],
+        ]}
+      />
     </>
   );
 }
@@ -285,14 +334,25 @@ export function CsrepView({ data }) {
     );
   }
 
+  const steamStatus =
+    data.steam_status == null
+      ? null
+      : STEAM_STATUS[data.steam_status] || `Status ${data.steam_status}`;
+
   return (
     <div className="csrep-block">
       <div className="csrep-head">
-        <div>
-          <h3 className="csrep-title">CSRep reputation</h3>
-          {data.refreshed_at && (
-            <div className="csrep-sub">Refreshed {fmtDate(data.refreshed_at)}</div>
+        <div className="csrep-ident">
+          {data.avatar && (
+            <img src={data.avatar} alt="" className="csrep-avatar" loading="lazy" />
           )}
+          <div>
+            <h3 className="csrep-title">{data.name || "CSRep reputation"}</h3>
+            <div className="csrep-sub">
+              {data.views != null && <>{data.views.toLocaleString()} profile views</>}
+              {data.refreshed_at && <> · refreshed {fmtDate(data.refreshed_at)}</>}
+            </div>
+          </div>
         </div>
         {data.autoflag && (
           <div className="csrep-autoflag" title={data.attribution?.disclaimer}>
@@ -303,8 +363,50 @@ export function CsrepView({ data }) {
 
       <Reputation reputation={data.reputation} />
       <Ranks ranks={data.ranks} />
-      <Commendations commendations={data.commendations} />
+      <Section title="Commendations" rows={Object.entries(data.commendations || {})
+        .map(([k, v]) => [humanise(k), scalar(v)])} />
       <Bans bans={data.bans} />
+
+      <Section
+        title="Steam account"
+        rows={[
+          ["Steam Level", scalar(data.steam_level)],
+          ["CS2 Hours", scalar(data.cs2_hours)],
+          ["Inventory Value", scalar(data.inventory_value)],
+          ["Account Created", fmtDate(data.steam_created_at)],
+          ["Profile Visibility", STEAM_PRIVACY[data.steam_privacy] || null],
+          ["Status", steamStatus],
+          ["In Game", data.steam_active_game],
+        ]}
+      />
+
+      <Platforms data={data} />
+      <Section
+        title="Platform activity"
+        rows={[
+          ["Last FACEIT Match", fmtDate(data.faceit_latest_match_date)],
+          ["Cybershoke Since", fmtDate(data.cybershoke_registered_at)],
+        ]}
+      />
+
+      <Medals medals={data.medals} />
+      <LinkedAccount user={data.user} />
+
+      <Section
+        title="Record"
+        rows={[
+          ["First Seen", fmtDate(data.created_at)],
+          ["Last Updated", fmtDate(data.updated_at)],
+          ["Steam ID", data.id],
+        ]}
+      />
+
+      {/* Fields the API returned that this component has no layout for. Shown
+          rather than dropped: CSRep ships new fields ahead of their spec. */}
+      <Section
+        title="Other"
+        rows={Object.entries(data.extra || {}).map(([k, v]) => [humanise(k), scalar(v)])}
+      />
 
       <Attribution attribution={data.attribution} />
     </div>
