@@ -27,6 +27,7 @@ import Clips from "./components/Clips.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
 import CsrepStats from "./components/CsrepStats.jsx";
+import AiReport from "./components/AiReport.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
 import SteamInfo from "./components/SteamInfo.jsx";
@@ -1135,12 +1136,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               {showWrapped && <Wrapped player={data} onClose={() => setShowWrapped(false)} />}
 
               {aiError && <div className="state error">{aiError}</div>}
-              {aiText && (
-                <div className="ai-panel">
-                  <div className="ai-panel-head">{Icon.stars} AI Scouting Report</div>
-                  <div className="ai-panel-body">{aiText}</div>
-                </div>
-              )}
+              <AiReport text={aiText} loading={aiLoading} />
 
               {roastError && <div className="state error">{roastError}</div>}
               {roastText && (

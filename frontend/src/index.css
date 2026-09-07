@@ -1193,11 +1193,69 @@ a { color: inherit; }
   padding: 18px 20px; margin-bottom: 18px; animation: riseIn 0.4s ease both;
 }
 .ai-panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   font-family: var(--font-display); font-weight: 700; font-size: 14px;
-  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
   color: var(--accent);
 }
-.ai-panel-body { white-space: pre-wrap; font-size: 14px; line-height: 1.7; color: var(--text); }
+.ai-panel-head > span { display: inline-flex; align-items: center; gap: 8px; }
+.ai-copy {
+  background: rgba(var(--accent-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  color: var(--accent); border-radius: 9px; padding: 6px 12px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  text-transform: none; letter-spacing: 0; transition: all 0.15s;
+}
+.ai-copy:hover { background: rgba(var(--accent-rgb), 0.24); }
+
+/* One idea per line is what the model was asked for and what the guardrail
+   enforces, so each line gets its own row instead of being reflowed into a
+   paragraph. The marker is a rule, not a bullet glyph — the lines are
+   observations, not a checklist. */
+.ai-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ai-line {
+  position: relative; padding: 7px 0 7px 16px;
+  font-size: 14px; line-height: 1.6; color: var(--text);
+}
+.ai-line::before {
+  content: ""; position: absolute; left: 0; top: 12px; bottom: 12px;
+  width: 2px; border-radius: 2px;
+  background: rgba(var(--accent-rgb), 0.45);
+}
+.ai-line + .ai-line { border-top: 1px solid var(--glass-brd); }
+
+.ai-verdict {
+  margin-top: 14px; padding: 14px 16px; border-radius: 12px;
+  background: rgba(var(--accent-rgb), 0.09);
+  border: 1px solid rgba(var(--accent-rgb), 0.34);
+}
+.ai-verdict-label {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 5px;
+}
+.ai-verdict-text {
+  margin: 0; font-size: 15px; line-height: 1.55; font-weight: 600; color: var(--text);
+}
+
+/* Shown while the request is in flight. Varying widths read as text being
+   written; equal bars read as a broken layout. */
+.ai-skeleton { display: grid; gap: 10px; }
+.ai-skel-line {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg,
+    rgba(var(--accent-rgb), 0.10) 25%,
+    rgba(var(--accent-rgb), 0.20) 50%,
+    rgba(var(--accent-rgb), 0.10) 75%);
+  background-size: 200% 100%;
+  animation: aiShimmer 1.3s ease-in-out infinite;
+}
+@keyframes aiShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-skel-line { animation: none; }
+}
 
 /* ============================================================
    Session / stats / averages
