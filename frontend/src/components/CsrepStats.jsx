@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import csrepLogo from "../assets/csrep-logo.webp";
+import RingGauge from "./RingGauge.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -20,8 +21,7 @@ const BRAND = {
 /** Steam's own persona-state and profile-visibility enums.
  *
  * Decoding these is not reinterpreting a CSRep signal — they are Valve's
- * integers, and 1 means "Online" everywhere Steam is documented. Unknown
- * values fall back to the raw number rather than being hidden. */
+ * integers, and 1 means "Online" everywhere Steam is documented. */
 const STEAM_STATUS = [
   "Offline", "Online", "Busy", "Away", "Snooze",
   "Looking to Trade", "Looking to Play",
@@ -35,12 +35,10 @@ function humanise(key) {
 
   // Ban types arrive SHOUTING ("BAN_EVASION"), field names arrive snake
   // ("trust_score"). Title-casing without first lowering leaves the former as
-  // "BAN EVASION", so words get lowered before capitalising.
-  //
-  // The exception is a key that is ONE short all-caps token — "VAC", "AFK" —
-  // which is an acronym that "Vac" and "Afk" would quietly destroy. Scoping
-  // the exception to single-word keys matters: applied per word it would
-  // catch the "BAN" in "BAN_EVASION" and render "BAN Evasion".
+  // "BAN EVASION", so words get lowered before capitalising. The exception is
+  // a key that is ONE short all-caps token — "VAC", "AFK" — an acronym that
+  // "Vac" and "Afk" would quietly destroy. Scoping the exception to
+  // single-word keys matters: per word it would render "BAN Evasion".
   if (words.length === 1 && words[0].length <= 3 && words[0] === words[0].toUpperCase()) {
     return words[0];
   }
@@ -51,9 +49,8 @@ function humanise(key) {
 
 /** Rank keys are namespaced: "premier:season4", "competitive:de_dust2".
  *
- * Only the namespace is humanised. The detail half is left verbatim, because
- * a map name is not prose — "de_dust2" is what a CS player reads, and
- * title-casing it into "De Dust2" would be a downgrade, not a translation. */
+ * Only the namespace is humanised — a map name is not prose, and title-casing
+ * "de_dust2" into "De Dust2" would be a downgrade, not a translation. */
 function rankLabel(key) {
   const [group, ...rest] = String(key).split(":");
   const detail = rest.join(":");
@@ -62,13 +59,12 @@ function rankLabel(key) {
 
 /** Format a number for display without rescaling it.
  *
- * CSRep returns both 0-100 scores and 0-1 ratios; the ratios arrive at full
- * float precision (0.986327706222794). Rounding for display is formatting,
- * NOT the rescaling §4 prohibits — the untouched value stays available in the
- * cell's title attribute. Anything that has been through binary floating
- * point has to be formatted before it reaches a screen; LeetifyStats carries
- * the same note for the same reason. */
+ * CSRep returns both 0-100 scores and 0-1 ratios, the latter at full float
+ * precision (0.986327706222794). Rounding for display is formatting, NOT the
+ * rescaling §4 prohibits — the untouched value stays in the title attribute.
+ * LeetifyStats carries the same note for the same reason. */
 function fmtNum(n) {
+  if (typeof n !== "number" || !Number.isFinite(n)) return null;
   if (Number.isInteger(n)) return n.toLocaleString();
   return String(Math.round(n * 1000) / 1000);
 }
@@ -91,19 +87,14 @@ function scalar(v) {
  *  linking to that player's csrep.gg profile. §4: the probabilistic
  *  disclaimer travels with it and must not be removed.
  *
- *  Both the link target and the disclaimer text come from the backend
- *  (`data.attribution`) rather than being hardcoded here, so the compliance
- *  surface has a single owner. */
+ *  Both come from the backend (`data.attribution`), so the compliance surface
+ *  has a single owner rather than being retyped in the markup. */
 function Attribution({ attribution }) {
   if (!attribution) return null;
   return (
     <div className="csrep-attrib">
-      <a
-        href={attribution.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="csrep-credit"
-      >
+      <a href={attribution.href} target="_blank" rel="noopener noreferrer"
+         className="csrep-credit">
         <img src={csrepLogo} alt="Data provided by CSRep" className="csrep-badge" />
       </a>
       <p className="csrep-disclaimer">{attribution.disclaimer}</p>
@@ -111,105 +102,106 @@ function Attribution({ attribution }) {
   );
 }
 
-function Cell({ label, value, title }) {
+/** A label/value line. The workhorse of this tab.
+ *
+ * Everything that is not the headline reads as a row, not a card. Twenty
+ * equally-sized boxes give twenty facts the same importance, which is how a
+ * profile turns into a database dump. */
+function Row({ label, value, detail, title }) {
+  if (value == null || value === "") return null;
   return (
-    <div className="csrep-cell" title={title}>
-      <div className="csrep-cell-value">{value}</div>
-      <div className="csrep-cell-label">{label}</div>
+    <div className="csrep-row" title={title}>
+      <span className="csrep-row-label">{label}</span>
+      {detail && <span className="csrep-row-detail">{detail}</span>}
+      <span className="csrep-row-val">{value}</span>
     </div>
   );
 }
 
-/** A grid of [label, value] pairs. Entries whose value is null are dropped —
- *  the API returns null for anything it has no data on, and a wall of "—"
- *  cells communicates nothing. Renders nothing at all if none survive. */
-function Section({ title, rows }) {
-  const kept = rows.filter(([, v]) => v != null && v !== "");
-  if (!kept.length) return null;
+function Group({ title, children }) {
+  const kids = Array.isArray(children) ? children.filter(Boolean) : children;
+  if (!kids || (Array.isArray(kids) && !kids.some(Boolean))) return null;
   return (
-    <>
-      {title && <h4 className="csrep-h4">{title}</h4>}
-      <div className="csrep-grid">
-        {kept.map(([label, value, hint]) => (
-          <Cell key={label} label={label} value={value} title={hint} />
-        ))}
-      </div>
-    </>
+    <div className="csrep-group">
+      <div className="csrep-group-head">{title}</div>
+      {kids}
+    </div>
   );
 }
 
-/** Reputation, rendered verbatim.
+/** One breakdown component, as a proportional bar plus its literal value.
  *
- * `trust_score` leads because it is the headline signal; the remaining
- * top-level fields and the nested `breakdown` components follow. Deliberately
- * NOT colour-coded by threshold: assigning "100 = green = trustworthy" would
- * be layering our own verdict onto a probabilistic assessment, which is
- * exactly what §4 forbids. The numbers speak for themselves. */
+ * The bar is a graphical encoding of the number, not a replacement for it —
+ * the exact figure stays printed alongside and the raw float sits in the
+ * tooltip, so nothing about the signal is restated or rounded away. */
+function Meter({ label, value }) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  const pct = Math.max(0, Math.min(1, num)) * 100;
+  return (
+    <div className="csrep-meter" title={String(value)}>
+      <div className="csrep-meter-top">
+        <span className="csrep-meter-label">{label}</span>
+        <span className="csrep-meter-val">{fmtNum(num)}</span>
+      </div>
+      <div className="csrep-meter-track">
+        <div className="csrep-meter-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** The reputation block: one gauge, everything else subordinate to it.
+ *
+ * Deliberately NOT colour-coded by threshold, unlike this project's own
+ * TrustScore card. Painting 100 green would layer our verdict onto a
+ * probabilistic assessment — precisely what §4 forbids — so the ring takes
+ * the neutral accent and the disclaimer does the interpreting. */
 function Reputation({ reputation }) {
   if (!reputation || typeof reputation !== "object") return null;
-  const { trust_score: trustScore, breakdown, ...rest } = reputation;
+  const { trust_score: score, breakdown, ...rest } = reputation;
 
-  const pairs = (obj) =>
-    Object.entries(obj || {})
-      .map(([k, v]) => [humanise(k), scalar(v), String(v)])
-      .filter(([, v]) => v !== null);
+  const meters = [
+    ...Object.entries(breakdown || {}),
+    ...Object.entries(rest),
+  ].filter(([, v]) => typeof v === "number");
+
+  if (score == null && !meters.length) return null;
 
   return (
-    <>
-      {trustScore != null && (
-        <div className="csrep-hero">
-          <div className="csrep-hero-value">{scalar(trustScore)}</div>
-          <div className="csrep-hero-label">Trust Score</div>
+    <div className="csrep-hero">
+      {score != null && (
+        <div className="csrep-hero-gauge">
+          <RingGauge
+            value={score}
+            max={100}
+            size={132}
+            stroke={11}
+            color="var(--accent)"
+            display={fmtNum(score)}
+            sublabel="trust score"
+            valueSize={34}
+          />
         </div>
       )}
-      <Section rows={pairs(rest)} />
-      <Section title="Breakdown" rows={pairs(breakdown)} />
-    </>
+      {!!meters.length && (
+        <div className="csrep-hero-meters">
+          {meters.map(([k, v]) => (
+            <Meter key={k} label={humanise(k)} value={v} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
-/** Ranks per ladder, as {current, peak}.
- *
- * CSRep returns an entry for every ladder it knows including one per
- * competitive map, so most come back all-null for any given player and are
- * dropped. Per-map competitive ranks sort last: they are the long tail, and
- * FACEIT / Premier / Wingman are what a visitor came to see. */
-function Ranks({ ranks }) {
-  const entries = Object.entries(ranks || {})
-    .filter(([, r]) => r && (r.current != null || r.peak != null))
-    .sort((a, b) => {
-      const tail = (k) => (k.startsWith("competitive:") ? 1 : 0);
-      return tail(a[0]) - tail(b[0]) || a[0].localeCompare(b[0]);
-    });
-  if (!entries.length) return null;
-
-  return (
-    <>
-      <h4 className="csrep-h4">Ranks</h4>
-      <div className="csrep-grid">
-        {entries.map(([k, r]) => (
-          <div className="csrep-cell" key={k}>
-            <div className="csrep-cell-value">
-              {r.current != null ? r.current.toLocaleString() : "—"}
-            </div>
-            <div className="csrep-cell-label">
-              {rankLabel(k)}
-              {r.peak != null && (
-                <span className="csrep-peak"> · peak {r.peak.toLocaleString()}</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
+/** Ban history — the part of this tab worth interrupting for, so it keeps
+ *  card weight while everything else is demoted to rows. */
 function Bans({ bans }) {
   if (!bans || !bans.length) return null;
   return (
-    <>
-      <h4 className="csrep-h4">Ban history</h4>
+    <div className="csrep-bans">
+      <div className="csrep-group-head">Ban history</div>
       <ul className="csrep-ban-list">
         {bans.map((b) => (
           <li className="csrep-ban" key={b.id}>
@@ -220,82 +212,39 @@ function Bans({ bans }) {
             {b.reason && <span className="csrep-ban-reason">{b.reason}</span>}
             <span className="csrep-ban-date">
               {fmtDate(b.starts_at || b.created_at) || "—"}
+              {/* An end date means the ban expires; without one it stands. */}
+              {b.ends_at && <> → {fmtDate(b.ends_at)}</>}
             </span>
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }
 
-/** Linked platform profiles. Each is a link out, so it is a list rather than
- *  a stat grid — the id beside it is what CSRep matched on. */
+/** Outbound links as chips, matching the profile sidebar's social buttons.
+ *  The platform id lives in the tooltip: it identifies the account for anyone
+ *  debugging, and means nothing to a visitor reading the page. */
 function Platforms({ data }) {
   const links = [
-    ["FACEIT", data.faceit_url, data.faceit_id],
-    ["Gamers Club", data.gamersclub_url, data.gamersclub_id],
-    ["Steam", data.steam_vanity_url, null],
+    ["FACEIT", data.faceit_url, data.faceit_id, "faceit"],
+    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub"],
+    ["Steam", data.steam_vanity_url, data.id, "steam"],
   ].filter(([, url]) => url);
   if (!links.length) return null;
 
   return (
-    <>
-      <h4 className="csrep-h4">Linked profiles</h4>
-      <ul className="csrep-links">
-        {links.map(([name, url, id]) => (
-          <li key={name}>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="csrep-link">
-              {name}
-            </a>
-            {id && <span className="csrep-link-id">{id}</span>}
-          </li>
-        ))}
-      </ul>
-    </>
+    <div className="csrep-chips">
+      {links.map(([name, url, id, key]) => (
+        <a key={name} href={url} target="_blank" rel="noopener noreferrer"
+           className={`csrep-chip csrep-chip-${key}`} title={id || undefined}>
+          {name}
+        </a>
+      ))}
+    </div>
   );
 }
 
-/** Steam collectibles, returned as bare numeric ids.
- *
- * CSRep publishes no lookup table for them, so there is nothing to translate
- * these into — the count is the readable signal, and the raw ids are shown
- * beneath it rather than dropped, since they are data the API did return. */
-function Medals({ medals }) {
-  if (!medals || !medals.length) return null;
-  return (
-    <>
-      <h4 className="csrep-h4">Medals ({medals.length})</h4>
-      <div className="csrep-medals">{medals.join(" · ")}</div>
-    </>
-  );
-}
-
-function LinkedAccount({ user }) {
-  if (!user) return null;
-  if (user.redacted) {
-    return (
-      <>
-        <h4 className="csrep-h4">CSRep account</h4>
-        <p className="csrep-note">This player&apos;s linked CSRep account is restricted.</p>
-      </>
-    );
-  }
-  return (
-    <>
-      <h4 className="csrep-h4">CSRep account</h4>
-      <Section
-        rows={[
-          ["Handle", user.handle],
-          ["Name", user.name],
-          ["Roles", (user.roles || []).map(humanise).join(", ")],
-          ["Member Since", fmtDate(user.created_at)],
-        ]}
-      />
-    </>
-  );
-}
-
-/** Presentational CSRep block. `data` is the /csrep/ endpoint payload. */
 export function CsrepView({ data }) {
   if (!data) return null;
 
@@ -308,7 +257,6 @@ export function CsrepView({ data }) {
         ratelimited: "CSRep is rate-limiting requests right now. Try again shortly.",
         unauthorized: "The CSRep API key was rejected.",
       }[data.reason] || "CSRep data is unavailable right now.";
-
     return (
       <div className="csrep-empty">
         <div className="csrep-empty-title">No CSRep data</div>
@@ -334,6 +282,16 @@ export function CsrepView({ data }) {
     );
   }
 
+  const ranks = Object.entries(data.ranks || {})
+    .filter(([, r]) => r && (r.current != null || r.peak != null))
+    .sort((a, b) => {
+      const tail = (k) => (k.startsWith("competitive:") ? 1 : 0);
+      return tail(a[0]) - tail(b[0]) || a[0].localeCompare(b[0]);
+    });
+
+  const commendations = Object.entries(data.commendations || {})
+    .filter(([, v]) => typeof v === "number");
+
   const steamStatus =
     data.steam_status == null
       ? null
@@ -349,7 +307,7 @@ export function CsrepView({ data }) {
           <div>
             <h3 className="csrep-title">{data.name || "CSRep reputation"}</h3>
             <div className="csrep-sub">
-              {data.views != null && <>{data.views.toLocaleString()} profile views</>}
+              {data.views != null && <>{data.views.toLocaleString()} views</>}
               {data.refreshed_at && <> · refreshed {fmtDate(data.refreshed_at)}</>}
             </div>
           </div>
@@ -362,51 +320,76 @@ export function CsrepView({ data }) {
       </div>
 
       <Reputation reputation={data.reputation} />
-      <Ranks ranks={data.ranks} />
-      <Section title="Commendations" rows={Object.entries(data.commendations || {})
-        .map(([k, v]) => [humanise(k), scalar(v)])} />
       <Bans bans={data.bans} />
 
-      <Section
-        title="Steam account"
-        rows={[
-          ["Steam Level", scalar(data.steam_level)],
-          ["CS2 Hours", scalar(data.cs2_hours)],
-          ["Inventory Value", scalar(data.inventory_value)],
-          ["Account Created", fmtDate(data.steam_created_at)],
-          ["Profile Visibility", STEAM_PRIVACY[data.steam_privacy] || null],
-          ["Status", steamStatus],
-          ["In Game", data.steam_active_game],
-        ]}
-      />
+      <div className="csrep-cols">
+        <Group title="Ranks">
+          {ranks.map(([k, r]) => (
+            <Row
+              key={k}
+              label={rankLabel(k)}
+              detail={r.peak != null ? `peak ${r.peak.toLocaleString()}` : null}
+              value={r.current != null ? r.current.toLocaleString() : "—"}
+            />
+          ))}
+        </Group>
+
+        <Group title="Commendations">
+          {commendations.map(([k, v]) => (
+            <Row key={k} label={humanise(k)} value={v.toLocaleString()} />
+          ))}
+        </Group>
+
+        <Group title="Account">
+          <Row label="Steam Level" value={scalar(data.steam_level)} />
+          <Row label="CS2 Hours" value={scalar(data.cs2_hours)} />
+          <Row label="Inventory Value" value={scalar(data.inventory_value)} />
+          <Row label="Created" value={fmtDate(data.steam_created_at)} />
+          <Row label="Visibility" value={STEAM_PRIVACY[data.steam_privacy]} />
+          <Row label="Status" value={steamStatus} detail={data.steam_active_game} />
+          <Row label="Medals"
+               value={data.medals?.length ? data.medals.length : null}
+               title={data.medals?.join(", ")} />
+          <Row label="Last FACEIT Match" value={fmtDate(data.faceit_latest_match_date)} />
+          <Row label="Cybershoke Since" value={fmtDate(data.cybershoke_registered_at)} />
+        </Group>
+
+        {data.user && (
+          <Group title="CSRep account">
+            {data.user.redacted ? (
+              <Row label="Account" value="Restricted" />
+            ) : (
+              <>
+                <Row label="Handle" value={data.user.handle} />
+                <Row label="Roles"
+                     value={(data.user.roles || []).map(humanise).join(", ") || null} />
+                <Row label="Member Since" value={fmtDate(data.user.created_at)} />
+              </>
+            )}
+          </Group>
+        )}
+
+        {/* Anything CSRep returns that this component has no home for. Their
+            live API already ships fields their spec does not document, so
+            these surface here instead of vanishing. */}
+        {!!Object.keys(data.extra || {}).length && (
+          <Group title="Other">
+            {Object.entries(data.extra).map(([k, v]) => (
+              <Row key={k} label={humanise(k)} value={scalar(v)} />
+            ))}
+          </Group>
+        )}
+      </div>
 
       <Platforms data={data} />
-      <Section
-        title="Platform activity"
-        rows={[
-          ["Last FACEIT Match", fmtDate(data.faceit_latest_match_date)],
-          ["Cybershoke Since", fmtDate(data.cybershoke_registered_at)],
-        ]}
-      />
 
-      <Medals medals={data.medals} />
-      <LinkedAccount user={data.user} />
-
-      <Section
-        title="Record"
-        rows={[
-          ["First Seen", fmtDate(data.created_at)],
-          ["Last Updated", fmtDate(data.updated_at)],
-          ["Steam ID", data.id],
-        ]}
-      />
-
-      {/* Fields the API returned that this component has no layout for. Shown
-          rather than dropped: CSRep ships new fields ahead of their spec. */}
-      <Section
-        title="Other"
-        rows={Object.entries(data.extra || {}).map(([k, v]) => [humanise(k), scalar(v)])}
-      />
+      {/* Record-keeping: real data, but nobody came to the page for it, so it
+          reads as one dim line rather than three headline cards. */}
+      <div className="csrep-meta">
+        {fmtDate(data.created_at) && <span>First seen {fmtDate(data.created_at)}</span>}
+        {fmtDate(data.updated_at) && <span>Updated {fmtDate(data.updated_at)}</span>}
+        {data.id && <span className="csrep-meta-id">{data.id}</span>}
+      </div>
 
       <Attribution attribution={data.attribution} />
     </div>
@@ -425,19 +408,11 @@ export default function CsrepStats({ nickname }) {
 
     fetch(`${API_BASE}/api/player/${encodeURIComponent(nickname)}/csrep/`)
       .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {
-        if (!cancelled) setData({ available: false, reason: "network" });
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData({ available: false, reason: "network" }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [nickname]);
 
   if (loading) return <div className="csrep-empty">Loading CSRep data…</div>;

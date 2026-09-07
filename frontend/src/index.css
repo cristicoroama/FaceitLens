@@ -1903,87 +1903,87 @@ a { color: inherit; }
 
 /* ============================================================
    CSRep reputation block
+
+   One headline (the gauge), everything else subordinate to it. An earlier
+   pass rendered every field as an identically-sized card, which gave the
+   Steam ID the same visual weight as the trust score and read as a database
+   dump. Rows, not boxes, for anything that is not the headline.
    ============================================================ */
 .csrep-block { padding: 20px 24px; animation: riseIn 0.4s ease both; }
+
 .csrep-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
 }
 .csrep-ident { display: flex; align-items: center; gap: 14px; }
 .csrep-avatar {
-  width: 52px; height: 52px; border-radius: 12px; object-fit: cover;
+  width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
   border: 1px solid var(--glass-brd); flex-shrink: 0;
 }
 .csrep-title { margin: 0; font-size: 18px; letter-spacing: 0.3px; }
-.csrep-sub { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
-.csrep-note { color: var(--text-dim); font-size: 13px; margin: 0; }
+.csrep-sub { color: var(--text-dim); font-size: 12px; margin-top: 3px; }
 
-.csrep-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.csrep-links li {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 14px; border-radius: 10px;
-  background: var(--glass-bg); border: 1px solid var(--glass-brd);
-}
-.csrep-link { color: var(--accent); font-weight: 700; text-decoration: none; }
-.csrep-link:hover { text-decoration: underline; }
-.csrep-link-id {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px; color: var(--text-dim); word-break: break-all;
-}
-
-/* Collectible ids with no published lookup table — shown compactly so the
-   raw data is present without dominating the tab. */
-.csrep-medals {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px; line-height: 1.7; color: var(--text-dim);
-  padding: 12px 14px; border-radius: 10px; word-break: break-word;
-  background: var(--glass-bg); border: 1px solid var(--glass-brd);
-  max-height: 140px; overflow-y: auto;
-}
-.csrep-h4 {
-  margin: 20px 0 10px; font-size: 12px; text-transform: uppercase;
-  letter-spacing: 1.2px; color: var(--text-dim);
-}
-
-/* An auto-flag is a probabilistic indicator, not a verdict. Styled as a
-   neutral notice rather than an alarm, and it carries the disclaimer as its
-   title — CSRep's terms forbid presenting these as proof of misconduct. */
+/* A probabilistic indicator, not a verdict — a neutral notice, not an alarm.
+   It carries the disclaimer as its title. */
 .csrep-autoflag {
   padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
   letter-spacing: 0.6px; color: #eab308; cursor: help;
   background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.35);
 }
 
-/* The headline reputation figure. Deliberately unstyled by threshold — no
-   green-for-good, no red-for-bad. Colouring a probabilistic assessment into a
-   verdict is what CSRep's terms forbid, so the number is presented neutrally
-   and the disclaimer below it does the interpreting. */
+/* --- headline ------------------------------------------------------- */
 .csrep-hero {
-  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
-  padding: 18px 22px; margin-bottom: 16px; border-radius: 14px;
+  display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+  padding: 20px 22px; margin-bottom: 16px; border-radius: 14px;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
 }
-.csrep-hero-value { font-size: 40px; font-weight: 800; line-height: 1; }
-.csrep-hero-label {
-  font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px;
-  color: var(--text-dim);
+.csrep-hero-gauge { flex-shrink: 0; }
+.csrep-hero-meters {
+  flex: 1 1 300px; min-width: 260px; display: grid; gap: 12px;
 }
 
-.csrep-grid {
-  display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+.csrep-meter-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-bottom: 5px;
 }
-.csrep-cell {
+.csrep-meter-label {
+  font-size: 12px; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.csrep-meter-val { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+.csrep-meter-track {
+  height: 5px; border-radius: 3px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+.csrep-meter-fill {
+  height: 100%; border-radius: 3px; background: var(--accent);
+  transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* --- grouped rows ---------------------------------------------------- */
+.csrep-cols {
+  display: grid; gap: 14px; margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.csrep-group {
   padding: 14px 16px; border-radius: 12px;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
 }
-.csrep-cell-value { font-size: 22px; font-weight: 700; line-height: 1.2; }
-.csrep-cell-label {
-  margin-top: 4px; font-size: 11px; text-transform: uppercase;
-  letter-spacing: 0.8px; color: var(--text-dim);
+.csrep-group-head {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px;
+  color: var(--text-dim); font-weight: 600; margin-bottom: 8px;
 }
-.csrep-peak { text-transform: none; letter-spacing: 0; }
+.csrep-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 0;
+  border-bottom: 1px solid var(--glass-brd); font-size: 13px;
+}
+.csrep-row:last-child { border-bottom: none; }
+.csrep-row-label { flex: 1; color: var(--text); }
+.csrep-row-detail { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.csrep-row-val { font-family: var(--font-mono); font-weight: 700; }
 
+/* --- bans ------------------------------------------------------------ */
+.csrep-bans { margin-bottom: 16px; }
 .csrep-ban-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .csrep-ban {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -2003,12 +2003,32 @@ a { color: inherit; }
 .csrep-ban-reason { color: var(--text-dim); font-size: 13px; }
 .csrep-ban-date { margin-left: auto; color: var(--text-dim); font-size: 12px; }
 
+/* --- outbound links -------------------------------------------------- */
+.csrep-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.csrep-chip {
+  display: inline-flex; align-items: center; padding: 7px 14px;
+  border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+  color: var(--text); transition: border-color 0.15s ease, background 0.15s ease;
+}
+.csrep-chip:hover { background: rgba(255, 255, 255, 0.06); }
+.csrep-chip-faceit { color: #ff5500; border-color: rgba(255, 85, 0, 0.4); }
+.csrep-chip-gamersclub { color: #22c55e; border-color: rgba(34, 197, 94, 0.4); }
+.csrep-chip-steam { color: #66c0f4; border-color: rgba(102, 192, 244, 0.4); }
+
+/* Record-keeping. Real data, but nobody opened the tab for it. */
+.csrep-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  font-size: 11px; color: var(--text-dim);
+}
+.csrep-meta-id { font-family: var(--font-mono); opacity: 0.65; }
+
 /* Required attribution (CSRep Developer API Terms §8): logo visible wherever
    their data is shown, linking to the player's profile. The disclaimer sits
    beside it and must not be hidden or obscured. */
 .csrep-attrib {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-brd);
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--glass-brd);
 }
 .csrep-attrib .csrep-credit { display: inline-flex; line-height: 0; }
 .csrep-badge { height: 28px; width: auto; display: block; }

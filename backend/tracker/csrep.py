@@ -281,12 +281,22 @@ def _shape_bans(p: dict) -> list:
     return [
         {
             "id": b.get("id"),
+            "player_id": b.get("player_id"),
             "source": b.get("source"),
+            "source_id": b.get("source_id"),
             "type": b.get("type"),
             "reason": b.get("reason"),
+            "amount": b.get("amount"),
             "starts_at": b.get("starts_at"),
             "ends_at": b.get("ends_at"),
             "created_at": b.get("created_at"),
+            "updated_at": b.get("updated_at"),
+            "deleted_at": b.get("deleted_at"),
+            # `player` is deliberately not expanded. The schema nests a FULL
+            # PlayerEntity inside every ban, which recurses (that player has
+            # bans, each carrying a player...) and would multiply the payload
+            # for no gain: on a player's own profile it is the player we are
+            # already looking at.
         }
         for b in (p.get("bans") or [])
         if b.get("type")
@@ -300,7 +310,12 @@ def _faceit_url(url: str | None) -> str | None:
     per-locale content behind it worth preserving here, so it is filled with
     the neutral English locale.
     """
-    if not url:
+    if not isinstance(url, str) or not url:
+        # Type-checked rather than truth-checked: the published schema says
+        # string, but the schema has already been wrong about this API more
+        # than once, and a non-string here would otherwise raise straight
+        # through the shaper and turn one odd field into a 500 for the whole
+        # profile.
         return None
     return url.replace("{lang}", "en")
 
@@ -320,10 +335,13 @@ def _shape_user(p: dict) -> dict | None:
         return {"redacted": True}
     return {
         "redacted": False,
+        "id": u.get("id"),
+        "steam_id": u.get("steam_id"),
         "handle": u.get("handle"),
         "name": u.get("name"),
         "avatar": u.get("avatar"),
         "roles": u.get("roles") or [],
+        "cosmetics": u.get("cosmetics"),
         "created_at": u.get("created_at"),
     }
 
