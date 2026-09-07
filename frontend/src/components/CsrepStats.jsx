@@ -262,10 +262,12 @@ function Bans({ bans }) {
  *  The platform id lives in the tooltip: it identifies the account for anyone
  *  debugging, and means nothing to a visitor reading the page. */
 function Platforms({ data }) {
+  const steamUrl =
+    data.steam_vanity_url || (data.id ? `https://steamcommunity.com/profiles/${data.id}` : null);
   const links = [
-    ["FACEIT", data.faceit_url, data.faceit_id, "faceit", <FaceitIcon size={15} />],
-    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub", null],
-    ["Steam", data.steam_vanity_url, data.id, "steam", <SteamIcon size={15} />],
+    ["FACEIT", data.faceit_url, data.faceit_id, "faceit", <FaceitIcon size={18} />],
+    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub", <GcIcon size={18} />],
+    ["Steam", steamUrl, data.id, "steam", <SteamIcon size={18} />],
   ].filter(([, url]) => url);
   if (!links.length) return null;
 
@@ -275,9 +277,33 @@ function Platforms({ data }) {
         <a key={name} href={url} target="_blank" rel="noopener noreferrer"
            className={`csrep-chip csrep-chip-${key}`}
            title={id ? `${name} · ${id}` : name} aria-label={name}>
-          {icon || <span className="csrep-chip-text">{name}</span>}
+          {icon}
         </a>
       ))}
+    </div>
+  );
+}
+
+function GcIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none"
+         stroke="currentColor" strokeWidth="2.1" strokeLinecap="round"
+         strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.5 12H12" />
+      <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
+      <path d="M20.5 12v4.4" />
+    </svg>
+  );
+}
+
+function CleanRecord() {
+  return (
+    <div className="csrep-clean">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+           strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+      <span>No bans on record</span>
     </div>
   );
 }
@@ -349,6 +375,7 @@ export function CsrepView({ data }) {
             </div>
           </div>
         </div>
+        <Platforms data={data} />
         {data.autoflag && (
           <div className="csrep-autoflag" title={data.attribution?.disclaimer}>
             <span>Auto-flagged</span>
@@ -367,7 +394,7 @@ export function CsrepView({ data }) {
       </div>
 
       <Reputation reputation={data.reputation} />
-      <Bans bans={data.bans} />
+      {data.bans?.length ? <Bans bans={data.bans} /> : <CleanRecord />}
 
       <div className="csrep-cols">
         <Group title="Ranks">
@@ -399,6 +426,7 @@ export function CsrepView({ data }) {
                title={data.medals?.join(", ")} />
           <Row label="Last FACEIT Match" value={fmtDate(data.faceit_latest_match_date)} />
           <Row label="Cybershoke Since" value={fmtDate(data.cybershoke_registered_at)} />
+          <Row label="First Seen" value={fmtDate(data.created_at)} />
         </Group>
 
         {data.user && (
@@ -428,12 +456,9 @@ export function CsrepView({ data }) {
         )}
       </div>
 
-      <Platforms data={data} />
-
       {/* Record-keeping: real data, but nobody came to the page for it, so it
           reads as one dim line rather than three headline cards. */}
       <div className="csrep-meta">
-        {fmtDate(data.created_at) && <span>First seen {fmtDate(data.created_at)}</span>}
         {fmtDate(data.updated_at) && <span>Updated {fmtDate(data.updated_at)}</span>}
         {data.id && <span className="csrep-meta-id">{data.id}</span>}
       </div>
