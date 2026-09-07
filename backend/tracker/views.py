@@ -788,6 +788,44 @@ def leetify_matches(request, nickname):
 
 
 @require_GET
+def csrep_stats(request, nickname):
+    """
+    GET /api/player/<nickname>/csrep/ - CSRep reputation signals, ban history
+    and Overwatch verdicts for the player's Steam account.
+
+    This answers what no other source here can: whether a human Overwatch
+    reviewer has judged the account, and what a dedicated reputation platform
+    makes of it. It sits BESIDE our own trust score, never inside it — CSRep's
+    terms forbid rescaling their signals, and the response carries the
+    disclaimer and attribution the UI is required to render.
+
+    Proxied live and cached at most 24h, never stored (CSRep terms §9).
+    Restricted / privacy-mode profiles come back as {restricted: true} with
+    identifying fields withheld (§4).
+    """
+    try:
+        summary = faceit.build_player_summary(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    steamid = summary.get("steam_id")
+    if not steamid:
+        return JsonResponse({"available": False, "reason": "no steam id"})
+
+    try:
+        from . import csrep
+        data = csrep.get_player(steamid)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    data["nickname"] = summary.get("nickname")
+    return JsonResponse(data)
+
+
+@require_GET
 def real_stats(request, nickname):
     """
     GET /api/player/<nickname>/real/ - REAL demo-parsed stats (HLTV 2.0, KAST,

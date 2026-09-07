@@ -26,6 +26,7 @@ import HltvStats from "./components/HltvStats.jsx";
 import Clips from "./components/Clips.jsx";
 import AccountView from "./components/AccountView.jsx";
 import LeetifyStats from "./components/LeetifyStats.jsx";
+import CsrepStats from "./components/CsrepStats.jsx";
 import Activity from "./components/Activity.jsx";
 import TeammatesFull from "./components/TeammatesFull.jsx";
 import SteamInfo from "./components/SteamInfo.jsx";
@@ -324,6 +325,7 @@ function buildProfileTabs(t) { return [
   ["bans", t("tab.bans")],
   ["account", t("tab.trust")],
   ["leetify", t("tab.leetify")],
+  ["csrep", t("tab.csrep")],
   ["clips", t("tab.clips")],
   ["hltv", t("tab.hltv")],
   ["steam", t("tab.steam")],
@@ -1216,6 +1218,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 <AccountView nickname={data.nickname} />
               ) : profileTab === "leetify" ? (
                 <LeetifyStats nickname={data.nickname} />
+              ) : profileTab === "csrep" ? (
+                <CsrepStats nickname={data.nickname} />
               ) : profileTab === "clips" ? (
                 <Clips nickname={data.nickname} />
               ) : profileTab === "hltv" ? (

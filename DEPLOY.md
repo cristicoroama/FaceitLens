@@ -90,6 +90,47 @@ On Render -> Web Service -> Environment, add:
 Without it, the Steam tab shows a friendly "not available" message.
 Note: CS2 hours require the player's Steam game details to be public.
 
+## CSRep tab (optional)
+
+The CSRep tab shows reputation signals, ban history and Overwatch verdicts from
+csrep.gg. It needs an approved developer key (https://csrep.gg/docs).
+On Render -> Web Service -> Environment, add:
+  CSREP_API_KEY = <your CSRep API secret>
+Without it, the tab shows a friendly "not configured" message.
+
+**Redis is a prerequisite here, not an optimisation.** The quota is 5,000
+requests/month (~166/day). Without REDIS_URL, Django falls back to per-process
+local memory: each gunicorn worker keeps its own cache, the free tier wipes it
+every time the instance sleeps, and the monthly quota counter — which lives in
+that same cache — resets with it. The allowance can then be spent in days with
+no warning. See "Redis" below.
+
+Optional tuning:
+  CSREP_CACHE_TTL       = 21600   (seconds; default 6h, hard-capped at 24h)
+  CSREP_MONTHLY_QUOTA   = 5000    (match whatever CSRep granted your key)
+  CSREP_QUOTA_HEADROOM  = 100     (calls held back so debugging still works)
+
+CSRep's Developer API Terms constrain the integration: their data is cached at
+most 24h and never written to the database, restricted / privacy-mode profiles
+are returned without identifying fields, reputation signals are passed through
+verbatim (never rescaled or folded into our own trust score), and the CSRep
+logo plus its probabilistic disclaimer must stay visible wherever their data is
+shown. Attribution is served from the backend so there is a single owner.
+
+If CSRep whitelists your IPs, they need this service's **outbound** addresses:
+Render -> your Web Service -> Connect -> Outbound.
+
+## Redis (shared cache)
+
+On Render -> New + -> Key Value -> Free. Copy its connection URL, then on your
+Web Service -> Environment -> add:
+  REDIS_URL = <the key value connection URL>
+
+Without it every gunicorn worker caches separately and nothing survives a
+redeploy or a free-tier sleep, so upstream APIs get hit far more than they
+should. Required for CSRep (see above), and a large win for the Leetify and
+Steam tabs too.
+
 ## Nicknames tab
 
 Nickname history is built going forward — FaceitLens records each nickname it

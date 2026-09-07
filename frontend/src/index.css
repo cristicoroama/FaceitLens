@@ -1844,6 +1844,97 @@ a { color: inherit; }
 .leet-empty a { color: var(--accent); text-decoration: none; }
 
 /* ============================================================
+   CSRep reputation block
+   ============================================================ */
+.csrep-block { padding: 20px 24px; animation: riseIn 0.4s ease both; }
+.csrep-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.csrep-title { margin: 0; font-size: 18px; letter-spacing: 0.3px; }
+.csrep-sub { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+.csrep-h4 {
+  margin: 20px 0 10px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--text-dim);
+}
+
+/* An auto-flag is a probabilistic indicator, not a verdict. Styled as a
+   neutral notice rather than an alarm, and it carries the disclaimer as its
+   title — CSRep's terms forbid presenting these as proof of misconduct. */
+.csrep-autoflag {
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.6px; color: #eab308; cursor: help;
+  background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+/* The headline reputation figure. Deliberately unstyled by threshold — no
+   green-for-good, no red-for-bad. Colouring a probabilistic assessment into a
+   verdict is what CSRep's terms forbid, so the number is presented neutrally
+   and the disclaimer below it does the interpreting. */
+.csrep-hero {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 18px 22px; margin-bottom: 16px; border-radius: 14px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+}
+.csrep-hero-value { font-size: 40px; font-weight: 800; line-height: 1; }
+.csrep-hero-label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--text-dim);
+}
+
+.csrep-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.csrep-cell {
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+}
+.csrep-cell-value { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.csrep-cell-label {
+  margin-top: 4px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--text-dim);
+}
+.csrep-peak { text-transform: none; letter-spacing: 0; }
+
+.csrep-ban-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.csrep-ban {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 10px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+}
+.csrep-ban-type { font-weight: 700; font-size: 13px; }
+.csrep-src-csrep { color: #f97316; }
+.csrep-src-steam { color: #66c0f4; }
+.csrep-src-faceit { color: #ff5500; }
+.csrep-src-gamersclub { color: #22c55e; }
+.csrep-ban-src {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-dim); border: 1px solid var(--glass-brd);
+  border-radius: 999px; padding: 2px 8px;
+}
+.csrep-ban-reason { color: var(--text-dim); font-size: 13px; }
+.csrep-ban-date { margin-left: auto; color: var(--text-dim); font-size: 12px; }
+
+/* Required attribution (CSRep Developer API Terms §8): logo visible wherever
+   their data is shown, linking to the player's profile. The disclaimer sits
+   beside it and must not be hidden or obscured. */
+.csrep-attrib {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-brd);
+}
+.csrep-attrib .csrep-credit { display: inline-flex; line-height: 0; }
+.csrep-badge { height: 28px; width: auto; display: block; }
+.csrep-disclaimer {
+  margin: 0; flex: 1 1 260px; min-width: 220px;
+  color: var(--text-dim); font-size: 11px; line-height: 1.5;
+}
+
+.csrep-empty { padding: 24px; line-height: 1.6; }
+.csrep-empty-title { font-weight: 700; margin-bottom: 6px; }
+.csrep-empty p { color: var(--text-dim); margin: 10px 0; }
+
+/* ============================================================
    Real (demo) stats tab
    ============================================================ */
 .real-hero {
