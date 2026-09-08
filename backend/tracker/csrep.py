@@ -320,6 +320,32 @@ def _faceit_url(url: str | None) -> str | None:
     return url.replace("{lang}", "en")
 
 
+def _faceit_levels(ranks: dict) -> dict | None:
+    """FACEIT skill levels for the ELO figures CSRep reports.
+
+    CSRep gives `ranks.faceit` as ELO (3632), never as the 1-10 level, so the
+    level icon this site draws everywhere else has nothing to bind to. The
+    conversion is FACEIT's published ladder, and this project already owns the
+    canonical table in profiles.LEVEL_FLOORS — reused rather than copied, so
+    the two can never drift apart.
+
+    This is OUR derivation, not a CSRep signal: the ELO they sent stays
+    displayed verbatim beside it, and the level is only ever additional. §4
+    forbids rescaling their metrics; it does not forbid drawing the standard
+    ladder icon next to an untouched number.
+    """
+    fac = (ranks or {}).get("faceit") or {}
+    cur, peak = fac.get("current"), fac.get("peak")
+    if cur is None and peak is None:
+        return None
+
+    from .profiles import _level_for
+    return {
+        "current": _level_for(int(cur)) if cur is not None else None,
+        "peak": _level_for(int(peak)) if peak is not None else None,
+    }
+
+
 def _shape_user(p: dict) -> dict | None:
     """The CSRep account linked to this Steam profile, if the player has one.
 
@@ -410,6 +436,8 @@ def _shape_player(p: dict, steamid: str) -> dict:
 
         # Ladders, as {current, peak} per ladder key.
         "ranks": p.get("ranks") or {},
+        # Derived by us from the FACEIT ELO above — see _faceit_levels.
+        "faceit_level": _faceit_levels(p.get("ranks")),
 
         # Steam account context. Overlaps signals trust.py already derives
         # itself — kept for display only, never merged into our own score.

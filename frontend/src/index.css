@@ -2043,6 +2043,8 @@ a { color: inherit; }
   font-style: normal; font-size: 10px; text-transform: uppercase;
   letter-spacing: 1px; color: var(--text-dim);
 }
+/* The FACEIT cell is the level ring plus the untouched ELO figure. */
+.csrep-rank-faceit { display: inline-flex; align-items: center; gap: 8px; }
 .csrep-rank-num { font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
 .csrep-rank-num.dim { font-size: 13px; font-weight: 600; color: var(--text-dim); }
 .csrep-rank-none { color: var(--text-dim); }

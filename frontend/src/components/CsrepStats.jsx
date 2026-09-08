@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import csrepLogo from "../assets/csrep-logo.webp";
 import RingGauge from "./RingGauge.jsx";
 import PremierBadge from "./PremierBadge.jsx";
-import { CompRank, groupName } from "./RankIcons.jsx";
+import { CompRank, FaceitLevel, groupName } from "./RankIcons.jsx";
 import { MapIcon, mapLabel } from "../map-art.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -206,7 +206,7 @@ function Reputation({ reputation }) {
  * Eagle badge is readable at a glance.
  *
  * `dim` is the peak column, drawn smaller so current stays the headline. */
-function RankArt({ ladder, value, dim = false }) {
+function RankArt({ ladder, value, level, dim = false }) {
   if (value == null) return <span className="csrep-rank-none">—</span>;
 
   if (ladder === "premier") {
@@ -216,11 +216,25 @@ function RankArt({ ladder, value, dim = false }) {
   if (ladder === "wingman" || ladder === "competitive") {
     return <CompRank rank={value} height={dim ? 22 : 28} />;
   }
-  // FACEIT arrives from CSRep as ELO, not a 1-10 level, so there is no level
-  // icon to draw — rendering one would mean deriving a level they never sent.
+  // FACEIT arrives from CSRep as ELO, never as the 1-10 level the icon needs,
+  // so the backend derives the level from FACEIT's published ladder. The ELO
+  // stays printed beside the ring: the ring is our reading of their number,
+  // and their number is the one that must survive unchanged.
   return (
-    <span className={`csrep-rank-num${dim ? " dim" : ""}`}>
-      {Number(value).toLocaleString()}
+    <span
+      className="csrep-rank-faceit"
+      // FaceitLevel takes only `level` and `size`, so the explanation lives on
+      // the wrapper — the ring is a derivation and should say so on hover.
+      title={
+        level != null
+          ? `Level ${level}, derived from ${Number(value).toLocaleString()} ELO`
+          : undefined
+      }
+    >
+      {level != null && <FaceitLevel level={level} size={dim ? 22 : 30} />}
+      <span className={`csrep-rank-num${dim ? " dim" : ""}`}>
+        {Number(value).toLocaleString()}
+      </span>
     </span>
   );
 }
@@ -230,7 +244,7 @@ function RankArt({ ladder, value, dim = false }) {
  * The per-map competitive ranks get their own grid rather than more rows:
  * there can be a dozen of them, and in one list they bury FACEIT and Premier
  * under a wall of maps. */
-function Ranks({ entries }) {
+function Ranks({ entries, faceitLevel }) {
   if (!entries.length) return null;
 
   const maps = entries.filter(([k]) => k.startsWith("competitive:"));
@@ -248,13 +262,15 @@ function Ranks({ entries }) {
               <div className="csrep-ladder" key={k}>
                 <span className="csrep-ladder-name">{rankLabel(k)}</span>
                 <span className="csrep-ladder-cur">
-                  <RankArt ladder={ladder} value={r.current} />
+                  <RankArt ladder={ladder} value={r.current}
+                           level={faceitLevel?.current} />
                 </span>
                 <span className="csrep-ladder-peak">
                   {r.peak != null && (
                     <>
                       <em>peak</em>
-                      <RankArt ladder={ladder} value={r.peak} dim />
+                      <RankArt ladder={ladder} value={r.peak}
+                               level={faceitLevel?.peak} dim />
                     </>
                   )}
                 </span>
@@ -414,7 +430,7 @@ export function CsrepView({ data }) {
 
       <Reputation reputation={data.reputation} />
       <Bans bans={data.bans} />
-      <Ranks entries={ranks} />
+      <Ranks entries={ranks} faceitLevel={data.faceit_level} />
 
       <div className="csrep-cols">
 
