@@ -360,22 +360,26 @@ _EXPLICIT_FIELDS = {
     "faceit_id", "faceit_url", "faceit_latest_match_date",
     "gamersclub_id", "gamersclub_url", "cybershoke_registered_at",
     "refreshed_at", "created_at", "updated_at", "views", "user",
+    "search_context",
 }
 
 
 def _extra(p: dict) -> dict:
     """Fields the API returned that this module does not lay out by hand.
 
-    Only scalars are forwarded: an unrecognised nested object has no sensible
-    generic rendering, and guessing at one risks presenting a signal in a
-    shape its owner never intended (§4).
+    EVERYTHING unrecognised is forwarded, nested objects included. An earlier
+    version kept only scalars, on the reasoning that an unknown object has no
+    sensible generic rendering — and that silently ate `search_context`, a
+    real field the search endpoint returns and the spec never mentions.
+
+    Dropping data because the UI has no widget for it is the wrong trade: the
+    renderer can ignore what it cannot draw, but a caller cannot use what
+    never arrived. Presentation stays the UI's problem; this layer's job is
+    not to lose anything.
     """
     return {
-        k: v
-        for k, v in p.items()
-        if k not in _EXPLICIT_FIELDS
-        and v is not None
-        and isinstance(v, (str, int, float, bool))
+        k: v for k, v in p.items()
+        if k not in _EXPLICIT_FIELDS and v is not None
     }
 
 
@@ -426,6 +430,14 @@ def _shape_player(p: dict, steamid: str) -> dict:
         "gamersclub_id": p.get("gamersclub_id"),
         "gamersclub_url": p.get("gamersclub_url"),
         "cybershoke_registered_at": p.get("cybershoke_registered_at"),
+
+        # Search results carry this; profile lookups do not. Undocumented, but
+        # it is the field that makes a result interpretable: `in_scope` says
+        # whether the player is someone the searching player has actually
+        # crossed paths with, and `match_types` says WHY the row matched —
+        # ["vanity"] means the query hit their Steam vanity URL, not their
+        # name, which is why an unrelated account can answer a nickname search.
+        "search_context": p.get("search_context"),
 
         "user": _shape_user(p),
         "views": p.get("views"),
@@ -554,11 +566,12 @@ def _shape_match(m: dict) -> dict:
         "created_at": m.get("created_at"),
         "updated_at": m.get("updated_at"),
 
+        # Same rule as the player shaper: forward everything unrecognised,
+        # nested objects included, so an undocumented field cannot vanish
+        # between their API and our caller.
         "extra": {
             k: v for k, v in m.items()
-            if k not in _MATCH_EXPLICIT_FIELDS
-            and v is not None
-            and isinstance(v, (str, int, float, bool))
+            if k not in _MATCH_EXPLICIT_FIELDS and v is not None
         },
         "attribution": attribution(),
     }
