@@ -47,6 +47,7 @@ import time
 import requests
 from django.core.cache import cache
 
+from . import collectibles as _collectibles
 from .useragent import HEADERS as _UA
 
 BASE = "https://csrep.gg/api"
@@ -449,7 +450,11 @@ def _shape_player(p: dict, steamid: str) -> dict:
         "steam_created_at": p.get("steam_created_at"),
         "cs2_hours": p.get("cs2_hours"),
         "inventory_value": p.get("inventory_value"),
+        # Their ids, untouched. CSRep sends definition indexes and no table to
+        # read them with, so `medals_detail` carries our resolution of the same
+        # list — names and Valve's artwork — while this stays verbatim.
         "medals": p.get("medals") or [],
+        "medals_detail": _collectibles.resolve(p.get("medals") or []),
 
         # Other platforms CSRep has linked to this account.
         "faceit_id": p.get("faceit_id"),

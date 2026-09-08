@@ -643,12 +643,35 @@ def collectibles(request, nickname):
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
 
+    # Medals when Steam won't give them up.
+    #
+    # The inventory scrape returns nothing for a private profile, which is
+    # exactly when a visitor most wants to know what the account has. CSRep
+    # reports medals regardless of that setting, so it fills the hole — but
+    # only when there IS a hole: a public inventory already answered, and
+    # spending one of 5,000 monthly calls to re-answer it would be waste.
+    csrep_medals = None
+    has_steam_medals = bool(inventory.get("available") and inventory.get("medals"))
+    if not has_steam_medals:
+        try:
+            from . import csrep
+            found = csrep.get_player(steamid)
+            if found.get("available") and not found.get("restricted") and found.get("medals_detail"):
+                csrep_medals = {
+                    "medals": found["medals_detail"],
+                    # §8: their data, so their mark and disclaimer travel with it.
+                    "attribution": found.get("attribution"),
+                }
+        except Exception:
+            import traceback; traceback.print_exc()
+
     return JsonResponse({
         "nickname": summary.get("nickname"),
         "steamid": steamid,
         "steam_level": level,
         "inventory": inventory,
         "trust": trust_score,
+        "csrep_medals": csrep_medals,
     })
 
 

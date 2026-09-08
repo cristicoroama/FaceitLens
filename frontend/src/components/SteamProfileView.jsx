@@ -8,7 +8,7 @@ import { Flag } from "./RankIcons.jsx";
 import { SteamIcon } from "./BrandIcons.jsx";
 import { Icon } from "../icons.jsx";
 import { LeetifyView } from "./LeetifyStats.jsx";
-import { CsrepView } from "./CsrepStats.jsx";
+import { CsrepView, CsrepCredit } from "./CsrepStats.jsx";
 
 /** CSRep's current Premier rating.
  *
@@ -41,6 +41,11 @@ export default function SteamProfileView({ profile }) {
 
   const inv = profile.inventory;
   const hasInv = inv && inv.available;
+
+  const steamMedals = hasInv && inv.medals?.length ? inv.medals : null;
+  const csrepMedals = profile.csrep?.medals_detail?.length
+    ? profile.csrep.medals_detail
+    : null;
 
   const hasLeetify = !!profile.leetify?.available;
   const hasCsrep = !!profile.csrep?.available;
@@ -125,7 +130,18 @@ export default function SteamProfileView({ profile }) {
           <TrustScore trust={profile.trust} steamLevel={profile.steam_level} />
         </div>
         <div className="account-right">
-          {hasInv && inv.medals && inv.medals.length > 0 && <Medals medals={inv.medals} />}
+          {/* A private inventory hides the medals a visitor came to see.
+              CSRep reports them regardless, so they still render — credited,
+              because at that point they are CSRep's data, not Steam's. */}
+          {steamMedals ? (
+            <Medals medals={steamMedals} />
+          ) : csrepMedals ? (
+            <>
+              <Medals medals={csrepMedals} />
+              <CsrepCredit attribution={profile.csrep?.attribution}
+                           note="Medals via CSRep — this Steam inventory is private." />
+            </>
+          ) : null}
           <Inventory inventory={inv} />
         </div>
       </div>

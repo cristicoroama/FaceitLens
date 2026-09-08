@@ -2118,6 +2118,13 @@ a { color: inherit; }
   color: var(--text-dim); font-size: 11px; line-height: 1.5;
 }
 
+/* Credit for a page that borrows CSRep data without being the CSRep tab. */
+.csrep-credit-line {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 10px 0 4px; font-size: 11px; color: var(--text-dim); line-height: 1.5;
+}
+.csrep-credit-line img { height: 18px; width: auto; display: block; }
+
 .csrep-empty { padding: 24px; line-height: 1.6; }
 .csrep-empty-title { font-weight: 700; margin-bottom: 6px; }
 .csrep-empty p { color: var(--text-dim); margin: 10px 0; }

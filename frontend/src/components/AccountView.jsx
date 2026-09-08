@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import TrustScore from "./TrustScore.jsx";
 import Medals from "./Medals.jsx";
 import Inventory from "./Inventory.jsx";
+import { CsrepCredit } from "./CsrepStats.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -54,7 +55,18 @@ export default function AccountView({ nickname }) {
         <TrustScore trust={data.trust} steamLevel={data.steam_level} />
       </div>
       <div className="account-right">
-        {hasInv && inv.medals && inv.medals.length > 0 && <Medals medals={inv.medals} />}
+        {/* A private inventory hides the medals a visitor came to see.
+            CSRep reports them regardless, so the backend supplies them as a
+            fallback — credited, because at that point they are CSRep's data. */}
+        {hasInv && inv.medals && inv.medals.length > 0 ? (
+          <Medals medals={inv.medals} />
+        ) : data.csrep_medals ? (
+          <>
+            <Medals medals={data.csrep_medals.medals} />
+            <CsrepCredit attribution={data.csrep_medals.attribution}
+                         note="Medals via CSRep — this Steam inventory is private." />
+          </>
+        ) : null}
         <Inventory inventory={inv} onRetry={() => load(true)} retrying={retrying} />
       </div>
     </div>

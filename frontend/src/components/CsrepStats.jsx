@@ -4,6 +4,7 @@ import RingGauge from "./RingGauge.jsx";
 import PremierBadge from "./PremierBadge.jsx";
 import { CompRank, FaceitLevel, groupName } from "./RankIcons.jsx";
 import { MapIcon, mapLabel } from "../map-art.jsx";
+import Medals from "./Medals.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -92,6 +93,22 @@ function scalar(v) {
  *
  *  Both come from the backend (`data.attribution`), so the compliance surface
  *  has a single owner rather than being retyped in the markup. */
+/** A one-line CSRep credit, for pages that borrow a slice of their data
+ *  rather than rendering the whole tab — the medal grid on a profile whose
+ *  Steam inventory is private, for instance. §8 applies to any surface their
+ *  data reaches, not only to this component. */
+export function CsrepCredit({ attribution, note }) {
+  if (!attribution) return null;
+  return (
+    <div className="csrep-credit-line">
+      <a href={attribution.href} target="_blank" rel="noopener noreferrer">
+        <img src={csrepLogo} alt="Data provided by CSRep" />
+      </a>
+      <span>{note || attribution.disclaimer}</span>
+    </div>
+  );
+}
+
 function Attribution({ attribution }) {
   if (!attribution) return null;
   return (
@@ -447,9 +464,9 @@ export function CsrepView({ data }) {
           <Row label="Created" value={fmtDate(data.steam_created_at)} />
           <Row label="Visibility" value={STEAM_PRIVACY[data.steam_privacy]} />
           <Row label="Status" value={steamStatus} detail={data.steam_active_game} />
-          <Row label="Medals"
-               value={data.medals?.length ? data.medals.length : null}
-               title={data.medals?.join(", ")} />
+          {/* Only the count here — the medals themselves get their own grid
+              below, with Valve's artwork instead of definition indexes. */}
+          <Row label="Medals" value={data.medals?.length || null} />
           <Row label="Last FACEIT Match" value={fmtDate(data.faceit_latest_match_date)} />
           <Row label="Cybershoke Since" value={fmtDate(data.cybershoke_registered_at)} />
         </Group>
@@ -480,6 +497,11 @@ export function CsrepView({ data }) {
           </Group>
         )}
       </div>
+
+      {/* CSRep sends medals as bare definition indexes; the backend resolves
+          them to Valve's names and artwork. Same component the Steam-first
+          profile uses, so a medal looks the same wherever it appears. */}
+      {!!data.medals_detail?.length && <Medals medals={data.medals_detail} />}
 
       <Platforms data={data} />
 
