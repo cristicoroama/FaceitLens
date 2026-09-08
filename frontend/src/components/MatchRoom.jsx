@@ -3,8 +3,55 @@ import { FaceitLevel, Flag } from "./RankIcons.jsx";
 import { ResultChip } from "./FormStrip.jsx";
 import { mapKey, mapLabel, MapIcon } from "../map-art.jsx";
 import { Icon } from "../icons.jsx";
+import csrepLogo from "../assets/csrep-logo.webp";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
+
+/* CSRep reputation for one player in the room.
+ *
+ * This is the point of the integration: on a profile a trust score is a
+ * curiosity, in a lobby it answers "who am I about to play with". The whole
+ * roster costs a single upstream request.
+ *
+ * CSRep's terms shape what this may look like. §8 wants their mark visible
+ * wherever their data appears, linking to that player's profile — hence the
+ * logo inside each chip rather than one credit at the bottom. §4 forbids
+ * dressing a probabilistic signal as a verdict, so the score is never
+ * coloured by threshold and the disclaimer rides along as the tooltip. */
+function CsrepBadge({ c, disclaimer }) {
+  if (!c) return null;
+
+  if (c.restricted) {
+    return (
+      <a className="mr-csrep" href={c.profile_url} target="_blank"
+         rel="noopener noreferrer" title="This CSRep profile is restricted">
+        <img src={csrepLogo} className="mr-csrep-mark" alt="CSRep" />
+        <span className="mr-csrep-val">—</span>
+      </a>
+    );
+  }
+
+  const bans = c.bans || [];
+  return (
+    <a className="mr-csrep" href={c.profile_url} target="_blank"
+       rel="noopener noreferrer" title={disclaimer || undefined}>
+      <img src={csrepLogo} className="mr-csrep-mark" alt="CSRep" />
+      {c.trust_score != null && (
+        <span className="mr-csrep-val">
+          {Number.isInteger(c.trust_score)
+            ? c.trust_score
+            : Math.round(c.trust_score * 10) / 10}
+        </span>
+      )}
+      {c.autoflag && <span className="mr-csrep-flag">flagged</span>}
+      {bans.map((b, i) => (
+        <span className="mr-csrep-ban" key={i} title={b.reason || undefined}>
+          {String(b.type || "").replace(/_/g, " ").toLowerCase()}
+        </span>
+      ))}
+    </a>
+  );
+}
 
 /* Maps we ship art for, mirrored from map-art.jsx.
  *
@@ -85,7 +132,7 @@ function kdTone(kd) {
   return null;
 }
 
-function PlayerRow({ p, onPick, top }) {
+function PlayerRow({ p, onPick, top, disclaimer }) {
   const r = p.recent;
   const trend = r?.kd_trend;
 
@@ -128,6 +175,7 @@ function PlayerRow({ p, onPick, top }) {
           <div className="mr-p-sub">
             <FaceitLevel level={p.level || 1} size={18} />
             {r?.form && <span className="mr-p-form">{r.form} last 10</span>}
+            <CsrepBadge c={p.csrep} disclaimer={disclaimer} />
           </div>
         </div>
 
@@ -603,7 +651,7 @@ function TeamAgg({ team }) {
   );
 }
 
-function Team({ team, onPick, side, topElo }) {
+function Team({ team, onPick, side, topElo, disclaimer }) {
   return (
     <div className={`mr-team ${side}`}>
       <div className="mr-team-head">
@@ -621,6 +669,7 @@ function Team({ team, onPick, side, topElo }) {
             p={p}
             onPick={onPick}
             top={topElo != null && p.elo === topElo}
+            disclaimer={disclaimer}
             key={p.player_id || i}
           />
         ))}
@@ -915,9 +964,11 @@ export default function MatchRoom({ onPick }) {
           ) : (
             <>
               <div className="mr-grid">
-                <Team team={data.team1} onPick={onPick} side="a" topElo={topElo} />
+                <Team team={data.team1} onPick={onPick} side="a" topElo={topElo}
+                      disclaimer={data.csrep?.attribution?.disclaimer} />
                 <div className="mr-vs">VS</div>
-                <Team team={data.team2} onPick={onPick} side="b" topElo={topElo} />
+                <Team team={data.team2} onPick={onPick} side="b" topElo={topElo}
+                      disclaimer={data.csrep?.attribution?.disclaimer} />
               </div>
               <div className="hltv-note">
                 Averages cover each player's last 30 matches; the chips are their
@@ -925,6 +976,15 @@ export default function MatchRoom({ onPick }) {
                 estimate from average team ELO alone — it doesn't know the map,
                 the roles or who is playing on a stand-in. Treat it as a scout,
                 not a lock.
+                {data.csrep?.available && data.csrep.attribution && (
+                  <div className="mr-csrep-note">
+                    <a href={data.csrep.attribution.href} target="_blank"
+                       rel="noopener noreferrer">
+                      <img src={csrepLogo} alt="Data provided by CSRep" />
+                    </a>
+                    <span>{data.csrep.attribution.disclaimer}</span>
+                  </div>
+                )}
               </div>
             </>
           )}

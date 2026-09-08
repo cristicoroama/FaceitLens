@@ -577,6 +577,74 @@ def _shape_match(m: dict) -> dict:
     }
 
 
+def roster_summary(p: dict) -> dict:
+    """The compact form of a player, for a scoreboard row.
+
+    A match room shows ten players at once; the full 31-field profile per row
+    would be noise nobody reads. This keeps only what changes a decision about
+    the person sitting in the lobby with you: their trust score, whether CSRep
+    auto-flagged them, and the bans CSRep itself issued — Overwatch verdicts
+    and behavioural categories like SMURFING or BAN_EVASION, which no other
+    source in this project can see.
+
+    Steam and FACEIT bans are dropped here on purpose: the site already shows
+    those from their own sources, and repeating them under a CSRep logo would
+    credit CSRep for data that is not theirs.
+    """
+    if p.get("restricted"):
+        return {"restricted": True, "profile_url": profile_url(p.get("id") or "")}
+
+    rep = p.get("reputation") or {}
+    own_bans = [
+        {"type": b.get("type"), "reason": b.get("reason")}
+        for b in (p.get("bans") or [])
+        if b.get("source") == "CSREP"
+    ]
+    return {
+        "restricted": False,
+        "trust_score": rep.get("trust_score"),
+        "autoflag": bool(p.get("autoflag")),
+        "bans": own_bans,
+        "profile_url": profile_url(p.get("id") or ""),
+    }
+
+
+def annotate_roster(players: list) -> dict:
+    """Attach CSRep reputation to a list of players, in ONE request.
+
+    `players` is mutated in place: each entry carrying a `steam_id` gains a
+    `csrep` key. Entries CSRep has never seen simply do not get one, so the
+    caller renders them exactly as before.
+
+    This is the whole reason the batch endpoint exists for us. A ten-player
+    room costs a single call against a 5,000/month allowance; looping
+    get_player would cost ten and exhaust the month in a fortnight of normal
+    traffic.
+
+    Never raises: a match room that already loaded must not fail because a
+    third party is down, so every failure path returns availability info and
+    leaves the roster untouched.
+    """
+    ids = [str(p["steam_id"]) for p in players if p.get("steam_id")]
+    if not ids:
+        return {"available": False, "reason": "no steamids"}
+
+    try:
+        res = get_players(ids)
+    except Exception:
+        return {"available": False, "reason": "error"}
+    if not res.get("available"):
+        return res
+
+    found = res.get("players") or {}
+    for p in players:
+        row = found.get(str(p.get("steam_id") or ""))
+        if row:
+            p["csrep"] = roster_summary(row)
+
+    return {"available": True, "count": len(found), "attribution": attribution()}
+
+
 def get_faceit_match(match_id: str) -> dict:
     """CSRep's record of a FACEIT match, by the FACEIT match id we already hold.
 

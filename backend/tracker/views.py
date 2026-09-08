@@ -457,6 +457,26 @@ def match_room(request):
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    # Reputation for the whole room in ONE upstream request.
+    #
+    # This is where CSRep's data actually changes a decision: on a profile a
+    # trust score is a curiosity, but in a lobby the question is who you are
+    # about to play with. Best-effort by design — the room has already been
+    # built, and a third party being down or out of quota must not turn a
+    # working page into an error.
+    try:
+        from . import csrep
+        roster = [
+            p
+            for key in ("team1", "team2")
+            for p in (data.get(key) or {}).get("players") or []
+        ]
+        data["csrep"] = csrep.annotate_roster(roster)
+    except Exception:
+        import traceback; traceback.print_exc()
+        data["csrep"] = {"available": False, "reason": "error"}
+
     return JsonResponse(data)
 
 
@@ -644,7 +664,7 @@ def steam_profile(request):
     if not raw:
         return JsonResponse({"error": "Provide ?id=<steamid64 / profile url / vanity>."}, status=400)
 
-    from . import steam, trust as trust_mod, leetify
+    from . import steam, trust as trust_mod, leetify, csrep
     steamid = steam.resolve_steamid(raw)
     if not steamid:
         return JsonResponse({
@@ -660,6 +680,17 @@ def steam_profile(request):
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+    # The second opinion. Leetify and CSRep cover this page from opposite
+    # directions — demo-derived skill versus reputation — and a Steam-first
+    # visitor has no FACEIT tab to fall back on, so both ship and the UI lets
+    # them choose. Best-effort: a page that already resolved must not fail
+    # because a third party is down or the monthly allowance ran out.
+    try:
+        csrep_data = csrep.get_player(steamid)
+    except Exception:
+        import traceback; traceback.print_exc()
+        csrep_data = {"available": False, "reason": "error"}
 
     # Linked FACEIT account (optional — this page must work without one).
     faceit_nick = None
@@ -699,6 +730,7 @@ def steam_profile(request):
         "steam_level": level,
         "inventory": inventory,
         "leetify": leet,
+        "csrep": csrep_data,
         "trust": trust_mod.compute_trust(signals),
         "faceit_nickname": faceit_nick,
     })

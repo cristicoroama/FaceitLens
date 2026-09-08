@@ -1561,21 +1561,32 @@ def _extract_match_id(raw):
 
 
 def _player_elo_level(player_id):
-    """Current CS2 ELO + skill level for one player (cached 5 min)."""
-    ck = f"pel:{player_id}"
+    """Current CS2 ELO + skill level for one player (cached 5 min).
+
+    Also returns the player's SteamID64, which rides along in the same
+    response: FACEIT stores it as `games.cs2.game_player_id`. Nothing extra is
+    fetched for it, and it is what lets a match room be looked up against
+    Steam-keyed sources in one batch instead of ten round-trips.
+    """
+    # Versioned: entries cached before steam_id was added lack the key, and a
+    # room scouted inside the 5-minute window would silently miss half its
+    # roster. Same reason get_match_detail carries a v2 key.
+    ck = f"pel:v2:{player_id}"
     hit = cache.get(ck)
     if hit is not None:
         return hit
     try:
         p = _get(f"/players/{player_id}")
     except FaceitError:
-        return {"elo": None, "level": None, "country": None, "avatar": None}
+        return {"elo": None, "level": None, "country": None, "avatar": None,
+                "steam_id": None}
     cs2 = (p.get("games", {}) or {}).get("cs2", {}) or {}
     out = {
         "elo": cs2.get("faceit_elo"),
         "level": cs2.get("skill_level"),
         "country": p.get("country"),
         "avatar": p.get("avatar") or None,
+        "steam_id": cs2.get("game_player_id") or None,
     }
     cache.set(ck, out, 300)
     return out
@@ -1810,6 +1821,8 @@ def get_match_room(raw):
             info = elo_by_id.get(pid) or {}
             players.append({
                 "player_id": pid,
+                # Both rosters carry it, so prefer whichever source has it.
+                "steam_id": info.get("steam_id") or r.get("game_player_id") or None,
                 "nickname": r.get("nickname"),
                 "elo": info.get("elo"),
                 "level": info.get("level") or r.get("game_skill_level"),
