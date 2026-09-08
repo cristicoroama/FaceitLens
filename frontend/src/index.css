@@ -2010,58 +2010,61 @@ a { color: inherit; }
   border-bottom: 1px solid var(--glass-brd); font-size: 13px;
 }
 .csrep-row:last-child { border-bottom: none; }
-.csrep-row-label { flex: 1; color: var(--text); }
+.csrep-row-label { flex: 1; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.csrep-row-label svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.75; }
 .csrep-row-detail { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 .csrep-row-val { font-family: var(--font-mono); font-weight: 700; }
 
 /* --- ranks ------------------------------------------------------------
-   Full width rather than a column in the grid: the artwork needs the room,
-   and a player can carry a dozen per-map ranks. */
+   A mode table, matching how CSRep presents the same data: every mode they
+   track gets a row whether or not the player has a rating in it. Filtering
+   the unranked ones out made a player look like they owned three maps and
+   one season, when the data says twenty-one modes exist and six carry a
+   rating. An empty cell is an answer; a missing row is a misreading. */
 .csrep-ranks {
   padding: 14px 16px; margin-bottom: 16px; border-radius: 12px;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
 }
-.csrep-sub-head {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px;
-  color: var(--text-dim); font-weight: 600; margin: 16px 0 10px;
+.csrep-rank-table { display: grid; }
+.csrep-rank-head,
+.csrep-rank-row {
+  display: grid; align-items: center; gap: 10px;
+  grid-template-columns: minmax(120px, 1fr) minmax(84px, auto) minmax(84px, auto);
+}
+.csrep-rank-head {
+  padding: 4px 0 8px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.csrep-rank-head span:not(:first-child),
+.csrep-rank-cell { justify-self: end; }
+.csrep-rank-row { padding: 6px 0; border-top: 1px solid var(--glass-brd); }
+.csrep-rank-mode {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text); min-width: 0;
+}
+.csrep-rank-mode > svg,
+.csrep-rank-mode > img { width: 16px; height: 16px; flex-shrink: 0; }
+.csrep-rank-cell { display: flex; align-items: center; }
+
+/* A Premier season marker. Valve's own season art is a rating coin — one per
+   bracket — so there is no neutral "season 4" image to borrow, and showing
+   the top coin for everyone would claim a rank they may not hold. */
+.csrep-season {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  font-size: 9px; font-weight: 700; font-family: var(--font-mono);
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.07); border: 1px solid var(--glass-brd);
 }
 
-.csrep-ladders { display: grid; gap: 2px; }
-.csrep-ladder {
-  display: grid; align-items: center; gap: 12px;
-  grid-template-columns: minmax(110px, 1fr) auto minmax(90px, auto);
-  padding: 8px 0; border-bottom: 1px solid var(--glass-brd);
+.csrep-rank-empty {
+  font-family: var(--font-mono); color: var(--text-dim); opacity: 0.5;
+  padding: 0 10px;
 }
-.csrep-ladder:last-child { border-bottom: none; }
-.csrep-ladder-name { font-size: 13px; color: var(--text); }
-.csrep-ladder-cur { display: flex; justify-content: flex-end; }
-.csrep-ladder-peak {
-  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-  opacity: 0.65;
-}
-.csrep-ladder-peak em {
-  font-style: normal; font-size: 10px; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-dim);
-}
-/* The FACEIT cell is the level ring plus the untouched ELO figure. */
 .csrep-rank-faceit { display: inline-flex; align-items: center; gap: 8px; }
 .csrep-rank-num { font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
 .csrep-rank-num.dim { font-size: 13px; font-weight: 600; color: var(--text-dim); }
-.csrep-rank-none { color: var(--text-dim); }
-
-.csrep-maps {
-  display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-}
-.csrep-map {
-  display: grid; justify-items: center; gap: 6px; padding: 10px 6px;
-  border-radius: 10px; background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-brd);
-}
-.csrep-map-name {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: var(--text-dim); text-align: center;
-}
 
 /* --- bans ------------------------------------------------------------ */
 .csrep-bans { margin-bottom: 16px; }
@@ -2087,11 +2090,13 @@ a { color: inherit; }
 /* --- outbound links -------------------------------------------------- */
 .csrep-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .csrep-chip {
-  display: inline-flex; align-items: center; padding: 7px 14px;
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
   border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none;
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
   color: var(--text); transition: border-color 0.15s ease, background 0.15s ease;
 }
+/* Marks are currentColor, so each takes its chip's brand colour. */
+.csrep-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
 .csrep-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .csrep-chip-faceit { color: #ff5500; border-color: rgba(255, 85, 0, 0.4); }
 .csrep-chip-gamersclub { color: #22c55e; border-color: rgba(34, 197, 94, 0.4); }

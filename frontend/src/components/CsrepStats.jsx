@@ -5,6 +5,8 @@ import PremierBadge from "./PremierBadge.jsx";
 import { CompRank, FaceitLevel, groupName } from "./RankIcons.jsx";
 import { MapIcon, mapLabel } from "../map-art.jsx";
 import Medals from "./Medals.jsx";
+import { FaceitIcon, SteamIcon, GamersClubIcon, CybershokeIcon } from "./BrandIcons.jsx";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -224,14 +226,23 @@ function Reputation({ reputation }) {
  *
  * `dim` is the peak column, drawn smaller so current stays the headline. */
 function RankArt({ ladder, value, level, dim = false }) {
-  if (value == null) return <span className="csrep-rank-none">—</span>;
+  // An unranked mode gets a plate, not a blank: the row exists to say the
+  // mode exists and carries no rating, and an empty cell reads as a rendering
+  // fault rather than as an answer.
+  if (value == null) {
+    return <span className="csrep-rank-empty" aria-label="No rank">—</span>;
+  }
 
   if (ladder === "premier") {
     return <PremierBadge rating={value} height={dim ? 22 : 30} />;
   }
   // Wingman and per-map competitive share Valve's 0-18 skill-group scale.
   if (ladder === "wingman" || ladder === "competitive") {
-    return <CompRank rank={value} height={dim ? 22 : 28} />;
+    return (
+      <span title={groupName(value)}>
+        <CompRank rank={value} height={dim ? 22 : 28} />
+      </span>
+    );
   }
   // FACEIT arrives from CSRep as ELO, never as the 1-10 level the icon needs,
   // so the backend derives the level from FACEIT's published ladder. The ELO
@@ -256,67 +267,96 @@ function RankArt({ ladder, value, level, dim = false }) {
   );
 }
 
-/** Ranks per ladder, as {current, peak}.
+/** A Premier season marker.
  *
- * The per-map competitive ranks get their own grid rather than more rows:
- * there can be a dozen of them, and in one list they bury FACEIT and Premier
- * under a wall of maps. */
+ * Valve's own season art is a RATING COIN — the dataset carries 36 per season,
+ * one per bracket — so there is no neutral "season 4" image to borrow, and
+ * showing the top coin for every player would claim a rank they may not hold.
+ * A numbered disc says which season the row is, which is all the label needs.
+ */
+function SeasonBadge({ n }) {
+  return (
+    <span className="csrep-season" aria-hidden="true">{n}</span>
+  );
+}
+
+/** The icon for a mode row: FACEIT's mark, a season disc, a map icon, or a
+ *  neutral glyph for Wingman, which this project ships no artwork for. */
+function ModeIcon({ ladder, detail }) {
+  if (ladder === "faceit") return <FaceitIcon size={15} />;
+  if (ladder === "premier") {
+    return <SeasonBadge n={String(detail || "").replace(/\D+/g, "") || "?"} />;
+  }
+  if (ladder === "wingman") return Icon.people;
+  if (ladder === "competitive") return <MapIcon map={detail} size={16} />;
+  return null;
+}
+
+function modeLabel(ladder, detail) {
+  if (ladder === "premier") {
+    const n = String(detail || "").replace(/\D+/g, "");
+    return n ? `Season ${n}` : "Premier";
+  }
+  if (ladder === "competitive") {
+    return mapLabel(detail) || detail.replace(/^(de|cs)_/, "");
+  }
+  return BRAND[ladder] || humanise(ladder);
+}
+
+/** Every mode CSRep knows about, ranked or not.
+ *
+ * The unranked rows are kept deliberately. Filtering them out left a player
+ * looking like they had three maps and one season, when what the data
+ * actually says is "twenty-one modes exist and you have a rating in six" —
+ * and CSRep's own profile page shows the full list for the same reason. An
+ * empty cell is information; a missing row is a misreading.
+ *
+ * Order matches theirs: FACEIT, then Premier newest season first, Wingman,
+ * then the competitive maps.
+ */
+const LADDER_ORDER = { faceit: 0, premier: 1, wingman: 2, competitive: 3 };
+
 function Ranks({ entries, faceitLevel }) {
   if (!entries.length) return null;
 
-  const maps = entries.filter(([k]) => k.startsWith("competitive:"));
-  const ladders = entries.filter(([k]) => !k.startsWith("competitive:"));
+  const rows = entries
+    .map(([k, r]) => {
+      const [ladder, detail = ""] = k.split(":");
+      return { key: k, ladder, detail, r };
+    })
+    .sort((a, b) => {
+      const g = (LADDER_ORDER[a.ladder] ?? 9) - (LADDER_ORDER[b.ladder] ?? 9);
+      if (g) return g;
+      if (a.ladder === "premier") {
+        // Newest season first, numerically — "season10" must beat "season9".
+        return (parseInt(b.detail.replace(/\D+/g, ""), 10) || 0)
+             - (parseInt(a.detail.replace(/\D+/g, ""), 10) || 0);
+      }
+      return modeLabel(a.ladder, a.detail).localeCompare(modeLabel(b.ladder, b.detail));
+    });
 
   return (
     <div className="csrep-ranks">
       <div className="csrep-group-head">Ranks</div>
-
-      {!!ladders.length && (
-        <div className="csrep-ladders">
-          {ladders.map(([k, r]) => {
-            const ladder = k.split(":")[0];
-            return (
-              <div className="csrep-ladder" key={k}>
-                <span className="csrep-ladder-name">{rankLabel(k)}</span>
-                <span className="csrep-ladder-cur">
-                  <RankArt ladder={ladder} value={r.current}
-                           level={faceitLevel?.current} />
-                </span>
-                <span className="csrep-ladder-peak">
-                  {r.peak != null && (
-                    <>
-                      <em>peak</em>
-                      <RankArt ladder={ladder} value={r.peak}
-                               level={faceitLevel?.peak} dim />
-                    </>
-                  )}
-                </span>
-              </div>
-            );
-          })}
+      <div className="csrep-rank-table">
+        <div className="csrep-rank-head">
+          <span>Mode</span><span>Current</span><span>Peak</span>
         </div>
-      )}
-
-      {!!maps.length && (
-        <>
-          <div className="csrep-sub-head">Competitive per map</div>
-          <div className="csrep-maps">
-            {maps.map(([k, r]) => {
-              const map = k.split(":")[1] || "";
-              const rank = r.current ?? r.peak;
-              return (
-                <div className="csrep-map" key={k} title={groupName(rank)}>
-                  <CompRank rank={rank} height={26} />
-                  <div className="csrep-map-name">
-                    <MapIcon map={map} size={14} />
-                    {mapLabel(map) || map.replace(/^(de|cs)_/, "")}
-                  </div>
-                </div>
-              );
-            })}
+        {rows.map(({ key, ladder, detail, r }) => (
+          <div className="csrep-rank-row" key={key}>
+            <span className="csrep-rank-mode">
+              <ModeIcon ladder={ladder} detail={detail} />
+              {modeLabel(ladder, detail)}
+            </span>
+            <span className="csrep-rank-cell">
+              <RankArt ladder={ladder} value={r.current} level={faceitLevel?.current} />
+            </span>
+            <span className="csrep-rank-cell">
+              <RankArt ladder={ladder} value={r.peak} level={faceitLevel?.peak} dim />
+            </span>
           </div>
-        </>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
@@ -350,20 +390,24 @@ function Bans({ bans }) {
 
 /** Outbound links as chips, matching the profile sidebar's social buttons.
  *  The platform id lives in the tooltip: it identifies the account for anyone
- *  debugging, and means nothing to a visitor reading the page. */
+ *  debugging, and means nothing to a visitor reading the page.
+ *
+ *  Every mark here is drawn with currentColor, so each icon takes its chip's
+ *  brand colour instead of shipping its own. */
 function Platforms({ data }) {
   const links = [
-    ["FACEIT", data.faceit_url, data.faceit_id, "faceit"],
-    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub"],
-    ["Steam", data.steam_vanity_url, data.id, "steam"],
+    ["FACEIT", data.faceit_url, data.faceit_id, "faceit", <FaceitIcon size={14} />],
+    ["Gamers Club", data.gamersclub_url, data.gamersclub_id, "gamersclub", <GamersClubIcon size={14} />],
+    ["Steam", data.steam_vanity_url, data.id, "steam", <SteamIcon size={14} />],
   ].filter(([, url]) => url);
   if (!links.length) return null;
 
   return (
     <div className="csrep-chips">
-      {links.map(([name, url, id, key]) => (
+      {links.map(([name, url, id, key, icon]) => (
         <a key={name} href={url} target="_blank" rel="noopener noreferrer"
            className={`csrep-chip csrep-chip-${key}`} title={id || undefined}>
+          {icon}
           {name}
         </a>
       ))}
@@ -408,12 +452,9 @@ export function CsrepView({ data }) {
     );
   }
 
-  const ranks = Object.entries(data.ranks || {})
-    .filter(([, r]) => r && (r.current != null || r.peak != null))
-    .sort((a, b) => {
-      const tail = (k) => (k.startsWith("competitive:") ? 1 : 0);
-      return tail(a[0]) - tail(b[0]) || a[0].localeCompare(b[0]);
-    });
+  // Unranked modes included — see Ranks. Sorting happens there, next to the
+  // ordering rules it belongs with.
+  const ranks = Object.entries(data.ranks || {}).filter(([, r]) => r);
 
   const commendations = Object.entries(data.commendations || {})
     .filter(([, v]) => typeof v === "number");
@@ -468,7 +509,10 @@ export function CsrepView({ data }) {
               below, with Valve's artwork instead of definition indexes. */}
           <Row label="Medals" value={data.medals?.length || null} />
           <Row label="Last FACEIT Match" value={fmtDate(data.faceit_latest_match_date)} />
-          <Row label="Cybershoke Since" value={fmtDate(data.cybershoke_registered_at)} />
+          <Row
+            label={<><CybershokeIcon size={13} /> Cybershoke Since</>}
+            value={fmtDate(data.cybershoke_registered_at)}
+          />
         </Group>
 
         {data.user && (

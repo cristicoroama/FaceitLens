@@ -37,6 +37,36 @@ export function FaceitIcon({ size = 16 }) {
   );
 }
 
+/* Gamers Club's mark. Their own SVG uses <defs> + <use> and two brand colours;
+   inlined here as plain paths under the same transform, monochrome and driven
+   by currentColor for the reason TwitchIcon gives above — a link colours it
+   like every other platform instead of dropping a second blue into a page
+   that reserves colour for meaning. Unique-id collisions from <defs> go away
+   with it. */
+export function GamersClubIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 37 37" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <g transform="translate(-393 -425)">
+        <path d="M427 432.88l-6.16 4.24a11.2 11.2 0 0 0-9.15-4.7 11.13 11.13 0 0 0-11.19 11.07c0 2.33.73 4.49 1.98 6.27l-6.16 4.24a18.24 18.24 0 0 1-3.32-10.51A18.6 18.6 0 0 1 411.7 425c6.32 0 11.92 3.11 15.3 7.88" />
+        <path d="M428.6 436l-16.78 11.9h9.77a11.03 11.03 0 0 1-10.04 6.55c-2.3 0-4.45-.72-6.22-1.95l-6.33 4.48a18.2 18.2 0 0 0 12.55 5.02c10.19 0 18.45-8.42 18.45-18.8 0-2.55-.5-4.98-1.4-7.2" />
+      </g>
+    </svg>
+  );
+}
+
+/* Cybershoke's mark, same monochrome treatment. Their original splits the
+   glyph across white and a brand-variable fill; both become currentColor. */
+export function CybershokeIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 96 96" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M46.1699 69.6772V78.586L38.4195 74.106V74.0996L30.7651 69.6644L26.9379 67.4436L22.9635 65.146L20.6851 63.8212V32.1924L26.9635 28.5572L46.1507 17.4404V26.426L34.7523 33.0628L28.4099 36.7556V59.386L30.7651 60.7556L46.1699 69.6772Z" />
+      <path d="M87.1106 25.5169L87.085 70.5409L48.5378 92.7937L48.0898 93.0497L38.4258 87.4753L38.4194 78.5409L47.9234 84.0257L48.1026 84.1281L51.9298 81.9137L52.5186 81.5745L79.3794 66.0545L79.3986 29.9969L71.6994 25.5489L61.6066 19.7185L61.5938 11.4113V11.2961V10.7969L75.2962 18.7009L87.1106 25.5169Z" />
+      <path d="M57.7731 8.57006V17.5109L54.2979 15.5077L48.0899 11.9301L16.8451 30.0229L16.8387 66.0549L22.9635 69.6069L30.7587 74.1253L34.5987 76.3461L34.6115 85.3253L22.9571 78.5797L9.03076 70.5285L9.06276 25.5237L48.0835 2.98926L57.7731 8.57006Z" />
+      <path d="M57.7732 30.9505V44.1537L75.5076 44.1921V63.8657L50.0164 78.5793L50.0356 69.6449L67.7892 59.3793L67.7572 51.8849L50.0164 51.8977V17.4209L75.5076 32.2241V41.2353L57.7732 30.9505Z" />
+    </svg>
+  );
+}
+
 export function DiscordIcon({ size = 16 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
