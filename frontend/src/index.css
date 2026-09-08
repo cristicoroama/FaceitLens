@@ -2014,6 +2014,53 @@ a { color: inherit; }
 .csrep-row-detail { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
 .csrep-row-val { font-family: var(--font-mono); font-weight: 700; }
 
+/* --- ranks ------------------------------------------------------------
+   Full width rather than a column in the grid: the artwork needs the room,
+   and a player can carry a dozen per-map ranks. */
+.csrep-ranks {
+  padding: 14px 16px; margin-bottom: 16px; border-radius: 12px;
+  background: var(--glass-bg); border: 1px solid var(--glass-brd);
+}
+.csrep-sub-head {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px;
+  color: var(--text-dim); font-weight: 600; margin: 16px 0 10px;
+}
+
+.csrep-ladders { display: grid; gap: 2px; }
+.csrep-ladder {
+  display: grid; align-items: center; gap: 12px;
+  grid-template-columns: minmax(110px, 1fr) auto minmax(90px, auto);
+  padding: 8px 0; border-bottom: 1px solid var(--glass-brd);
+}
+.csrep-ladder:last-child { border-bottom: none; }
+.csrep-ladder-name { font-size: 13px; color: var(--text); }
+.csrep-ladder-cur { display: flex; justify-content: flex-end; }
+.csrep-ladder-peak {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  opacity: 0.65;
+}
+.csrep-ladder-peak em {
+  font-style: normal; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim);
+}
+.csrep-rank-num { font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
+.csrep-rank-num.dim { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.csrep-rank-none { color: var(--text-dim); }
+
+.csrep-maps {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.csrep-map {
+  display: grid; justify-items: center; gap: 6px; padding: 10px 6px;
+  border-radius: 10px; background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-brd);
+}
+.csrep-map-name {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-dim); text-align: center;
+}
+
 /* --- bans ------------------------------------------------------------ */
 .csrep-bans { margin-bottom: 16px; }
 .csrep-ban-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

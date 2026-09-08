@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import csrepLogo from "../assets/csrep-logo.webp";
 import RingGauge from "./RingGauge.jsx";
+import PremierBadge from "./PremierBadge.jsx";
+import { CompRank, groupName } from "./RankIcons.jsx";
+import { MapIcon, mapLabel } from "../map-art.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -195,6 +198,96 @@ function Reputation({ reputation }) {
   );
 }
 
+/** One rank value, drawn the way the game draws it.
+ *
+ * The project already ships the artwork for every ladder here — the Premier
+ * plate, Valve's own skill-group images, the map icons — so a rank has no
+ * business rendering as a bare integer. "17" says nothing; the Legendary
+ * Eagle badge is readable at a glance.
+ *
+ * `dim` is the peak column, drawn smaller so current stays the headline. */
+function RankArt({ ladder, value, dim = false }) {
+  if (value == null) return <span className="csrep-rank-none">—</span>;
+
+  if (ladder === "premier") {
+    return <PremierBadge rating={value} height={dim ? 22 : 30} />;
+  }
+  // Wingman and per-map competitive share Valve's 0-18 skill-group scale.
+  if (ladder === "wingman" || ladder === "competitive") {
+    return <CompRank rank={value} height={dim ? 22 : 28} />;
+  }
+  // FACEIT arrives from CSRep as ELO, not a 1-10 level, so there is no level
+  // icon to draw — rendering one would mean deriving a level they never sent.
+  return (
+    <span className={`csrep-rank-num${dim ? " dim" : ""}`}>
+      {Number(value).toLocaleString()}
+    </span>
+  );
+}
+
+/** Ranks per ladder, as {current, peak}.
+ *
+ * The per-map competitive ranks get their own grid rather than more rows:
+ * there can be a dozen of them, and in one list they bury FACEIT and Premier
+ * under a wall of maps. */
+function Ranks({ entries }) {
+  if (!entries.length) return null;
+
+  const maps = entries.filter(([k]) => k.startsWith("competitive:"));
+  const ladders = entries.filter(([k]) => !k.startsWith("competitive:"));
+
+  return (
+    <div className="csrep-ranks">
+      <div className="csrep-group-head">Ranks</div>
+
+      {!!ladders.length && (
+        <div className="csrep-ladders">
+          {ladders.map(([k, r]) => {
+            const ladder = k.split(":")[0];
+            return (
+              <div className="csrep-ladder" key={k}>
+                <span className="csrep-ladder-name">{rankLabel(k)}</span>
+                <span className="csrep-ladder-cur">
+                  <RankArt ladder={ladder} value={r.current} />
+                </span>
+                <span className="csrep-ladder-peak">
+                  {r.peak != null && (
+                    <>
+                      <em>peak</em>
+                      <RankArt ladder={ladder} value={r.peak} dim />
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!!maps.length && (
+        <>
+          <div className="csrep-sub-head">Competitive per map</div>
+          <div className="csrep-maps">
+            {maps.map(([k, r]) => {
+              const map = k.split(":")[1] || "";
+              const rank = r.current ?? r.peak;
+              return (
+                <div className="csrep-map" key={k} title={groupName(rank)}>
+                  <CompRank rank={rank} height={26} />
+                  <div className="csrep-map-name">
+                    <MapIcon map={map} size={14} />
+                    {mapLabel(map) || map.replace(/^(de|cs)_/, "")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Ban history — the part of this tab worth interrupting for, so it keeps
  *  card weight while everything else is demoted to rows. */
 function Bans({ bans }) {
@@ -321,18 +414,9 @@ export function CsrepView({ data }) {
 
       <Reputation reputation={data.reputation} />
       <Bans bans={data.bans} />
+      <Ranks entries={ranks} />
 
       <div className="csrep-cols">
-        <Group title="Ranks">
-          {ranks.map(([k, r]) => (
-            <Row
-              key={k}
-              label={rankLabel(k)}
-              detail={r.peak != null ? `peak ${r.peak.toLocaleString()}` : null}
-              value={r.current != null ? r.current.toLocaleString() : "—"}
-            />
-          ))}
-        </Group>
 
         <Group title="Commendations">
           {commendations.map(([k, v]) => (
