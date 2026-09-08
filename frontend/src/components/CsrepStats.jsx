@@ -226,11 +226,15 @@ function Reputation({ reputation }) {
  *
  * `dim` is the peak column, drawn smaller so current stays the headline. */
 function RankArt({ ladder, value, level, dim = false }) {
-  // An unranked mode gets a plate, not a blank: the row exists to say the
-  // mode exists and carries no rating, and an empty cell reads as a rendering
-  // fault rather than as an answer.
+  // An unranked mode gets Valve's own "?" plate, not a dash: the row exists to
+  // say the mode exists and carries no rating, and the plate reads as an
+  // answer where a bare line reads as a rendering fault.
   if (value == null) {
-    return <span className="csrep-rank-empty" aria-label="No rank">—</span>;
+    return (
+      <img className={`csrep-rank-none-art${dim ? " dim" : ""}`}
+           src="/ranks/comp/none.webp" alt="Unranked" title="Unranked"
+           loading="lazy" />
+    );
   }
 
   if (ladder === "premier") {
@@ -267,27 +271,33 @@ function RankArt({ ladder, value, level, dim = false }) {
   );
 }
 
-/** A Premier season marker.
- *
- * Valve's own season art is a RATING COIN — the dataset carries 36 per season,
- * one per bracket — so there is no neutral "season 4" image to borrow, and
- * showing the top coin for every player would claim a rank they may not hold.
- * A numbered disc says which season the row is, which is all the label needs.
- */
+/** Seasons we ship Valve's plate for. Everything else — earlier seasons, and
+ *  every season Valve has not released yet — falls back to a numbered disc,
+ *  so a new season appears as a labelled row on the day CSRep starts
+ *  reporting it rather than waiting on an asset drop. */
+const SEASON_ART = new Set(["3", "4", "5"]);
+
 function SeasonBadge({ n }) {
-  return (
-    <span className="csrep-season" aria-hidden="true">{n}</span>
-  );
+  if (SEASON_ART.has(n)) {
+    return (
+      <img className="csrep-season-art" src={`/ranks/premier/season${n}.png`}
+           alt="" aria-hidden="true" loading="lazy" />
+    );
+  }
+  return <span className="csrep-season" aria-hidden="true">{n}</span>;
 }
 
-/** The icon for a mode row: FACEIT's mark, a season disc, a map icon, or a
- *  neutral glyph for Wingman, which this project ships no artwork for. */
+/** The icon for a mode row: FACEIT's mark, a season plate, Wingman's glyph,
+ *  or the map's icon. */
 function ModeIcon({ ladder, detail }) {
   if (ladder === "faceit") return <FaceitIcon size={15} />;
   if (ladder === "premier") {
     return <SeasonBadge n={String(detail || "").replace(/\D+/g, "") || "?"} />;
   }
-  if (ladder === "wingman") return Icon.people;
+  if (ladder === "wingman") {
+    return <img className="csrep-mode-art" src="/ranks/wingman.png"
+                alt="" aria-hidden="true" loading="lazy" />;
+  }
   if (ladder === "competitive") return <MapIcon map={detail} size={16} />;
   return null;
 }

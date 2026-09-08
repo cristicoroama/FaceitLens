@@ -2058,9 +2058,20 @@ a { color: inherit; }
   background: rgba(255, 255, 255, 0.07); border: 1px solid var(--glass-brd);
 }
 
-.csrep-rank-empty {
-  font-family: var(--font-mono); color: var(--text-dim); opacity: 0.5;
-  padding: 0 10px;
+/* Valve's own "?" plate for a mode the player has no rating in. Sized to the
+   skill-group badges beside it so the column keeps one rhythm. */
+.csrep-rank-none-art { height: 26px; width: auto; display: block; opacity: 0.55; }
+.csrep-rank-none-art.dim { height: 22px; opacity: 0.4; }
+
+/* Season plates are wide (4:3), so they are sized by height and allowed their
+   natural width. Scoped under .csrep-rank-mode to outrank the generic
+   `> svg, > img { 16px square }` rule above, which would otherwise squash
+   them — that rule is right for square glyphs and wrong for a plate. */
+.csrep-rank-mode > .csrep-season-art {
+  height: 20px; width: auto; display: block; flex-shrink: 0;
+}
+.csrep-rank-mode > .csrep-mode-art {
+  height: 16px; width: auto; display: block; flex-shrink: 0;
 }
 .csrep-rank-faceit { display: inline-flex; align-items: center; gap: 8px; }
 .csrep-rank-num { font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
