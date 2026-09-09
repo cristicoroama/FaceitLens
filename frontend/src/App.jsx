@@ -64,6 +64,7 @@ import { AdBanner, AdInline } from "./components/AdSlot.jsx";
 import WhatsNew, { useChangelog, WhatsNewPopup } from "./components/WhatsNew.jsx";
 import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
+import SocialDock from "./components/SocialDock.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
 import Faq from "./components/Faq.jsx";
 import Support from "./components/Support.jsx";
@@ -1315,6 +1316,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       {/* Announce what's new — but not to someone who followed a shared link
           straight to a player, and not while they're already reading the
           page it would send them to. */}
+      <SocialDock />
+
       <WhatsNewPopup
         unread={changelog.unread}
         entries={changelog.entries}
