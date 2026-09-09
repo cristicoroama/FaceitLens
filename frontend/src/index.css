@@ -7377,10 +7377,16 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .sdock-mail     { background: #ea4335; }
 .sdock-coffee   { background: #ffdd00; color: #17181a; border-color: rgba(0, 0, 0, .18); }
 
-/* The dock is desktop-only: fixed to the corner on a phone it would sit on
-   top of the content it should sit beside. The top-bar row stays at every
-   width, so the links are never missing — below 900px it is the only copy. */
+/* Exactly one copy of these links is visible at any width: the dock from
+   900px up, the top-bar row below it. A fixed corner on a phone would sit on
+   top of the content it should sit beside, so the dock stands down there and
+   the bar takes over.
+
+   Safe to hide either one now that .tn-nav owns the auto margin that splits
+   the bar. It used to live on .tn-socials, so hiding that element took the
+   split with it and dragged search, language and account leftwards. */
 @media (max-width: 900px) { .sdock { display: none; } }
+@media (min-width: 901px) { .tn-socials { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sdock-btn, .sdock-btn:hover { transition: none; transform: none; }
