@@ -411,6 +411,8 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
           elo={player.elo}
           level={player.skill_level}
           bare
+          percentile={pct}
+          region={player.region}
         />
       </div>
 

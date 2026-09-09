@@ -7299,3 +7299,13 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   .csgo-map { grid-template-columns: 84px 36px 1fr 42px; }
   .csgo-map-kd { display: none; }
 }
+
+/* The percentile rides beside the level line, not under it: same fact about
+   where the player stands, so it reads as one sentence, not two. */
+.lvlprog-pct { color: var(--text-dim); cursor: help; }
+.lvlprog-pct::before { content: " · "; opacity: .5; }
+.lvlprog-pct b { color: var(--accent); font-weight: 750; }
+@media (max-width: 560px) {
+  .lvlprog-pct { display: block; }
+  .lvlprog-pct::before { content: none; }
+}
