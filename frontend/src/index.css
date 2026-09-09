@@ -253,7 +253,7 @@ a { color: inherit; }
 .tn-coffee { color: #d99a00 !important; }
 
 /* ---- search ---- */
-.tn-search { position: relative; flex: 1 1 0; min-width: 0; max-width: 340px; margin-left: auto; }
+.tn-search { position: relative; flex: 1 1 0; min-width: 0; max-width: 340px; }
 .tn-search .autocomplete input {
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
@@ -4993,7 +4993,10 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: auto;
+  margin-right: 6px;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
 }
 
 .tn-social {

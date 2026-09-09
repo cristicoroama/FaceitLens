@@ -2083,32 +2083,132 @@ def build_squad_stats(nicknames):
     }
 
 
+SEARCH_TTL = 5 * 60
+SEARCH_LEVEL_TTL = 60 * 60
+
+
 def search_players(query, limit=6):
     """Autocomplete: return up to `limit` players matching a nickname prefix."""
     if not query:
         return []
+
+    cache_key = f"search:{GAME}:{query.strip().lower()}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
     try:
         data = _get("/search/players", params={"nickname": query, "game": GAME, "limit": limit})
     except FaceitError:
         return []
+
     out = []
     for item in data.get("items", []):
-        # The skill level rides along in the same response and was being
-        # dropped. Note the shape differs from /players/{id}: search returns
-        # `games` as a LIST of {name, skill_level}, not a dict keyed by game,
-        # so it has to be scanned rather than indexed.
-        level = None
-        for g in item.get("games") or []:
-            if g.get("name") == GAME:
-                level = g.get("skill_level")
-                break
         out.append({
             "nickname": item.get("nickname"),
             "avatar": item.get("avatar"),
             "country": item.get("country"),
-            "level": level,
+            "player_id": item.get("player_id"),
+            "level": _search_skill_level(item),
         })
+
+    _fill_real_levels(out)
+    cache.set(cache_key, out, SEARCH_TTL)
     return out
+
+
+def _player_level(player_id):
+    """The player's real CS2 level, from the endpoint that reports it truthfully.
+
+    /search/players advertises a `skill_level` per game, but it is a placeholder
+    — every result comes back as 1, including accounts that are demonstrably 10.
+    Only /players/{id} carries the real figure, so the badge has to be resolved
+    per player. Cached hard: a level moves at most once per match, while an
+    autocomplete list is re-requested on every keystroke.
+    """
+    if not player_id:
+        return None
+
+    key = f"lvl:{player_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+
+    try:
+        data = _get(f"/players/{player_id}")
+    except FaceitError:
+        return None
+
+    game = (data.get("games") or {}).get(GAME) or {}
+    level = _as_level(game.get("skill_level"))
+    # Cached even when absent, as 0, so an account without CS2 is not looked up
+    # again on every keystroke. Read back as None by the guard above.
+    cache.set(key, level or 0, SEARCH_LEVEL_TTL)
+    return level
+
+
+def _fill_real_levels(rows):
+    """Replace the placeholder levels in-place, in parallel.
+
+    Anything that fails keeps whatever search reported rather than blanking the
+    badge: a stale level reads better than a hole, and the fallback is only
+    reached when FACEIT is already failing.
+    """
+    pending = [r for r in rows if r.get("player_id")]
+    if not pending:
+        return
+
+    with ThreadPoolExecutor(max_workers=min(6, len(pending))) as pool:
+        levels = list(pool.map(lambda r: _player_level(r["player_id"]), pending))
+
+    for row, level in zip(pending, levels):
+        if level is not None:
+            row["level"] = level
+
+
+def _as_level(v):
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if 1 <= n <= 10 else None
+
+
+def _search_skill_level(item):
+    """Skill level out of a /search/players item, whatever shape it arrives in.
+
+    /players/{id} keys `games` by game id; /search/players has historically
+    sent a LIST of game objects instead, and the identifying key is `name` on
+    some responses and `game_id` on others. Indexing one shape blindly is how
+    every suggestion ended up rendering as level 1: a miss returns None and the
+    badge falls back to its minimum, so a lookup bug is indistinguishable from
+    a genuine level-1 player.
+    """
+    games = item.get("games")
+
+    if isinstance(games, dict):
+        entry = games.get(GAME)
+        if isinstance(entry, dict):
+            return _as_level(entry.get("skill_level"))
+        return _as_level(entry)
+
+    if isinstance(games, list):
+        fallback = None
+        for g in games:
+            if not isinstance(g, dict):
+                continue
+            level = _as_level(g.get("skill_level"))
+            if level is None:
+                continue
+            if GAME in (g.get("name"), g.get("game_id"), g.get("game")):
+                return level
+            # Only one game on the account and no id matched: it is the level
+            # we were looking for under a key this code does not know yet.
+            if fallback is None and len(games) == 1:
+                fallback = level
+        return fallback
+
+    return _as_level(item.get("skill_level"))
 
 
 SESSION_GAP = 3 * 60 * 60  # 3h gap starts a new session
