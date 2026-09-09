@@ -698,11 +698,16 @@ a { color: inherit; }
 }
 .suggestion { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: background 0.12s, padding-left 0.15s; }
 .suggestion:hover { background: rgba(var(--accent-rgb), 0.1); padding-left: 18px; }
-.suggestion img, .suggestion-noimg {
+/* The avatar only. Without the :not() this also caught the flag, which sets
+   its width inline but inherited the 28px height — a 3:2 flag stretched into
+   a rounded square. */
+.suggestion img:not(.flag-icon), .suggestion-noimg {
   width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--bg-elev);
 }
 .suggestion-name { flex: 1; font-size: 14px; font-weight: 500; }
-.suggestion .flag-icon { flex: 0 0 auto; }
+.suggestion .flag-icon { flex: 0 0 auto; height: auto; }
+/* Skill level closes the row, mirroring the profile header's reading order. */
+.suggestion .fl-icon { flex: 0 0 auto; }
 
 /* states */
 .state { text-align: center; color: var(--text-dim); padding: 46px 0; font-size: 15px; line-height: 1.6; }
@@ -2406,6 +2411,14 @@ body, .topnav, .card, .squad-row, .rank-card,
 }
 .theme-opt:hover { background: rgba(var(--accent-rgb), 0.1); }
 .theme-opt.active { color: var(--accent); }
+
+/* Icons in the account dropdown. Scoped to .acc-pop because .theme-opt is
+   shared with the theme picker, whose rows are text-only and should stay so. */
+.acc-pop .theme-opt > svg {
+  width: 14px; height: 14px; flex-shrink: 0; opacity: 0.7;
+}
+.acc-pop .theme-opt:hover > svg { opacity: 1; }
+.acc-pop .acc-logout > svg { opacity: 0.8; }
 
 /* ---- HLTV ranking cards ---- */
 .rank-grid { display: flex; flex-direction: column; gap: 10px; }

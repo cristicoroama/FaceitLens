@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Flag } from "./RankIcons.jsx";
+import { Flag, FaceitLevel } from "./RankIcons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -76,8 +76,12 @@ export default function SearchInput({ value, onChange, onPick, onEnter, placehol
               ) : (
                 <div className="suggestion-noimg" />
               )}
-              <span className="suggestion-name">{s.nickname}</span>
+              {/* Flag beside the name, level on the right — the same reading
+                  order the profile header uses, so a player looks the same
+                  wherever they appear. */}
               {s.country && <Flag country={s.country} size={16} />}
+              <span className="suggestion-name">{s.nickname}</span>
+              {s.level != null && <FaceitLevel level={s.level} size={22} />}
             </div>
           ))}
         </div>

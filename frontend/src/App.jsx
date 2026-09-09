@@ -49,7 +49,6 @@ import Leaderboard from "./components/Leaderboard.jsx";
 import WorldMap from "./components/WorldMap.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
-import NewsButton from "./components/NewsButton.jsx";
 import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
@@ -61,9 +60,7 @@ import PublicProfile from "./components/PublicProfile.jsx";
 import Feedback from "./components/Feedback.jsx";
 import OverlaySettings from "./components/OverlaySettings.jsx";
 import { AdBanner, AdInline } from "./components/AdSlot.jsx";
-import WhatsNew, {
-  useChangelog, WhatsNewPopup, WhatsNewButton,
-} from "./components/WhatsNew.jsx";
+import WhatsNew, { useChangelog, WhatsNewPopup } from "./components/WhatsNew.jsx";
 import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
@@ -136,7 +133,11 @@ function eloData(player) {
 
    Six sidebar groups collapse to four menus: Developers and About held one
    and two entries, which never justified their own heading. */
-function buildNav(t, lang) { return [
+/* `flags` carries the two live signals that used to be their own topbar
+   buttons. Moved into More, they would otherwise go silent — an unread
+   changelog and an active incident are exactly the things a visitor should
+   still notice. As item badges they light the group's dot instead. */
+function buildNav(t, lang, flags = {}) { return [
   // Flat link in the bar (no icon needed next to the dropdown triggers), but
   // the mobile drawer lists it beside iconed entries, so it carries one.
   { label: t("nav.leaderboards"), items: [
@@ -187,7 +188,9 @@ function buildNav(t, lang) { return [
     { id: "docs", label: t("nav.apiDocs"), href: localePath(lang, "/docs"), icon: Icon.codeSlash,
       hint: t("hint.apiDocs") },
     { id: "whatsnew", label: t("nav.whatsNew"), href: localePath(lang, "/whatsnew"), icon: Icon.star,
-      hint: t("hint.whatsNew") },
+      hint: t("hint.whatsNew"), badge: flags.changelogUnread ? t("nav.new") : undefined },
+    { id: "news", label: t("chrome.status"), href: localePath(lang, "/news"), icon: Icon.activity,
+      badge: flags.incidentActive ? t("nav.new") : undefined },
     { id: "faq", label: t("nav.faq"), href: localePath(lang, "/faq"), icon: Icon.patchCheckFill,
       hint: t("hint.faq") },
     { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
@@ -832,7 +835,10 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     <div className="shell">
       <TopNav
         lang={lang}
-        groups={buildNav(t, lang)}
+        groups={buildNav(t, lang, {
+          changelogUnread: !!changelog.unread,
+          incidentActive: !!incidentStatus?.system?.active,
+        })}
         mode={mode}
         onNav={pickNav}
         brandHref={localePath(lang, "/")}
@@ -864,10 +870,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         }
         actions={
           <>
-            <WhatsNewButton unread={changelog.unread} onClick={() => pickNav("whatsnew")}
-                            label={t("chrome.news")} />
-            <NewsButton onClick={() => pickNav("news")} active={!!incidentStatus?.system?.active}
-                        label={t("chrome.status")} />
+            {/* News and Status live in the More menu now — see buildNav. */}
             <AccountMenu
               user={user}
               onLogout={logout}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
-import { SteamIcon } from "./BrandIcons.jsx";
+import { SteamIcon, FaceitIcon } from "./BrandIcons.jsx";
+import { Icon } from "../icons.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -63,11 +64,13 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
               className="theme-opt"
               onClick={() => { setOpen(false); onMyProfile?.(user.profile.handle); }}
             >
+              {Icon.personCheck}
               My profile
               {user.profile.faceit_verified && <span className="acc-verified" title="FACEIT linked">✓</span>}
             </button>
           )}
           <button className="theme-opt" onClick={() => { setOpen(false); onSettings?.(); }}>
+            {Icon.sliders}
             Settings
           </button>
 
@@ -76,6 +79,7 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
               className="theme-opt"
               onClick={() => { setOpen(false); onMyProfile?.(user.profile.handle, true); }}
             >
+              <FaceitIcon size={14} />
               My FACEIT stats →
             </button>
           )}
@@ -87,6 +91,7 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
               target="_blank"
               rel="noopener noreferrer"
             >
+              <SteamIcon size={14} />
               Steam profile →
             </a>
           )}
@@ -94,6 +99,7 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
             className="theme-opt acc-logout"
             onClick={() => { setOpen(false); onLogout(); }}
           >
+            {Icon.boxArrowUpRight}
             Sign out
           </button>
         </div>

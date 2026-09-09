@@ -2093,10 +2093,20 @@ def search_players(query, limit=6):
         return []
     out = []
     for item in data.get("items", []):
+        # The skill level rides along in the same response and was being
+        # dropped. Note the shape differs from /players/{id}: search returns
+        # `games` as a LIST of {name, skill_level}, not a dict keyed by game,
+        # so it has to be scanned rather than indexed.
+        level = None
+        for g in item.get("games") or []:
+            if g.get("name") == GAME:
+                level = g.get("skill_level")
+                break
         out.append({
             "nickname": item.get("nickname"),
             "avatar": item.get("avatar"),
             "country": item.get("country"),
+            "level": level,
         })
     return out
 
