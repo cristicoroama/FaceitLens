@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 import requests
 from django.core.cache import cache
 
+from .traits import build_traits
+
 FACEIT_API_KEY = os.environ.get("FACEIT_API_KEY", "")
 BASE_URL = "https://open.faceit.com/data/v4"
 GAME = "cs2"
@@ -571,6 +573,58 @@ def build_multikills(items):
         "quadro_avg": round(totals["quadro"] / n, 2),
         "penta_avg": round(totals["penta"] / n, 2),
     }
+
+
+LEGACY_GAME = "csgo"
+GAME_LABELS = {"cs2": "CS2", "csgo": "CS:GO"}
+GAME_HISTORY_TTL = 6 * 60 * 60
+
+
+def build_game_history(player, player_id):
+    """Matches played per Counter-Strike title, newest game first.
+
+    FACEIT kept CS:GO as a separate game after the CS2 migration rather than
+    folding the records together, so a veteran's real match count is split
+    across two ids and a profile showing only `cs2` understates them — 1,686
+    matches where the account has 4,059.
+
+    The lifetime totals live behind /players/{id}/stats/{game}, one call per
+    game, so only the games actually present on the profile are fetched and the
+    result is cached for hours: a retired CS:GO total never changes again.
+    """
+    games = (player or {}).get("games") or {}
+    present = [g for g in (GAME, LEGACY_GAME) if g in games]
+    if not present:
+        return []
+
+    key = f"gamehist:{player_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    def one(game_id):
+        entry = games.get(game_id) or {}
+        try:
+            raw = _get(f"/players/{player_id}/stats/{game_id}")
+            matches = _to_int((raw.get("lifetime") or {}).get("Matches"))
+        except FaceitError:
+            matches = None
+        return {
+            "game": game_id,
+            "label": GAME_LABELS.get(game_id, game_id.upper()),
+            "matches": matches,
+            "level": _as_level(entry.get("skill_level")),
+            "elo": _to_int(entry.get("faceit_elo")),
+            "region": entry.get("region"),
+            "current": game_id == GAME,
+        }
+
+    with ThreadPoolExecutor(max_workers=len(present)) as pool:
+        rows = list(pool.map(one, present))
+
+    rows = [r for r in rows if r["matches"] or r["level"]]
+    cache.set(key, rows, GAME_HISTORY_TTL)
+    return rows
 
 
 def get_player_stats(player_id):
@@ -2110,6 +2164,8 @@ def search_players(query, limit=6):
             "country": item.get("country"),
             "player_id": item.get("player_id"),
             "level": _search_skill_level(item),
+            "elo": None,
+            "verified": bool(item.get("verified")),
         })
 
     _fill_real_levels(out)
@@ -2117,40 +2173,50 @@ def search_players(query, limit=6):
     return out
 
 
-def _player_level(player_id):
-    """The player's real CS2 level, from the endpoint that reports it truthfully.
+def _player_badge(player_id):
+    """Real level, ELO and verified flag, from the endpoint that reports them.
 
     /search/players advertises a `skill_level` per game, but it is a placeholder
     — every result comes back as 1, including accounts that are demonstrably 10.
-    Only /players/{id} carries the real figure, so the badge has to be resolved
-    per player. Cached hard: a level moves at most once per match, while an
-    autocomplete list is re-requested on every keystroke.
+    It carries no ELO at all. Only /players/{id} has the real figures, so they
+    have to be resolved per player. One call answers all three, and it is cached
+    hard: they move at most once per match, while an autocomplete list is
+    re-requested on every keystroke.
     """
     if not player_id:
-        return None
+        return {}
 
-    key = f"lvl:{player_id}"
+    key = f"pbadge:{player_id}"
     hit = cache.get(key)
     if hit is not None:
-        return hit or None
+        return hit
 
     try:
         data = _get(f"/players/{player_id}")
     except FaceitError:
-        return None
+        return {}
 
     game = (data.get("games") or {}).get(GAME) or {}
-    level = _as_level(game.get("skill_level"))
-    # Cached even when absent, as 0, so an account without CS2 is not looked up
-    # again on every keystroke. Read back as None by the guard above.
-    cache.set(key, level or 0, SEARCH_LEVEL_TTL)
-    return level
+    try:
+        elo = int(game.get("faceit_elo"))
+    except (TypeError, ValueError):
+        elo = None
+
+    badge = {
+        "level": _as_level(game.get("skill_level")),
+        "elo": elo,
+        "verified": bool(data.get("verified")),
+    }
+    # Cached even when empty so an account without CS2 is not looked up again
+    # on every keystroke.
+    cache.set(key, badge, SEARCH_LEVEL_TTL)
+    return badge
 
 
 def _fill_real_levels(rows):
-    """Replace the placeholder levels in-place, in parallel.
+    """Replace the placeholder levels in-place, in parallel, and attach ELO.
 
-    Anything that fails keeps whatever search reported rather than blanking the
+    A failed lookup keeps whatever search reported rather than blanking the
     badge: a stale level reads better than a hole, and the fallback is only
     reached when FACEIT is already failing.
     """
@@ -2159,11 +2225,15 @@ def _fill_real_levels(rows):
         return
 
     with ThreadPoolExecutor(max_workers=min(6, len(pending))) as pool:
-        levels = list(pool.map(lambda r: _player_level(r["player_id"]), pending))
+        badges = list(pool.map(lambda r: _player_badge(r["player_id"]), pending))
 
-    for row, level in zip(pending, levels):
-        if level is not None:
-            row["level"] = level
+    for row, badge in zip(pending, badges):
+        if badge.get("level") is not None:
+            row["level"] = badge["level"]
+        if badge.get("elo") is not None:
+            row["elo"] = badge["elo"]
+        if badge.get("verified"):
+            row["verified"] = True
 
 
 def _as_level(v):
@@ -3494,6 +3564,11 @@ def build_player_summary(nickname):
         # Career bests, from `recent_all` rather than `match_items`: the whole
         # point is the long tail, and match_items is the first 50 of it.
         "highlights": build_highlights(recent_all),
+        "traits": build_traits(recent_all),
+        # Both Counter-Strike titles the account played. CS:GO is still served
+        # by the API, so a veteran's full record is available — see
+        # build_game_history.
+        "game_history": build_game_history(player, player_id),
         # Where the numbers came from: ranked matchmaking against the hubs and
         # championships, side by side, over the same 250 matches.
         "competitions": build_competition_stats(history_all, recent_all),

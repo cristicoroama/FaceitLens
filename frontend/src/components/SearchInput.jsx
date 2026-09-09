@@ -81,6 +81,17 @@ export default function SearchInput({ value, onChange, onPick, onEnter, placehol
                   wherever they appear. */}
               {s.country && <Flag country={s.country} size={16} />}
               <span className="suggestion-name">{s.nickname}</span>
+              {s.verified && (
+                <img
+                  className="suggestion-verified"
+                  src="/badges/verified.svg"
+                  alt="Verified"
+                  title="Verified FACEIT account"
+                />
+              )}
+              {s.elo != null && (
+                <span className="suggestion-elo">{s.elo.toLocaleString()}</span>
+              )}
               {s.level != null && <FaceitLevel level={s.level} size={22} />}
             </div>
           ))}

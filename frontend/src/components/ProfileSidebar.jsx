@@ -1,6 +1,7 @@
 import Activity from "./Activity.jsx";
 import BanStatus from "./BanStatus.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
+import { FaceitLevel } from "./RankIcons.jsx";
 
 /**
  * The column that stays put while the tabs change.
@@ -61,6 +62,29 @@ export default function ProfileSidebar({ player, onPick }) {
         <div className="psb-card psb-activity">
           <Activity activity={player.activity} />
         </div>
+      )}
+
+      {/* Both Counter-Strike titles. Only worth a card when there are two —
+          a lone CS2 row restates what the whole page already says. */}
+      {(player.game_history || []).length > 1 && (
+        <Card title="Game history">
+          <div className="psb-games">
+            {player.game_history.map((g) => (
+              <div className={`psb-game ${g.current ? "on" : ""}`} key={g.game}>
+                <span className={`psb-game-dot psb-game-${g.game}`} />
+                <div className="psb-game-body">
+                  <span className="psb-game-name">{g.label}</span>
+                  <span className="psb-game-sub">
+                    {g.matches != null
+                      ? `${g.matches.toLocaleString()} matches`
+                      : "no lifetime stats"}
+                  </span>
+                </div>
+                {g.level != null && <FaceitLevel level={g.level} size={20} />}
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {hubs.length > 0 && (
