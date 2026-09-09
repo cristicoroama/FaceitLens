@@ -957,12 +957,73 @@ def get_player_ranking(player_id, region, country=None):
     return data.get("position")
 
 
+def segment_totals(stats):
+    """Match and win totals rebuilt from the per-map segments.
+
+    Needed because the CS2 `lifetime.Matches` figure is not a count of CS2
+    matches. Measured against FACEIT's own segment breakdown on three accounts:
+
+        s1mplecsgod   lifetime 5719   segments 1263   CS:GO lifetime 4477
+        donk666       lifetime 7250   segments 2541   CS:GO lifetime 4747
+        dziugss       lifetime 6296   segments 3151   CS:GO lifetime 3200
+
+    The gap is the player's CS:GO career each time, to within a few dozen
+    matches. The control is the CS:GO endpoint itself, where lifetime and
+    segments agree (4477/4472, 4747/4747, 3200/3224) — so segments are sound
+    and the CS2 lifetime counter is the outlier. Reading it literally told a
+    player with 1,263 CS2 matches that they had 5,719.
+
+    Summing segments is also what faceitanalyser does: their figure for
+    s1mplecsgod is 1259, which is this sum restricted to 5v5, exactly.
+
+    Every mode is counted here, not just 5v5 — 1v1 and Wingman are still
+    matches the player played in CS2. Returns None when there are no segments,
+    so the caller can fall back rather than publish a zero.
+    """
+    matches = wins = 0
+    has_wins = False
+    for seg in (stats or {}).get("segments") or []:
+        if seg.get("type") != "Map":
+            continue
+        s = seg.get("stats") or {}
+        n = _to_int(s.get("Matches")) or 0
+        if n <= 0:
+            continue
+        matches += n
+        w = _to_int(s.get("Wins"))
+        if w is not None:
+            has_wins = True
+            wins += w
+
+    if matches <= 0:
+        return None
+
+    # `Wins` is not guaranteed on a segment. Treating a missing key as zero
+    # would hand every player a 0% win rate — a silent, total corruption of the
+    # headline number — so the win fields are simply absent unless at least one
+    # segment actually reported them, and the caller falls back to lifetime.
+    out = {"matches": matches}
+    if has_wins:
+        out["wins"] = wins
+        out["losses"] = matches - wins
+        out["win_rate"] = round(100.0 * wins / matches, 1)
+    return out
+
+
 def extract_map_stats(stats):
     """
     Pull per-map win rates out of the 'segments' block of player stats.
     Returns a list sorted by matches played (desc).
+
+    FACEIT emits one segment per (map x mode), so a map played in both 5v5 and
+    Wingman arrives twice and used to render as two rows for the same map —
+    confirmed on real accounts (dziugss has Inferno, Nuke and Vertigo in both;
+    an old CS:GO account has eight maps split across 5v5 and 5v5ECS). Rows are
+    merged per map here: matches add up, and the rates are averaged weighted by
+    matches rather than naively, so a 3-match Wingman cameo cannot move a
+    900-match Mirage win rate.
     """
-    maps = []
+    merged = {}
     for seg in stats.get("segments", []):
         if seg.get("type") != "Map":
             continue
@@ -971,16 +1032,37 @@ def extract_map_stats(stats):
         if matches == 0:
             continue
         label = seg.get("label", "")
-        maps.append({
+        key = label.lower()
+        row = merged.setdefault(key, {
             "map": label.replace("de_", "").title(),
-            "matches": matches,
-            "win_rate": s.get("Win Rate %"),
-            "avg_kd": s.get("Average K/D Ratio"),
+            "matches": 0,
+            "_w": {},
+        })
+        row["matches"] += matches
+        for field, source in (
+            ("win_rate", s.get("Win Rate %")),
+            ("avg_kd", s.get("Average K/D Ratio")),
             # Only on segments FACEIT recorded after CS2's advanced stats
             # landed; the cards that show it fall back to hiding the figure.
-            "adr": s.get("ADR") or s.get("Average Damage per Round"),
-            "avg_hs": s.get("Average Headshots %"),
-        })
+            ("adr", s.get("ADR") or s.get("Average Damage per Round")),
+            ("avg_hs", s.get("Average Headshots %")),
+        ):
+            value = _num(source)
+            if value is None:
+                continue
+            acc = row["_w"].setdefault(field, [0.0, 0])
+            acc[0] += value * matches
+            acc[1] += matches
+
+    maps = []
+    for row in merged.values():
+        weights = row.pop("_w")
+        for field, (total, n) in weights.items():
+            row[field] = round(total / n, 2) if n else None
+        for field in ("win_rate", "avg_kd", "adr", "avg_hs"):
+            row.setdefault(field, None)
+        maps.append(row)
+
     maps.sort(key=lambda m: m["matches"], reverse=True)
     return maps
 
@@ -3462,6 +3544,7 @@ def build_player_summary(nickname):
 
     lifetime = stats.get("lifetime", {})
     map_stats = extract_map_stats(stats)
+    seg_totals = segment_totals(stats)
     elo_history = build_elo_history(player_id, current_elo, items=match_items)
     session_info = build_sessions_and_streak(player_id, items=match_items)
     form_trend = build_form_and_trend(match_items)
@@ -3605,8 +3688,14 @@ def build_player_summary(nickname):
         "elo_snapshots": elo_snapshots,
         "map_stats": map_stats,
         "stats": {
-            "matches": lifetime.get("Matches"),
-            "win_rate": lifetime.get("Win Rate %"),
+            # From the segments, not lifetime.Matches — see segment_totals for
+            # the measurements. Win rate rides along from the same source so
+            # the two numbers describe the same set of games; taking one from
+            # each would put a CS2 match count beside a CS2+CS:GO win rate.
+            "matches": (seg_totals or {}).get("matches") or lifetime.get("Matches"),
+            "wins": (seg_totals or {}).get("wins"),
+            "losses": (seg_totals or {}).get("losses"),
+            "win_rate": (seg_totals or {}).get("win_rate") or lifetime.get("Win Rate %"),
             "avg_kd": lifetime.get("Average K/D Ratio"),
             "avg_kr": lifetime.get("Average K/R Ratio"),
             "avg_hs": lifetime.get("Average Headshots %"),
