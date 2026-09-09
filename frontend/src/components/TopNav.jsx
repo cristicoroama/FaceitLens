@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
-import { DISCORD_INVITE, TELEGRAM_URL, GITHUB_REPO, CONTACT_EMAIL } from "../links.js";
+import { DISCORD_INVITE } from "../links.js";
 import { Icon } from "../icons.jsx";
-import { DiscordIcon, TelegramIcon, GitHubIcon, MailIcon } from "./BrandIcons.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
 
 /* Short codes for the bar — the full names would push the nav off a laptop
@@ -14,16 +13,6 @@ import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "..
 const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
 const LOCALE_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
 
-/* The outbound row in the bar. Order is deliberate: the two places you can
-   talk to someone, then the two where you look something up or write in.
-   Labels double as the tooltip and the screen-reader name, so each says where
-   it goes rather than just naming the service. */
-const SOCIALS = [
-  { label: "Discord", href: DISCORD_INVITE, icon: <DiscordIcon size={18} /> },
-  { label: "Telegram", href: TELEGRAM_URL, icon: <TelegramIcon size={18} /> },
-  { label: "Source on GitHub", href: GITHUB_REPO, icon: <GitHubIcon size={18} /> },
-  { label: `Email — ${CONTACT_EMAIL}`, href: `mailto:${CONTACT_EMAIL}`, icon: <MailIcon size={18} /> },
-];
 
 function LangFlag({ code, size = 18 }) {
   return (
@@ -225,32 +214,6 @@ export default function TopNav({
             ),
           )}
         </nav>
-
-        {/* Icons only, between the nav and the search box — the last thing on
-            the left-hand side rather than four more items competing with the
-            account controls on the right.
-
-            Discord used to be a full-width banner at the foot of the home
-            page, which meant it was missing from every other page and, on the
-            one page it did appear, was the largest thing on it. */}
-        <div className="tn-socials">
-          {SOCIALS.map((s) => (
-            <a
-              key={s.label}
-              className="tn-social"
-              href={s.href}
-              /* mailto: opens a mail client, so a new tab would leave a blank
-                 one behind. The other three are real destinations. */
-              {...(s.href.startsWith("mailto:")
-                ? {}
-                : { target: "_blank", rel: "noopener noreferrer" })}
-              title={s.label}
-              aria-label={s.label}
-            >
-              {s.icon}
-            </a>
-          ))}
-        </div>
 
         <div className="tn-search">{search}</div>
 

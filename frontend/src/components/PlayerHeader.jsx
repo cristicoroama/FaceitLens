@@ -99,9 +99,9 @@ function NicknameMenu({ history }) {
 }
 
 /** Quick-stat cell for the hero strip. */
-function PS({ label, value, tone }) {
+function PS({ label, value, tone, title }) {
   return (
-    <div className="ps">
+    <div className="ps" title={title}>
       <div className={`ps-val ${tone || ""}`}>{value ?? "—"}</div>
       <div className="ps-label">{label}</div>
     </div>
@@ -386,7 +386,21 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
 
       <div className="ph-strip">
         <div className="ph-strip-tag">All time</div>
-        <PS label="Matches" value={s.matches} />
+        {/* Every match on the account, both Counter-Strikes. The rest of this
+            strip is CS2 — the Game history panel in the sidebar splits the
+            total back out per title, and the tabs below are CS2 throughout. */}
+        <PS
+          label="Matches"
+          value={player.total_matches ?? s.matches}
+          title={
+            player.total_matches && (player.game_history || []).length > 1
+              ? (player.game_history || [])
+                  .filter((g) => g.matches)
+                  .map((g) => `${g.label} ${g.matches.toLocaleString()}`)
+                  .join(" · ")
+              : undefined
+          }
+        />
         <PS
           label="Win Rate"
           value={wr != null ? `${wr}%` : null}

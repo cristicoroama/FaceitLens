@@ -604,7 +604,14 @@ def build_game_history(player, player_id):
         entry = games.get(game_id) or {}
         try:
             raw = _get(f"/players/{player_id}/stats/{game_id}")
-            matches = _to_int((raw.get("lifetime") or {}).get("Matches"))
+            # Segments, not lifetime.Matches — see segment_totals. On a checked
+            # account the CS2 lifetime counter read 270 where the real split is
+            # 240 CS2 and 30 CS:GO, so a per-game panel fed from lifetime shows
+            # the whole career under CS2 and then lists CS:GO again beneath it.
+            totals = segment_totals(raw)
+            matches = (totals or {}).get("matches")
+            if matches is None:
+                matches = _to_int((raw.get("lifetime") or {}).get("Matches"))
         except FaceitError:
             matches = None
         return {
@@ -3545,6 +3552,11 @@ def build_player_summary(nickname):
     lifetime = stats.get("lifetime", {})
     map_stats = extract_map_stats(stats)
     seg_totals = segment_totals(stats)
+    game_history = build_game_history(player, player_id)
+    total_matches = sum(
+        g["matches"] for g in game_history if g.get("matches")
+    ) or None
+
     elo_history = build_elo_history(player_id, current_elo, items=match_items)
     session_info = build_sessions_and_streak(player_id, items=match_items)
     form_trend = build_form_and_trend(match_items)
@@ -3745,7 +3757,12 @@ def build_player_summary(nickname):
         # Both Counter-Strike titles the account played. CS:GO is still served
         # by the API, so a veteran's full record is available — see
         # build_game_history.
-        "game_history": build_game_history(player, player_id),
+        "game_history": game_history,
+        # Every Counter-Strike match on the account, both titles. The
+        # header answers "who is this account", the tabs answer "how do
+        # they play CS2" — so the total belongs up there and the
+        # per-game split belongs in the sidebar panel.
+        "total_matches": total_matches,
         # Where the numbers came from: ranked matchmaking against the hubs and
         # championships, side by side, over the same 250 matches.
         "competitions": build_competition_stats(history_all, recent_all),
