@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { API_BASE } from "../api.js";
+import { MapIcon } from "../map-art.jsx";
+import { ResultChip } from "./FormStrip.jsx";
 
 function fmt(value, unit) {
   const n = Number(value);
@@ -51,11 +53,10 @@ export default function CsgoOverview({ nickname, matches }) {
           <span className="csgo-form-label">Last results</span>
           <div className="csgo-form-strip">
             {data.form.map((won, i) => (
-              <span key={i} className={`csgo-pip ${won ? "w" : "l"}`}>
-                {won ? "W" : "L"}
-              </span>
+              <ResultChip key={i} won={won} />
             ))}
           </div>
+          <span className="csgo-form-hint">newest first</span>
         </div>
       )}
 
@@ -81,26 +82,36 @@ export default function CsgoOverview({ nickname, matches }) {
             <div className="panel-sub">{data.maps.length} played</div>
           </div>
           <div className="csgo-map-list">
-            {data.maps.map((m) => (
-              <div className="csgo-map" key={m.map}>
-                <span className="csgo-map-name">{m.map}</span>
-                <span className="csgo-map-n">{m.matches}</span>
-                {m.win_rate != null && (
+            {data.maps.map((m) => {
+              const wr = m.win_rate != null ? Number(m.win_rate) : null;
+              // 50% is a coin flip, so it belongs on the winning side of the
+              // line, not the losing one — a map you break even on is not a
+              // map you lose on.
+              const won = wr != null && wr >= 50;
+              return (
+                <div className="csgo-map" key={m.map}>
+                  <span className="csgo-map-name">
+                    <MapIcon map={m.map} size={18} />
+                    {m.map}
+                  </span>
+                  <span className="csgo-map-n">{m.matches}</span>
                   <div className="csgo-map-bar">
-                    <div
-                      className="csgo-map-fill"
-                      style={{ width: `${Math.max(0, Math.min(100, Number(m.win_rate)))}%` }}
-                    />
+                    {wr != null && (
+                      <div
+                        className={`csgo-map-fill ${won ? "up" : "down"}`}
+                        style={{ width: `${Math.max(0, Math.min(100, wr))}%` }}
+                      />
+                    )}
                   </div>
-                )}
-                <span className="csgo-map-wr">
-                  {m.win_rate != null ? `${Math.round(Number(m.win_rate))}%` : "—"}
-                </span>
-                <span className="csgo-map-kd">
-                  {m.avg_kd != null ? Number(m.avg_kd).toFixed(2) : "—"}
-                </span>
-              </div>
-            ))}
+                  <span className={`csgo-map-wr ${wr == null ? "" : won ? "up" : "down"}`}>
+                    {wr != null ? `${Math.round(wr)}%` : "—"}
+                  </span>
+                  <span className="csgo-map-kd">
+                    {m.avg_kd != null ? Number(m.avg_kd).toFixed(2) : "—"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

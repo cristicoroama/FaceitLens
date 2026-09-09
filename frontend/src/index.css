@@ -7252,14 +7252,8 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   font-size: 11px; text-transform: uppercase; letter-spacing: 1.3px;
   color: var(--text-dim); font-weight: 600;
 }
-.csgo-form-strip { display: flex; gap: 4px; }
-.csgo-pip {
-  width: 22px; height: 22px; border-radius: 6px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 800;
-}
-.csgo-pip.w { background: rgba(34, 197, 94, .16); color: #4ade80; }
-.csgo-pip.l { background: rgba(239, 68, 68, .16); color: #f87171; }
+.csgo-form-strip { display: flex; gap: 4px; flex-wrap: wrap; }
+.csgo-form-hint { font-size: 11px; color: var(--text-dim); }
 
 .csgo-cards {
   display: grid; gap: 10px;
@@ -7284,7 +7278,8 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   background: var(--glass-bg); border: 1px solid var(--glass-brd);
   font-size: 13px;
 }
-.csgo-map-name { font-weight: 650; }
+.csgo-map-name { font-weight: 650; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.csgo-map-name .map-icon { flex: 0 0 auto; opacity: .9; }
 .csgo-map-n, .csgo-map-wr, .csgo-map-kd {
   font-family: var(--font-mono); font-size: 12px; text-align: right;
 }
@@ -7293,7 +7288,13 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   height: 5px; border-radius: 3px; overflow: hidden;
   background: rgba(255, 255, 255, .07);
 }
-.csgo-map-fill { height: 100%; background: #e0a83c; border-radius: 3px; }
+/* Green at or above an even split, red below it. The bar and the number
+   agree on the colour so the row reads at a glance without doing arithmetic. */
+.csgo-map-fill { height: 100%; border-radius: 3px; }
+.csgo-map-fill.up { background: var(--win); }
+.csgo-map-fill.down { background: var(--loss); }
+.csgo-map-wr.up { color: var(--win); }
+.csgo-map-wr.down { color: var(--loss); }
 
 @media (max-width: 640px) {
   .csgo-map { grid-template-columns: 84px 36px 1fr 42px; }
