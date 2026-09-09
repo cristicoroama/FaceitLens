@@ -71,7 +71,12 @@ export default function ProfileSidebar({ player, onPick }) {
           <div className="psb-games">
             {player.game_history.map((g) => (
               <div className={`psb-game ${g.current ? "on" : ""}`} key={g.game}>
-                <span className={`psb-game-dot psb-game-${g.game}`} />
+                <img
+                  className="psb-game-ic"
+                  src={`/games/${g.game}.png`}
+                  alt=""
+                  loading="lazy"
+                />
                 <div className="psb-game-body">
                   <span className="psb-game-name">{g.label}</span>
                   <span className="psb-game-sub">

@@ -707,7 +707,7 @@ a { color: inherit; }
 .suggestion-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggestion .flag-icon { flex: 0 0 auto; height: auto; }
-.suggestion-verified { flex: 0 0 auto; width: 15px; height: 15px; display: block; }
+.suggestion-verified { flex: 0 0 auto; width: 12px; height: 12px; display: block; opacity: .9; }
 .suggestion-elo {
   flex: 0 0 auto; font-family: var(--font-mono); font-size: 12px;
   font-weight: 700; color: var(--text-dim); letter-spacing: .02em;
@@ -7207,47 +7207,6 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 }
 .sup-reply button:disabled { opacity: .5; cursor: default; }
 
-/* --- behavioural traits ---------------------------------------------- */
-/* The number that earned the chip is part of the chip, not a tooltip: a
-   trait without its evidence is a horoscope. It hides under 900px, where
-   there is no room for it, and the title attribute carries it there. */
-.traits {
-  display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 18px;
-}
-.trait {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px; border-radius: 999px;
-  font-size: 12.5px; font-weight: 650; letter-spacing: .01em;
-  border: 1px solid var(--glass-brd); background: var(--glass-bg);
-  color: var(--text-dim); cursor: default;
-  transition: border-color .15s ease, background .15s ease;
-}
-.trait svg { flex: 0 0 auto; }
-.trait-label { white-space: nowrap; }
-.trait-detail {
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
-  opacity: .62; white-space: nowrap;
-  padding-left: 7px; border-left: 1px solid currentColor;
-}
-.trait-good {
-  color: #e0b23c; border-color: rgba(224, 178, 60, .34);
-  background: rgba(224, 178, 60, .08);
-}
-.trait-bad {
-  color: #e0685f; border-color: rgba(224, 104, 95, .34);
-  background: rgba(224, 104, 95, .08);
-}
-.trait-neutral {
-  color: #8fa3bd; border-color: rgba(143, 163, 189, .30);
-  background: rgba(143, 163, 189, .07);
-}
-.trait:hover { background: rgba(255, 255, 255, .06); }
-
-@media (max-width: 900px) {
-  .trait-detail { display: none; }
-  .trait { padding: 5px 11px; font-size: 12px; }
-}
-
 /* --- game history (CS2 / CS:GO) --------------------------------------- */
 .psb-games { display: grid; gap: 6px; }
 .psb-game {
@@ -7258,12 +7217,15 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .psb-game.on {
   border-color: var(--glass-brd); background: rgba(255, 255, 255, .05);
 }
-.psb-game-dot {
-  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px;
-  display: block;
+.psb-game-ic {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px;
+  display: block; object-fit: cover;
+  border: 1px solid var(--glass-brd);
 }
-.psb-game-cs2 { background: linear-gradient(160deg, #4a5bd4, #2c1f6b); }
-.psb-game-csgo { background: linear-gradient(160deg, #e0a83c, #7a4d12); }
+/* The retired title reads as retired: desaturated until hovered, so the eye
+   lands on the game the player actually plays now. */
+.psb-game:not(.on) .psb-game-ic { filter: saturate(.55) brightness(.85); }
+.psb-game:hover .psb-game-ic { filter: none; }
 .psb-game-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .psb-game-name { font-size: 13px; font-weight: 700; letter-spacing: .01em; }
 .psb-game-sub {

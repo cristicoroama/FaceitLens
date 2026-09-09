@@ -8,7 +8,6 @@ import SkillRatings from "./components/SkillRatings.jsx";
 import StatPanels from "./components/StatPanels.jsx";
 import MapHighlights from "./components/MapHighlights.jsx";
 import Highlights from "./components/Highlights.jsx";
-import Traits from "./components/Traits.jsx";
 import PlayerHubs from "./components/PlayerHubs.jsx";
 import AllMatches from "./components/AllMatches.jsx";
 import ProfileTools from "./components/ProfileTools.jsx";
@@ -1173,8 +1172,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                   band between two sections instead of an interruption inside
                   one. */}
               <AdInline />
-
-              <Traits traits={data.traits} />
 
               {/* Sidebar + tabs, side by side. The sidebar is outside the tab
                   switch on purpose: none of what it holds belongs to one tab,

@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 import requests
 from django.core.cache import cache
 
-from .traits import build_traits
-
 FACEIT_API_KEY = os.environ.get("FACEIT_API_KEY", "")
 BASE_URL = "https://open.faceit.com/data/v4"
 GAME = "cs2"
@@ -3564,7 +3562,6 @@ def build_player_summary(nickname):
         # Career bests, from `recent_all` rather than `match_items`: the whole
         # point is the long tail, and match_items is the first 50 of it.
         "highlights": build_highlights(recent_all),
-        "traits": build_traits(recent_all),
         # Both Counter-Strike titles the account played. CS:GO is still served
         # by the API, so a veteran's full record is available — see
         # build_game_history.
