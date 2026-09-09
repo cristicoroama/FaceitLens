@@ -701,13 +701,22 @@ a { color: inherit; }
 /* The avatar only. Without the :not() this also caught the flag, which sets
    its width inline but inherited the 28px height — a 3:2 flag stretched into
    a rounded square. */
-.suggestion img:not(.flag-icon), .suggestion-noimg {
+/* Avatar only. The flag and the verified badge are images in the same row, and
+   this rule outranks their own (element + class beats a bare class), so each
+   has to be named here or it silently renders as a 28px avatar tile. */
+.suggestion img:not(.flag-icon):not(.suggestion-verified), .suggestion-noimg {
   width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--bg-elev);
 }
 .suggestion-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggestion .flag-icon { flex: 0 0 auto; height: auto; }
-.suggestion-verified { flex: 0 0 auto; width: 12px; height: 12px; display: block; opacity: .9; }
+/* 18, not the level's 22: the level icon is a circle with padding inside its
+   box, this badge is edge-to-edge art. At equal pixels the badge reads bigger,
+   so the smaller number is what makes them look the same size. */
+.suggestion-verified {
+  flex: 0 0 auto; width: 18px; height: 18px; display: block;
+  border-radius: 0; background: none; object-fit: contain;
+}
 .suggestion-elo {
   flex: 0 0 auto; font-family: var(--font-mono); font-size: 12px;
   font-weight: 700; color: var(--text-dim); letter-spacing: .02em;
@@ -6966,6 +6975,34 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  /* A sticky column pins its TOP, so anything past one screenful is pinned
+     off the bottom and can never be scrolled to. The sidebar grew past that
+     line when Game History was added, which stranded the last card. Scrolling
+     inside the column only kicks in when it actually overflows. */
+  max-height: calc(100vh - var(--topbar-h) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  /* Room for the scrollbar so it never sits on top of a card's border. */
+  padding-right: 2px;
+}
+.psb::-webkit-scrollbar { width: 6px; }
+.psb::-webkit-scrollbar-track { background: transparent; }
+.psb::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 3px;
+}
+.psb::-webkit-scrollbar-thumb:hover { background: var(--border-strong, var(--border)); }
+
+/* Below the two-column breakpoint the sidebar is a normal block in the flow,
+   where a capped height would clip it instead of helping. */
+@media (max-width: 1080px) {
+  .psb {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
 }
 .psb-card {
   background: var(--bg-elev);
@@ -7334,6 +7371,7 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .sdock-telegram { background: #2aabee; }
 .sdock-github   { background: #24292f; border-color: rgba(255, 255, 255, .22); }
 .sdock-mail     { background: #ea4335; }
+.sdock-coffee   { background: #ffdd00; color: #17181a; border-color: rgba(0, 0, 0, .18); }
 
 @media (max-width: 900px) { .sdock { display: none; } }
 @media (min-width: 901px) { .tn-socials { display: none; } }

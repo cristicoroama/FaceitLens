@@ -16,3 +16,6 @@ export const CONTACT_EMAIL = "coroamamh@gmail.com";
 // Was hardcoded in SiteFooter.jsx only; the top bar links to it too now, and
 // two copies of a handle is one copy too many.
 export const TELEGRAM_URL = "https://t.me/cristicor1";
+
+// Was inline in App.jsx only; the floating dock links to it too now.
+export const COFFEE_URL = "https://buymeacoffee.com/lordukiki";
