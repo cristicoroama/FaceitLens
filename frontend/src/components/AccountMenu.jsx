@@ -10,7 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
  * Signed out: "Sign in with Steam" button (redirects to the backend OpenID flow).
  * Signed in: avatar + name with a small dropdown (sign out).
  */
-export default function AccountMenu({ user, onLogout, onSettings, onMyProfile }) {
+export default function AccountMenu({ user, onLogout, onSettings, onMyProfile, onMyGameProfile }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -74,13 +74,21 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile })
             Settings
           </button>
 
-          {user.profile?.faceit_nickname && (
+          {/* Your own tracked profile.
+              Signing in needs Steam only, so a player with no FACEIT account
+              had no way to reach their own page from here — the FACEIT entry
+              simply did not render for them. This one adapts: the FACEIT
+              profile when an account is linked, the Steam-first profile
+              otherwise, which is the same page a visitor would land on. */}
+          {(user.profile?.faceit_nickname || user.steamid) && (
             <button
               className="theme-opt"
-              onClick={() => { setOpen(false); onMyProfile?.(user.profile.handle, true); }}
+              onClick={() => { setOpen(false); onMyGameProfile?.(); }}
             >
-              <FaceitIcon size={14} />
-              My FACEIT stats →
+              {user.profile?.faceit_nickname
+                ? <FaceitIcon size={14} />
+                : <SteamIcon size={14} />}
+              {user.profile?.faceit_nickname ? "My FACEIT stats →" : "My CS2 profile →"}
             </button>
           )}
 

@@ -875,6 +875,16 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               user={user}
               onLogout={logout}
               onSettings={() => { setMode("settings"); nav("/settings"); }}
+              /* Your own tracked profile, whichever kind you have. The Steam
+                 branch only navigates — the route effect above reacts to
+                 :steamid and loads the profile, same as arriving by link. */
+              onMyGameProfile={() => {
+                if (user?.profile?.faceit_nickname) {
+                  go(user.profile.faceit_nickname);
+                } else if (user?.steamid) {
+                  nav(`/steam/${user.steamid}`);
+                }
+              }}
               onMyProfile={(handle, faceitStats) => {
                 if (faceitStats && user?.profile?.faceit_nickname) {
                   go(user.profile.faceit_nickname);
