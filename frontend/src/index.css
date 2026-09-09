@@ -7238,6 +7238,7 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 
 /* --- CS:GO overview --------------------------------------------------- */
 .csgo { display: grid; gap: 16px; }
+.csgo .form-strip { margin: 0; }
 .csgo-note {
   display: flex; align-items: center; gap: 13px;
   padding: 13px 16px; border-radius: 12px;
@@ -7247,31 +7248,6 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .csgo-note strong { display: block; font-size: 13.5px; color: #e0a83c; margin-bottom: 2px; }
 .csgo-note span { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
 
-.csgo-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.csgo-form-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 1.3px;
-  color: var(--text-dim); font-weight: 600;
-}
-.csgo-form-strip { display: flex; gap: 4px; flex-wrap: wrap; }
-.csgo-form-hint { font-size: 11px; color: var(--text-dim); }
-
-.csgo-cards {
-  display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
-.csgo-card {
-  display: flex; flex-direction: column; gap: 5px;
-  padding: 13px 15px; border-radius: 11px;
-  background: var(--glass-bg); border: 1px solid var(--glass-brd);
-}
-.csgo-card-label {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px;
-  color: var(--text-dim); font-weight: 600;
-}
-.csgo-card-row { display: flex; align-items: center; gap: 9px; }
-.csgo-card-val { font-family: var(--font-mono); font-size: 20px; font-weight: 700; }
-.csgo-card-val.up { color: var(--win); }
-.csgo-card-val.down { color: var(--loss); }
 
 /* Verdict chevrons. Only on metrics with a real break-even — see PerfChevron. */
 .perf-ind {

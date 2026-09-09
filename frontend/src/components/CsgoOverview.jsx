@@ -1,21 +1,46 @@
 import { useState, useEffect } from "react";
 import { API_BASE } from "../api.js";
 import { MapThumb } from "../map-art.jsx";
-import { ResultChip } from "./FormStrip.jsx";
-import PerfChevron, { perfClass } from "./PerfChevron.jsx";
+import { CupStarIcon } from "@solar-icons/react/linear/cup-star";
+import { TargetIcon } from "@solar-icons/react/linear/target";
+import { FireIcon } from "@solar-icons/react/linear/fire";
 
-/* Which cards carry a verdict. Only the two with a structural break-even —
-   see the note in PerfChevron. */
-const PERF_METRIC = {
-  "Average K/D Ratio": "kd",
-  "Win Rate %": "winrate",
-};
+/* Same card shell as the CS2 grid, on purpose. These two views sit behind one
+   toggle, so a different card style would read as a different site rather than
+   the same profile in another game. */
+function Card({ label, period, value, color, subs, ic }) {
+  return (
+    <div className="ov-card">
+      {ic && <div className="ov-ic">{ic}</div>}
+      <div className="ov-card-label">
+        {label}
+        {period && <span className="ov-window">{period}</span>}
+      </div>
+      <div className="ov-card-value" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      {subs && (
+        <div className="ov-card-subs">
+          {subs.filter(Boolean).map((s) => (
+            <div className="ov-sub" key={s.label}>
+              <span>{s.label}</span>
+              <span className="ov-sub-val">{s.value ?? "—"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-function fmt(value, unit) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return String(value);
-  const shown = Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2);
-  return unit ? `${shown}${unit}` : shown;
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function int(v) {
+  const n = num(v);
+  return n == null ? null : Math.round(n);
 }
 
 export default function CsgoOverview({ nickname, matches }) {
@@ -39,6 +64,26 @@ export default function CsgoOverview({ nickname, matches }) {
     return <div className="state">No CS:GO stats available for this account.</div>;
   }
 
+  const by = {};
+  for (const c of data.cards || []) by[c.key] = c.value;
+
+  const wr = num(by["Win Rate %"]);
+  const kd = num(by["Average K/D Ratio"]);
+  const hs = num(by["Average Headshots %"]);
+  const played = int(by["Matches"]);
+  const wins = int(by["Wins"]);
+  const losses = played != null && wins != null ? played - wins : null;
+  const longest = int(by["Longest Win Streak"]);
+  const current = int(by["Current Win Streak"]);
+
+  const wins10 = (data.form || []).filter(Boolean).length;
+  const losses10 = (data.form || []).length - wins10;
+
+  // Break-even is structural here: 50% is as many wins as losses, 1.00 is as
+  // many kills as deaths. No population data is being invented.
+  const wrColor = wr == null ? undefined : wr >= 50 ? "var(--win)" : "var(--loss)";
+  const kdColor = kd == null ? undefined : kd >= 1 ? "var(--win)" : "var(--loss)";
+
   return (
     <div className="csgo">
       {/* CS:GO closed before FACEIT's advanced stats existed, so this is a
@@ -57,38 +102,58 @@ export default function CsgoOverview({ nickname, matches }) {
       </div>
 
       {data.form?.length > 0 && (
-        <div className="csgo-form">
-          <span className="csgo-form-label">Last results</span>
-          <div className="csgo-form-strip">
+        <div className="form-strip">
+          <span className="form-strip-label">Last results</span>
+          <div className="form-strip-chips">
             {data.form.map((won, i) => (
-              <ResultChip key={i} won={won} />
+              <span
+                key={i}
+                className={`res res-${won ? "w" : "l"}`}
+                aria-label={won ? "Win" : "Loss"}
+              >
+                {won ? "W" : "L"}
+              </span>
             ))}
           </div>
-          <span className="csgo-form-hint">newest first</span>
+          <span className="form-strip-tally">
+            <b className="fs-w">{wins10}W</b>
+            <span className="fs-sep">–</span>
+            <b className="fs-l">{losses10}L</b>
+          </span>
+          <span className="form-strip-hint">newest first</span>
         </div>
       )}
 
-      <div className="csgo-cards">
-        {data.cards.map((c) => {
-          const metric = PERF_METRIC[c.key];
-          return (
-            <div className="csgo-card" key={c.key}>
-              <span className="csgo-card-label">{c.label}</span>
-              <span className="csgo-card-row">
-                <span className={`csgo-card-val ${metric ? perfClass(c.value, metric) : ""}`}>
-                  {fmt(c.value, c.unit)}
-                </span>
-                {metric && <PerfChevron value={c.value} metric={metric} />}
-              </span>
-            </div>
-          );
-        })}
-        {Object.entries(data.extra || {}).map(([k, v]) => (
-          <div className="csgo-card" key={k}>
-            <span className="csgo-card-label">{k}</span>
-            <span className="csgo-card-val">{fmt(v, "")}</span>
-          </div>
-        ))}
+      <div className="ov-grid">
+        <Card
+          label="Win Rate"
+          period="all time"
+          ic={<CupStarIcon />}
+          value={wr != null ? `${Math.round(wr)}%` : "—"}
+          color={wrColor}
+          subs={[
+            { label: "Matches", value: played?.toLocaleString() },
+            { label: "Wins", value: wins?.toLocaleString() },
+            { label: "Losses", value: losses?.toLocaleString() },
+          ]}
+        />
+        <Card
+          label="Avg K/D"
+          period="all time"
+          ic={<TargetIcon />}
+          value={kd != null ? kd.toFixed(2) : "—"}
+          color={kdColor}
+          subs={[
+            { label: "Avg Headshots", value: hs != null ? `${Math.round(hs)}%` : null },
+          ]}
+        />
+        <Card
+          label="Win Streak"
+          period="longest"
+          ic={<FireIcon />}
+          value={longest ?? "—"}
+          subs={[{ label: "Current", value: current ?? "—" }]}
+        />
       </div>
 
       {data.maps?.length > 0 && (
@@ -99,11 +164,10 @@ export default function CsgoOverview({ nickname, matches }) {
           </div>
           <div className="csgo-map-list">
             {data.maps.map((m) => {
-              const wr = m.win_rate != null ? Number(m.win_rate) : null;
+              const rate = num(m.win_rate);
               // 50% is a coin flip, so it belongs on the winning side of the
-              // line, not the losing one — a map you break even on is not a
-              // map you lose on.
-              const won = wr != null && wr >= 50;
+              // line — a map you break even on is not a map you lose on.
+              const up = rate != null && rate >= 50;
               return (
                 <div className="csgo-map" key={m.map}>
                   <span className="csgo-map-name">
@@ -112,15 +176,15 @@ export default function CsgoOverview({ nickname, matches }) {
                   </span>
                   <span className="csgo-map-n">{m.matches}</span>
                   <div className="csgo-map-bar">
-                    {wr != null && (
+                    {rate != null && (
                       <div
-                        className={`csgo-map-fill ${won ? "up" : "down"}`}
-                        style={{ width: `${Math.max(0, Math.min(100, wr))}%` }}
+                        className={`csgo-map-fill ${up ? "up" : "down"}`}
+                        style={{ width: `${Math.max(0, Math.min(100, rate))}%` }}
                       />
                     )}
                   </div>
-                  <span className={`csgo-map-wr ${wr == null ? "" : won ? "up" : "down"}`}>
-                    {wr != null ? `${Math.round(wr)}%` : "—"}
+                  <span className={`csgo-map-wr ${rate == null ? "" : up ? "up" : "down"}`}>
+                    {rate != null ? `${Math.round(rate)}%` : "—"}
                   </span>
                   <span className="csgo-map-kd">
                     {m.avg_kd != null ? Number(m.avg_kd).toFixed(2) : "—"}
