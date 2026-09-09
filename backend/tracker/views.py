@@ -1423,3 +1423,23 @@ def avatar_proxy(request):
     # Lets the canvas read the pixels back out instead of tainting.
     resp["Access-Control-Allow-Origin"] = "*"
     return resp
+
+
+@require_GET
+def csgo_stats(request, nickname):
+    """
+    GET /api/player/<nickname>/csgo/ - the player's frozen CS:GO record.
+
+    A separate call rather than part of the profile payload: most accounts
+    never played CS:GO, and the ones that did only need it when someone
+    actually switches to that view.
+    """
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+
+    data = faceit.build_csgo_stats(player.get("player_id"))
+    if not data:
+        return JsonResponse({"available": False, "reason": "no_csgo"})
+    return JsonResponse(data)

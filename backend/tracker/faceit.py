@@ -985,6 +985,82 @@ def extract_map_stats(stats):
     return maps
 
 
+# A retired game's record cannot change, so this is cached for a day rather
+# than the minutes a live profile gets.
+CSGO_STATS_TTL = 24 * 60 * 60
+
+# CS:GO ended before FACEIT's advanced stats landed, so there is no ADR, no
+# entry or clutch counts, no utility — the ten basics below are the whole of
+# it. Laid out explicitly to fix the reading order; anything FACEIT returns
+# that is not listed still reaches the UI through `extra`.
+CSGO_LIFETIME = [
+    ("Matches", "Matches", ""),
+    ("Wins", "Wins", ""),
+    ("Win Rate %", "Win Rate", "%"),
+    ("Average K/D Ratio", "Avg K/D", ""),
+    ("K/D Ratio", "Lifetime K/D", ""),
+    ("Average Headshots %", "Avg Headshots", "%"),
+    ("Total Headshots %", "Total Headshots", "%"),
+    ("Longest Win Streak", "Longest Win Streak", ""),
+    ("Current Win Streak", "Current Win Streak", ""),
+]
+_CSGO_KNOWN = {k for k, _, _ in CSGO_LIFETIME} | {"Recent Results"}
+
+
+def build_csgo_stats(player_id):
+    """The player's frozen CS:GO record, or None if they never played it.
+
+    FACEIT kept CS:GO as its own game rather than merging the history into
+    CS2, so this is a second career sitting behind a second game id — often
+    the larger of the two on an older account.
+    """
+    if not player_id:
+        return None
+
+    key = f"csgo:{player_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+
+    try:
+        raw = _get(f"/players/{player_id}/stats/{LEGACY_GAME}")
+    except FaceitError:
+        cache.set(key, {}, 10 * 60)
+        return None
+
+    lifetime = raw.get("lifetime") or {}
+    if not lifetime:
+        cache.set(key, {}, CSGO_STATS_TTL)
+        return None
+
+    cards = [
+        {"key": k, "label": label, "value": lifetime[k], "unit": unit}
+        for k, label, unit in CSGO_LIFETIME
+        if lifetime.get(k) not in (None, "")
+    ]
+
+    # "Recent Results" is a list of "1"/"0" oldest-first. Reversed here so the
+    # strip reads the way every other form strip on the site does: latest left.
+    form = [
+        _to_int(v) == 1
+        for v in reversed(lifetime.get("Recent Results") or [])
+        if v is not None
+    ]
+
+    out = {
+        "available": True,
+        "cards": cards,
+        "form": form,
+        "maps": extract_map_stats(raw),
+        "extra": {
+            k: v for k, v in lifetime.items()
+            if k not in _CSGO_KNOWN and isinstance(v, (str, int, float))
+        },
+    }
+    cache.set(key, out, CSGO_STATS_TTL)
+    return out
+
+
 def get_player_bans(player_id):
     """Return a list of active bans/cooldowns for the player (may be empty)."""
     try:

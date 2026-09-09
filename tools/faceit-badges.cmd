@@ -6,21 +6,12 @@ setlocal
 cd /d "%~dp0"
 
 echo.
-echo   Verifica daca badge-urile de pe profilul FACEIT vin prin API.
-echo   Testeaza: chei nedocumentate, endpoint dedicat, sau huburi.
+echo   Cauta badge-urile de profil in API-ul intern FACEIT.
+echo   Nu cere cheie de API. Dureaza cateva secunde.
 echo.
-set /p KEY=  Lipeste cheia de API si apasa Enter:
-
-if "%KEY%"=="" (
-  echo.
-  echo   N-ai pus nicio cheie. Iesim.
-  echo.
-  pause
-  exit /b 1
-)
 
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0faceit-badges.ps1" -ApiKey "%KEY%" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0faceit-badges.ps1" %*
 
 echo.
 pause

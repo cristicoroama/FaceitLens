@@ -34,6 +34,7 @@ import SteamInfo from "./components/SteamInfo.jsx";
 import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
 import OverviewGrid from "./components/OverviewGrid.jsx";
+import CsgoOverview from "./components/CsgoOverview.jsx";
 import Games from "./components/Games.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
 import ApiDocs from "./components/ApiDocs.jsx";
@@ -375,6 +376,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   const [copied, setCopied] = useState(false);
   const [mapFilter, setMapFilter] = useState(null);
   const [profileTab, setProfileTab] = useState("overview");
+  const [gameView, setGameView] = useState("cs2");
   const [refreshing, setRefreshing] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -1178,7 +1180,12 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                   and re-mounting the activity heatmap on every tab change
                   would replay its entrance animation each time. */}
               <div className="prof-layout">
-                <ProfileSidebar player={data} onPick={go} />
+                <ProfileSidebar
+                  player={data}
+                  onPick={go}
+                  gameView={gameView}
+                  onGameView={(g) => { setGameView(g); setProfileTab("overview"); }}
+                />
                 <div className="prof-main">
               <div className="ptabs">
                 {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
@@ -1261,6 +1268,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                    it is trending. Fourteen sections in one scroll meant the
                    match list — the thing most people came for — was six
                    screens down. */
+                gameView === "csgo" ? (
+                  <CsgoOverview
+                    nickname={data.nickname}
+                    matches={
+                      (data.game_history || []).find((g) => g.game === "csgo")?.matches
+                    }
+                  />
+                ) : (
                 <>
                   <OverviewGrid
                     data={data}
@@ -1279,6 +1294,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                       inside Overview was the same picture three times. */}
                   <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                 </>
+                )
               )}
                 </div>
               </div>

@@ -37,7 +37,7 @@ function Card({ title, count, children }) {
   );
 }
 
-export default function ProfileSidebar({ player, onPick }) {
+export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGameView }) {
   if (!player) return null;
 
   const hubs = (player.competitions || []).slice(0, 5);
@@ -68,9 +68,19 @@ export default function ProfileSidebar({ player, onPick }) {
           a lone CS2 row restates what the whole page already says. */}
       {(player.game_history || []).length > 1 && (
         <Card title="Game history">
+          {/* Also the switch for the Overview: picking a title swaps the
+              stats below it. The row already names the game and its match
+              count, so a separate toggle above would say the same thing
+              twice. */}
           <div className="psb-games">
             {player.game_history.map((g) => (
-              <div className={`psb-game ${g.current ? "on" : ""}`} key={g.game}>
+              <button
+                type="button"
+                className={`psb-game ${gameView === g.game ? "on" : ""}`}
+                key={g.game}
+                onClick={onGameView ? () => onGameView(g.game) : undefined}
+                aria-pressed={gameView === g.game}
+              >
                 <img
                   className="psb-game-ic"
                   src={`/games/${g.game}.png`}
@@ -86,7 +96,7 @@ export default function ProfileSidebar({ player, onPick }) {
                   </span>
                 </div>
                 {g.level != null && <FaceitLevel level={g.level} size={20} />}
-              </div>
+              </button>
             ))}
           </div>
         </Card>
