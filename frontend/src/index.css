@@ -200,7 +200,11 @@ a { color: inherit; }
 .tn-word { white-space: nowrap; }
 .tn-word span { color: var(--accent); }
 
-.tn-nav { display: flex; align-items: center; gap: 2px; }
+/* The nav owns the gap that splits the bar in two, so everything after it sits
+   right. Putting that auto margin on a later item (the socials, the search)
+   meant hiding that one item collapsed the whole right-hand group leftwards —
+   layout must not depend on which optional items happen to be visible. */
+.tn-nav { display: flex; align-items: center; gap: 2px; margin-right: auto; }
 .tn-item { position: relative; }
 
 .tn-link, .tn-trigger {
@@ -5008,7 +5012,6 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  margin-left: auto;
   margin-right: 6px;
   padding-right: 8px;
   border-right: 1px solid var(--border);
@@ -6982,17 +6985,18 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   max-height: calc(100vh - var(--topbar-h) - 24px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* The bar itself stays invisible until the column is hovered: a permanent
+     grey rail down the side of the sidebar reads as a seam in the layout, not
+     as a control. Scrolling works either way — this only hides the chrome. */
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-  /* Room for the scrollbar so it never sits on top of a card's border. */
+  scrollbar-color: transparent transparent;
   padding-right: 2px;
 }
+.psb:hover { scrollbar-color: var(--border) transparent; }
 .psb::-webkit-scrollbar { width: 6px; }
 .psb::-webkit-scrollbar-track { background: transparent; }
-.psb::-webkit-scrollbar-thumb {
-  background: var(--border); border-radius: 3px;
-}
-.psb::-webkit-scrollbar-thumb:hover { background: var(--border-strong, var(--border)); }
+.psb::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+.psb:hover::-webkit-scrollbar-thumb { background: var(--border); }
 
 /* Below the two-column breakpoint the sidebar is a normal block in the flow,
    where a capped height would clip it instead of helping. */
@@ -7373,8 +7377,10 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .sdock-mail     { background: #ea4335; }
 .sdock-coffee   { background: #ffdd00; color: #17181a; border-color: rgba(0, 0, 0, .18); }
 
+/* The dock is desktop-only: fixed to the corner on a phone it would sit on
+   top of the content it should sit beside. The top-bar row stays at every
+   width, so the links are never missing — below 900px it is the only copy. */
 @media (max-width: 900px) { .sdock { display: none; } }
-@media (min-width: 901px) { .tn-socials { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sdock-btn, .sdock-btn:hover { transition: none; transform: none; }
