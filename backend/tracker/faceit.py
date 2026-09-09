@@ -998,13 +998,28 @@ CSGO_LIFETIME = [
     ("Wins", "Wins", ""),
     ("Win Rate %", "Win Rate", "%"),
     ("Average K/D Ratio", "Avg K/D", ""),
-    ("K/D Ratio", "Lifetime K/D", ""),
     ("Average Headshots %", "Avg Headshots", "%"),
-    ("Total Headshots %", "Total Headshots", "%"),
     ("Longest Win Streak", "Longest Win Streak", ""),
     ("Current Win Streak", "Current Win Streak", ""),
 ]
-_CSGO_KNOWN = {k for k, _, _ in CSGO_LIFETIME} | {"Recent Results"}
+
+# Deliberately NOT shown, and not left to fall through into `extra` either.
+#
+# Despite the names, "K/D Ratio" and "Total Headshots %" are not a lifetime
+# ratio and not a percentage — they are running SUMS of the per-match figures,
+# the accumulators FACEIT divides by match count to produce the two "Average"
+# fields above. Measured on a real account: 6150.19 / 4747 matches = 1.2956,
+# which is exactly the reported Average K/D of 1.30, and 280519 / 4747 = 59.09
+# against a reported Average Headshots of 59%. Rendered literally they read as
+# "Lifetime K/D 6150.19" and "Total Headshots 280,519%".
+#
+# A true lifetime K/D would be total kills over total deaths, and CS:GO's
+# lifetime block carries neither, so there is nothing to compute here.
+_CSGO_ACCUMULATORS = {"K/D Ratio", "Total Headshots %"}
+
+_CSGO_KNOWN = (
+    {k for k, _, _ in CSGO_LIFETIME} | _CSGO_ACCUMULATORS | {"Recent Results"}
+)
 
 
 def build_csgo_stats(player_id):
