@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import { API_BASE } from "../api.js";
-import { MapIcon } from "../map-art.jsx";
+import { MapThumb } from "../map-art.jsx";
 import { ResultChip } from "./FormStrip.jsx";
+import PerfChevron, { perfClass } from "./PerfChevron.jsx";
+
+/* Which cards carry a verdict. Only the two with a structural break-even —
+   see the note in PerfChevron. */
+const PERF_METRIC = {
+  "Average K/D Ratio": "kd",
+  "Win Rate %": "winrate",
+};
 
 function fmt(value, unit) {
   const n = Number(value);
@@ -61,12 +69,20 @@ export default function CsgoOverview({ nickname, matches }) {
       )}
 
       <div className="csgo-cards">
-        {data.cards.map((c) => (
-          <div className="csgo-card" key={c.key}>
-            <span className="csgo-card-label">{c.label}</span>
-            <span className="csgo-card-val">{fmt(c.value, c.unit)}</span>
-          </div>
-        ))}
+        {data.cards.map((c) => {
+          const metric = PERF_METRIC[c.key];
+          return (
+            <div className="csgo-card" key={c.key}>
+              <span className="csgo-card-label">{c.label}</span>
+              <span className="csgo-card-row">
+                <span className={`csgo-card-val ${metric ? perfClass(c.value, metric) : ""}`}>
+                  {fmt(c.value, c.unit)}
+                </span>
+                {metric && <PerfChevron value={c.value} metric={metric} />}
+              </span>
+            </div>
+          );
+        })}
         {Object.entries(data.extra || {}).map(([k, v]) => (
           <div className="csgo-card" key={k}>
             <span className="csgo-card-label">{k}</span>
@@ -91,7 +107,7 @@ export default function CsgoOverview({ nickname, matches }) {
               return (
                 <div className="csgo-map" key={m.map}>
                   <span className="csgo-map-name">
-                    <MapIcon map={m.map} size={18} />
+                    <MapThumb map={m.map} className="csgo-map-thumb" />
                     {m.map}
                   </span>
                   <span className="csgo-map-n">{m.matches}</span>

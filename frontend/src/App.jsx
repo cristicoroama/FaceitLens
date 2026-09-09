@@ -1187,22 +1187,37 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                   onGameView={(g) => { setGameView(g); setProfileTab("overview"); }}
                 />
                 <div className="prof-main">
-              <div className="ptabs">
-                {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
-                  <button
-                    key={key}
-                    className={`ptab ${profileTab === key ? "active" : ""}`}
-                    onClick={() => setProfileTab(key)}
-                    aria-current={profileTab === key ? "page" : undefined}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* Hidden entirely in CS:GO mode. Every one of those tabs reads
+                  from the CS2 payload — a Matches tab that lists CS2 games
+                  while the header says CS:GO is worse than no tab at all. The
+                  frozen record is one page, so it gets one page. */}
+              {gameView !== "csgo" && (
+                <div className="ptabs">
+                  {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
+                    <button
+                      key={key}
+                      className={`ptab ${profileTab === key ? "active" : ""}`}
+                      onClick={() => setProfileTab(key)}
+                      aria-current={profileTab === key ? "page" : undefined}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Above the tab content, so it sits in one fixed place on every
                   tab instead of appearing at a different scroll depth per tab. */}
-              {profileTab === "matches" ? (
+              {/* CS:GO short-circuits the whole tab chain, not just its last
+                  branch: the rail is hidden in that mode, so a profileTab left
+                  pointing elsewhere would render CS2 content with no control
+                  on screen to get back. */}
+              {gameView === "csgo" ? (
+                <CsgoOverview
+                  nickname={data.nickname}
+                  matches={(data.game_history || []).find((g) => g.game === "csgo")?.matches}
+                />
+              ) : profileTab === "matches" ? (
                 <>
                   {/* The detailed ten first — expandable, with full scoreboards
                       — then the long filterable list for whoever wants to scan
@@ -1268,14 +1283,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                    it is trending. Fourteen sections in one scroll meant the
                    match list — the thing most people came for — was six
                    screens down. */
-                gameView === "csgo" ? (
-                  <CsgoOverview
-                    nickname={data.nickname}
-                    matches={
-                      (data.game_history || []).find((g) => g.game === "csgo")?.matches
-                    }
-                  />
-                ) : (
                 <>
                   <OverviewGrid
                     data={data}
@@ -1294,7 +1301,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                       inside Overview was the same picture three times. */}
                   <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
                 </>
-                )
               )}
                 </div>
               </div>
