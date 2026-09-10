@@ -694,7 +694,11 @@ a { color: inherit; }
 .autocomplete { position: relative; flex: 1; }
 .suggestions {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-  background: color-mix(in srgb, var(--bg-elev-2) 78%, transparent);
+  /* Opaque, like .tn-menu. At 78% the home page's favourite and recent-search
+     chips read straight through the list, so a suggestion sat on top of
+     unrelated words. Nothing else in this stylesheet uses backdrop-filter,
+     so a solid surface is the house answer rather than a blur. */
+  background: var(--bg-elev-2);
   border: 1px solid var(--border-hi);
   border-radius: 14px; overflow: hidden; z-index: 40;
   box-shadow: var(--shadow), 0 0 0 1px rgba(var(--accent-rgb), 0.08);
@@ -702,16 +706,19 @@ a { color: inherit; }
 }
 .suggestion { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: background 0.12s, padding-left 0.15s; }
 .suggestion:hover { background: rgba(var(--accent-rgb), 0.1); padding-left: 18px; }
-/* The avatar only. Without the :not() this also caught the flag, which sets
-   its width inline but inherited the 28px height — a 3:2 flag stretched into
-   a rounded square. */
 /* Avatar only. The flag and the verified badge are images in the same row, and
    this rule outranks their own (element + class beats a bare class), so each
-   has to be named here or it silently renders as a 28px avatar tile. */
+   has to be named here or it silently renders as a 28px avatar tile — which
+   is how the flag once ended up a rounded square, its inline width surviving
+   while the 28px height did not. */
 .suggestion img:not(.flag-icon):not(.suggestion-verified), .suggestion-noimg {
   width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--bg-elev);
 }
+/* text-align is explicit because .home-hero centres everything inside it, and
+   the name inherited that — the same list read left-aligned in the topbar and
+   centred on the home page. */
 .suggestion-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0;
+  text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggestion .flag-icon { flex: 0 0 auto; height: auto; }
 /* 18, not the level's 22: the level icon is a circle with padding inside its
