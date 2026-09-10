@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ReactionTest from "./ReactionTest.jsx";
 import { WEAPONS, TRIVIA } from "../games-data.js";
 import { Icon } from "../icons.jsx";
 
@@ -37,7 +38,7 @@ function buildQuestions(game) {
   });
 }
 
-function Leaderboard({ game, refresh }) {
+function Leaderboard({ game, refresh, unit }) {
   const [items, setItems] = useState([]);
   useEffect(() => {
     fetch(`${API_BASE}/api/games/leaderboard/?game=${game}`)
@@ -56,7 +57,7 @@ function Leaderboard({ game, refresh }) {
           <div className="gl-row" key={i}>
             <span className="gl-rank">#{i + 1}</span>
             <span className="gl-name">{r.name}</span>
-            <span className="gl-score">{r.score}</span>
+            <span className="gl-score">{r.score}{unit ? ` ${unit}` : ""}</span>
           </div>
         ))
       )}
@@ -129,6 +130,11 @@ export default function Games() {
           <div className="game-card-title">CS Trivia</div>
           <div className="game-card-desc">Test your Counter-Strike knowledge.</div>
         </div>
+        <div className="game-card" onClick={() => start("reaction")}>
+          <div className="game-card-icon">{Icon.activity}</div>
+          <div className="game-card-title">Reaction Test</div>
+          <div className="game-card-desc">Click the moment it turns green. Five rounds, averaged.</div>
+        </div>
         <div className="games-boards">
           <div>
             <div className="section-title">Guess the Price</div>
@@ -138,8 +144,24 @@ export default function Games() {
             <div className="section-title">CS Trivia</div>
             <Leaderboard game="trivia" refresh={refresh} />
           </div>
+          <div>
+            <div className="section-title">Reaction Test</div>
+            {/* Ordered ascending by the API — lower milliseconds win here. */}
+            <Leaderboard game="reaction" refresh={refresh} unit="ms" />
+          </div>
         </div>
       </div>
+    );
+  }
+
+  // The reaction test is not a quiz — no questions, no per-answer scoring —
+  // so it runs its own component and reports a single averaged result back.
+  if (game === "reaction" && !done) {
+    return (
+      <ReactionTest
+        onFinish={(avg) => { setScore(avg); setDone(true); }}
+        onExit={() => setGame(null)}
+      />
     );
   }
 
@@ -147,9 +169,13 @@ export default function Games() {
   if (done) {
     return (
       <div className="game-end">
-        <div className="game-end-score">{score}</div>
+        <div className="game-end-score">
+          {score}{game === "reaction" && <span className="game-end-unit">ms</span>}
+        </div>
         <div className="game-end-label">
-          {score / 10} / {questions.length} correct
+          {game === "reaction"
+            ? "average over 5 rounds — lower is better"
+            : `${score / 10} / ${questions.length} correct`}
         </div>
         {!submitted ? (
           <div className="game-submit">
@@ -166,7 +192,8 @@ export default function Games() {
         ) : (
           <div className="state" style={{ padding: "10px 0" }}>Score submitted!</div>
         )}
-        <Leaderboard game={game} refresh={refresh} />
+        <Leaderboard game={game} refresh={refresh}
+                     unit={game === "reaction" ? "ms" : undefined} />
         <div className="game-again">
           <button className="act-btn" onClick={() => start(game)}>Play again</button>
           <button className="act-btn" onClick={() => setGame(null)}>Back to games</button>

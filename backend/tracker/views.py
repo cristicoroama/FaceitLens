@@ -1076,22 +1076,42 @@ def _int_arg(request, name, default):
         return default
 
 
-VALID_GAMES = {"price", "trivia"}
+# Each game says which way its score reads and what counts as a plausible one.
+#
+# "price" and "trivia" are quizzes: more correct answers is better. "reaction"
+# stores milliseconds, where LOWER wins — ordering it the same way would put
+# the slowest players on top of the board. The bounds are a sanity filter, not
+# a security control: the score arrives from the browser and anyone can post
+# whatever they like. What they do is keep the visible board honest-looking
+# against fat fingers and casual tampering.
+#
+# The floor of 80ms is deliberate. Human simple visual reaction bottoms out
+# around 100ms, and the fastest esports outliers sit near 120ms; anything under
+# 80 means the click was already on its way before the colour changed.
+GAME_RULES = {
+    "price":    {"low_is_best": False, "min": 0,  "max": 100000},
+    "trivia":   {"low_is_best": False, "min": 0,  "max": 100000},
+    "reaction": {"low_is_best": True,  "min": 80, "max": 2000},
+}
+VALID_GAMES = set(GAME_RULES)
 
 
 @require_GET
 def game_leaderboard(request):
     """GET /api/games/leaderboard/?game=price - top 10 scores for a game."""
     game = request.GET.get("game", "")
-    if game not in VALID_GAMES:
+    rules = GAME_RULES.get(game)
+    if not rules:
         return JsonResponse({"error": "Unknown game."}, status=400)
     try:
         from .models import GameScore
-        rows = GameScore.objects.filter(game=game).order_by("-score", "created_at")[:10]
+        order = "score" if rules["low_is_best"] else "-score"
+        rows = GameScore.objects.filter(game=game).order_by(order, "created_at")[:10]
         items = [{"name": r.name, "score": r.score} for r in rows]
     except Exception:
         items = []
-    return JsonResponse({"items": items})
+    # The client renders the units, so it has to be told which direction wins.
+    return JsonResponse({"items": items, "low_is_best": rules["low_is_best"]})
 
 
 @csrf_exempt
@@ -1110,7 +1130,8 @@ def game_score(request):
     except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid score."}, status=400)
 
-    if game not in VALID_GAMES or not (0 <= score <= 100000):
+    rules = GAME_RULES.get(game)
+    if not rules or not (rules["min"] <= score <= rules["max"]):
         return JsonResponse({"error": "Invalid submission."}, status=400)
 
     try:
