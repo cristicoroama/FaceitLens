@@ -80,10 +80,17 @@ export default function PlayerTeams({ nickname }) {
                   <span className="pteam-logo ph">{initials(t.name)}</span>
                 )}
                 <div className="pteam-main">
-                  <div className="pteam-name">{t.name || "—"}</div>
+                  <div className="pteam-name">
+                    {t.name || "—"}
+                    {/* FACEIT's team list is a history and publishes no
+                        "current" flag, so this is our reading of the team's
+                        roster. Said plainly rather than shown as a bare list
+                        that implies every one of them is current. */}
+                    {t.current === false && <span className="pteam-past">former</span>}
+                  </div>
                   <div className="pteam-meta">
                     {t.type && <span className="pteam-type">{t.type}</span>}
-                    {t.members > 0 && <span>{t.members} members</span>}
+                    {t.current === true && <span className="pteam-now">Current team</span>}
                   </div>
                 </div>
                 <span className="pteam-go">{Icon.boxArrowUpRight}</span>

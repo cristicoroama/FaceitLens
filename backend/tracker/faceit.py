@@ -3042,15 +3042,38 @@ def get_player_rank(leaderboard_id, player_id):
     return result
 
 
+def _team_has_player(team_id, player_id):
+    """Is this player on that team's roster right now?
+
+    FACEIT's team list for a player is a HISTORY: s1mple's comes back with
+    NAVI, Falcons and BC Game together, and the Team objects in it carry no
+    `current`, `active` or `joined` field — and no populated `members` array
+    either, so the list alone cannot say which one he plays for today.
+
+    The roster on the team's own record can. It is a second call per team, but
+    `get_team` is cached and only players who have teams at all pay it.
+
+    This is inference, not a flag FACEIT publishes: it holds as long as leaving
+    a team removes you from its roster. A team that keeps former players listed
+    would still read as current.
+    """
+    try:
+        detail = get_team(team_id)
+    except Exception:
+        return None  # unknown, which is not the same as "no"
+    ids = {m.get("player_id") for m in (detail or {}).get("members") or []}
+    return player_id in ids
+
+
 def get_player_teams(player_id, limit=20):
-    """Teams the player belongs to.
+    """Teams the player belongs to, current ones first.
 
     Best-effort like get_player_hubs: a profile is not broken because the team
     list failed, so a failure is an empty list rather than an exception.
     """
     if not player_id:
         return []
-    cache_key = f"pteams:{player_id}:{limit}"
+    cache_key = f"pteams:v2:{player_id}:{limit}"
     hit = cache.get(cache_key)
     if hit is not None:
         return hit
@@ -3069,9 +3092,29 @@ def get_player_teams(player_id, limit=20):
             "avatar": t.get("avatar") or None,
             "game": t.get("game"),
             "type": t.get("team_type"),
-            "members": len(t.get("members") or []),
             "faceit_url": (t.get("faceit_url") or "").replace("{lang}", "en") or None,
         })
+
+    # Resolve current membership in parallel — a handful of teams at most, and
+    # a small pool because this already runs inside build_player_summary's.
+    if out:
+        with ThreadPoolExecutor(max_workers=min(5, len(out))) as pool:
+            futures = {
+                t["team_id"]: pool.submit(_team_has_player, t["team_id"], player_id)
+                for t in out if t["team_id"]
+            }
+            for t in out:
+                fut = futures.get(t["team_id"])
+                try:
+                    t["current"] = fut.result() if fut else None
+                except Exception:
+                    t["current"] = None
+
+    # Current first, then unknown, then former — and a team whose roster we
+    # could not read sorts above one we know he left.
+    order = {True: 0, None: 1, False: 2}
+    out.sort(key=lambda t: order.get(t.get("current"), 1))
+
     cache.set(cache_key, out, 30 * 60)
     return out
 
@@ -3650,7 +3693,7 @@ def build_player_summary(nickname):
     # spend their lives waiting on FACEIT, so a thread costs nothing; sizing
     # the pool below the number of tasks just makes the last one queue behind
     # a call that takes three round-trips.
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    with ThreadPoolExecutor(max_workers=12) as pool:
         f_stats = pool.submit(get_player_stats, player_id)
         # 250 rather than 30, to match the stats window: the hub breakdown
         # joins these two on match id, and a stat with no history row beside it
@@ -3670,6 +3713,10 @@ def build_player_summary(nickname):
         )
         f_bans = pool.submit(get_player_bans, player_id)
         f_hubs = pool.submit(get_player_hubs, player_id)
+        # Rides along in the same pool, so it costs no wall clock, and the
+        # header badges and the Overview section both read one result instead
+        # of asking twice. Cached 30 minutes; most accounts have no teams.
+        f_teams = pool.submit(get_player_teams, player_id)
         f_steam = pool.submit(get_steam_info, steam_id)
         # One call, two fields: the Twitch channel and the account's creation
         # date. Both come from the same internal endpoint, so asking twice
@@ -3687,6 +3734,7 @@ def build_player_summary(nickname):
         ranking_country = f_ranking_country.result()
         bans = f_bans.result()
         hubs = f_hubs.result()
+        teams = f_teams.result()
         steam = f_steam.result()
         internal = f_internal.result() or {}
         twitch = internal.get("twitch")
@@ -3840,6 +3888,7 @@ def build_player_summary(nickname):
         "teammates_full": teammates_full,
         "nemeses": nemeses,
         "hubs": hubs,
+        "teams": teams,
         "steam": steam,
         "nicknames": nicknames,
         "elo_history": elo_history,
