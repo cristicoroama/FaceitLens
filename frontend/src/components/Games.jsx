@@ -32,6 +32,11 @@ function buildQuestions(game) {
     const options = shuffle([w.price, ...wrong]);
     return {
       prompt: `How much does the ${w.name} cost?`,
+      // Carried alongside the prompt so the play screen can draw the weapon.
+      // The prompt still names it: the art is a second cue, not the only one,
+      // and a silhouette alone would turn a price quiz into a guess-the-gun.
+      icon: w.icon,
+      label: w.name,
       options: options.map((p) => `$${p}`),
       answer: options.indexOf(w.price),
     };
@@ -210,6 +215,9 @@ export default function Games() {
         <span>Question {idx + 1}/{questions.length}</span>
         <span className="game-score">Score: {score}</span>
       </div>
+      {q.icon && (
+        <img className="game-weapon" src={`/weapons/${q.icon}.svg`} alt="" aria-hidden="true" />
+      )}
       <div className="game-prompt">{q.prompt}</div>
       <div className="game-options">
         {q.options.map((opt, i) => {

@@ -15,6 +15,8 @@ const SOURCES = [
   ["FACEIT", "https://www.faceit.com", "Player profiles, ELO, match history, hubs and bans, via the FACEIT Data API."],
   ["Steam / Valve", "https://store.steampowered.com", "Sign-in, public profile details, CS2 playtime, inventory and medals."],
   ["Leetify", "https://leetify.com", "Demo-derived aim, utility and rank statistics for players who use Leetify."],
+  ["CSRep", "https://csrep.gg", "Reputation signals, Overwatch verdicts and cross-platform ban history."],
+  ["counter-strike-icons", "https://github.com/Juknum/counter-strike-icons", "In-game weapon and equipment artwork, extracted from Counter-Strike. The icons remain the property of Valve Corporation."],
   ["Allstar", "https://allstar.gg", "Player highlight clips."],
   ["Liquipedia", "https://liquipedia.net", "Professional roster and transfer data, used under CC BY-SA 3.0."],
   ["HLTV / ProSettings", "https://prosettings.net", "Professional player configs and gear."],

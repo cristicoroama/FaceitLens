@@ -2274,6 +2274,16 @@ a { color: inherit; }
   font-family: var(--font-display); font-weight: 700; font-size: 72px; line-height: 1;
   color: var(--accent);
 }
+/* The weapon on the price round. Height-bound and width-auto because the set
+   runs from a stubby pistol to a long rifle — sizing by width would make the
+   Glock a giant and the AWP a sliver. */
+.game-weapon {
+  display: block; margin: 0 auto 14px;
+  height: 74px; max-width: 100%; width: auto;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.5));
+  animation: riseIn 0.3s ease both;
+}
+
 .game-end-unit { font-size: 28px; margin-left: 6px; opacity: 0.65; }
 .game-end-label { color: var(--text-dim); margin-bottom: 20px; }
 
