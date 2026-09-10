@@ -48,9 +48,10 @@ def _record_bans(data):
         if not bans:
             return
         from .models import BanRecord
+        from . import notifications
         for b in bans:
             btype = (b.get("reason") or b.get("type") or "ban").strip()[:64]
-            BanRecord.objects.get_or_create(
+            _, created = BanRecord.objects.get_or_create(
                 player_id=data.get("player_id") or data.get("nickname"),
                 ban_type=btype,
                 defaults={
@@ -59,6 +60,11 @@ def _record_bans(data):
                     "reason": btype,
                 },
             )
+            # A profile view is the other place a ban first gets seen — often
+            # sooner than the nightly cron, since somebody looked the player up
+            # precisely because they suspected it.
+            if created:
+                notifications.notify_ban(data.get("nickname") or "", btype)
     except Exception:
         pass
 
@@ -118,6 +124,109 @@ def health(request):
         "status": "ok",
         "service": "faceitlens-api",
     })
+
+
+@csrf_exempt
+def notifications_view(request):
+    """
+    GET  /api/notifications/   - this user's notifications + unread count.
+    POST /api/notifications/   - mark them read ({"ids": [...]} or all).
+
+    Signed-in only, and scoped to request.user on every query — a notification
+    names players somebody chose to follow, which is nobody else's business.
+    """
+    if request.method not in ("GET", "POST"):
+        return JsonResponse({"error": "Method not allowed."}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not signed in."}, status=401)
+
+    from .models import Notification
+    qs = Notification.objects.filter(user=request.user)
+
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body or "{}")
+        except ValueError:
+            return JsonResponse({"error": "Invalid JSON."}, status=400)
+        ids = body.get("ids")
+        target = qs.filter(id__in=ids[:200]) if isinstance(ids, list) else qs
+        target.filter(read=False).update(read=True)
+        return JsonResponse({"ok": True, "unread": qs.filter(read=False).count()})
+
+    items = [
+        {
+            "id": n.id,
+            "kind": n.kind,
+            "title": n.title,
+            "body": n.body,
+            "link": n.link,
+            "read": n.read,
+            "created_at": n.created_at.isoformat(),
+        }
+        for n in qs[:30]
+    ]
+    return JsonResponse({"items": items, "unread": qs.filter(read=False).count()})
+
+
+@require_GET
+def player_teams(request, nickname):
+    """GET /api/player/<nickname>/teams/ - the teams this player belongs to."""
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    pid = player.get("player_id")
+    if not pid:
+        return JsonResponse({"items": [], "count": 0})
+    items = faceit.get_player_teams(pid)
+    return JsonResponse({"items": items, "count": len(items)})
+
+
+@require_GET
+def player_tournaments(request, nickname):
+    """GET /api/player/<nickname>/tournaments/ - tournaments this player entered."""
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    pid = player.get("player_id")
+    if not pid:
+        return JsonResponse({"items": [], "count": 0})
+    items = faceit.get_player_tournaments(pid)
+    return JsonResponse({"items": items, "count": len(items)})
+
+
+@require_GET
+def player_rank(request):
+    """
+    GET /api/rank/?leaderboard=<id>&player=<player_id> - one player's standing.
+
+    Answers "where am I on this board" in a single upstream call, instead of
+    paging the board until the player appears.
+    """
+    lb = request.GET.get("leaderboard", "").strip()
+    pid = request.GET.get("player", "").strip()
+    if not lb or not pid:
+        return JsonResponse({"error": "leaderboard and player are required."}, status=400)
+    row = faceit.get_player_rank(lb, pid)
+    # Unranked is a normal answer, not a 404: the board exists, the player is
+    # simply not on it.
+    return JsonResponse({"ranked": bool(row), "rank": row})
+
+
+@require_GET
+def hub_stats(request, hub_id):
+    """GET /api/hub/<hub_id>/stats/ - per-player statistics inside a hub."""
+    try:
+        data = faceit.get_hub_stats(
+            hub_id,
+            offset=request.GET.get("offset", 0),
+            limit=request.GET.get("limit", 20),
+        )
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+    return JsonResponse(data)
 
 
 @require_GET

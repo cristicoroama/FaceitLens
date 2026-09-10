@@ -24,6 +24,7 @@ class Command(BaseCommand):
         players = TrackedPlayer.objects.order_by("-last_searched")[:limit]
         checked = 0
         found = 0
+        notified = 0
         for tp in players:
             checked += 1
             try:
@@ -39,5 +40,13 @@ class Command(BaseCommand):
                 )
                 if created:
                     found += 1
-                    self.stdout.write(f"  + {tp.nickname}: {btype}")
-        self.stdout.write(self.style.SUCCESS(f"Checked {checked} players, {found} new bans."))
+                    # Tell everyone following this player. Only on `created`,
+                    # so a nightly re-run over the same standing ban is silent.
+                    from tracker import notifications
+                    told = notifications.notify_ban(tp.nickname, btype)
+                    notified += told
+                    suffix = f" (notified {told})" if told else ""
+                    self.stdout.write(f"  + {tp.nickname}: {btype}{suffix}")
+        self.stdout.write(self.style.SUCCESS(
+            f"Checked {checked} players, {found} new bans, {notified} notifications sent."
+        ))

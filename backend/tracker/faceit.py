@@ -3008,6 +3008,152 @@ def get_hub_ranking(hub_id, season=None, offset=0, limit=50):
     return result
 
 
+def get_player_rank(leaderboard_id, player_id):
+    """One player's row in one leaderboard, fetched directly.
+
+    The alternative was paging the whole board until the player turned up —
+    fine at position 12, useless at position 4,000, and a request per hundred
+    rows either way. This is one call regardless of where they sit.
+
+    Returns None rather than raising when the player is not ranked: absence is
+    the ordinary answer here, not a failure.
+    """
+    if not leaderboard_id or not player_id:
+        return None
+
+    cache_key = f"prank:{leaderboard_id}:{player_id}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit or None
+
+    try:
+        d = _get(f"/leaderboards/{leaderboard_id}/players/{player_id}")
+    except FaceitError:
+        # Cached as a miss so an unranked player does not re-ask on every view.
+        cache.set(cache_key, {}, 5 * 60)
+        return None
+
+    # The single-player response carries the same fields as a row of the full
+    # board, so it goes through the shared shaper rather than a second one that
+    # would drift from it.
+    rows = _rank_rows({"items": [d]})
+    result = rows[0] if rows else None
+    cache.set(cache_key, result or {}, 5 * 60)
+    return result
+
+
+def get_player_teams(player_id, limit=20):
+    """Teams the player belongs to.
+
+    Best-effort like get_player_hubs: a profile is not broken because the team
+    list failed, so a failure is an empty list rather than an exception.
+    """
+    if not player_id:
+        return []
+    cache_key = f"pteams:{player_id}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    try:
+        data = _get(f"/players/{player_id}/teams",
+                    params={"offset": 0, "limit": max(1, min(int(limit or 20), 50))})
+    except Exception:
+        return []
+
+    out = []
+    for t in data.get("items", []):
+        out.append({
+            "team_id": t.get("team_id"),
+            "name": t.get("name") or t.get("nickname"),
+            "avatar": t.get("avatar") or None,
+            "game": t.get("game"),
+            "type": t.get("team_type"),
+            "members": len(t.get("members") or []),
+            "faceit_url": (t.get("faceit_url") or "").replace("{lang}", "en") or None,
+        })
+    cache.set(cache_key, out, 30 * 60)
+    return out
+
+
+def get_player_tournaments(player_id, limit=20):
+    """Tournaments the player has entered, newest first."""
+    if not player_id:
+        return []
+    cache_key = f"ptourneys:{player_id}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    try:
+        data = _get(f"/players/{player_id}/tournaments",
+                    params={"offset": 0, "limit": max(1, min(int(limit or 20), 50))})
+    except Exception:
+        return []
+
+    out = []
+    for t in data.get("items", []):
+        out.append({
+            "tournament_id": t.get("tournament_id"),
+            "name": t.get("name"),
+            "game": t.get("game_id"),
+            "region": t.get("region"),
+            "status": t.get("status"),
+            "started_at": t.get("started_at"),
+            "players": t.get("number_of_players"),
+            "team_size": t.get("team_size"),
+            "prize": t.get("total_prize") or None,
+            "image": t.get("featured_image") or None,
+            "faceit_url": (t.get("faceit_url") or "").replace("{lang}", "en") or None,
+        })
+    # Newest first. `started_at` is epoch seconds and can be missing on an
+    # unscheduled tournament, which sorts to the bottom rather than crashing.
+    out.sort(key=lambda x: x.get("started_at") or 0, reverse=True)
+    cache.set(cache_key, out, 30 * 60)
+    return out
+
+
+def get_hub_stats(hub_id, offset=0, limit=20):
+    """Per-player statistics inside one hub.
+
+    `stats` is a free-form object whose keys differ per game, so it is passed
+    through untouched — inventing a fixed field list here would silently drop
+    whatever a game reports that CS2 does not.
+    """
+    if not hub_id:
+        return {"items": [], "offset": 0, "limit": 0, "has_more": False}
+
+    limit = max(1, min(int(limit or 20), 100))
+    offset = max(0, int(offset or 0))
+    cache_key = f"hubstats:{hub_id}:{offset}:{limit}"
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+
+    try:
+        data = _get(f"/hubs/{hub_id}/stats", params={"offset": offset, "limit": limit})
+    except FaceitError:
+        return {"items": [], "offset": offset, "limit": limit, "has_more": False}
+
+    items = [
+        {
+            "player_id": p.get("player_id"),
+            "nickname": p.get("nickname"),
+            "stats": p.get("stats") or {},
+        }
+        for p in (data.get("players") or [])
+    ]
+    result = {
+        "game": data.get("game_id"),
+        "items": items,
+        "offset": offset,
+        "limit": limit,
+        "has_more": len(items) == limit,
+    }
+    cache.set(cache_key, result, 10 * 60)
+    return result
+
+
 # --------------------------------------------------------------------------- #
 #  Leagues - a player's division and standing
 # --------------------------------------------------------------------------- #

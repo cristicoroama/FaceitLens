@@ -6,7 +6,7 @@ function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
-export default function Hubs({ onPick }) {
+export default function Hubs({ onPick, user }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
   const [hub, setHub] = useState(null);
@@ -19,15 +19,52 @@ export default function Hubs({ onPick }) {
   const [season, setSeason] = useState(null);   // null = all-time
   const [rank, setRank] = useState(null);
   const [rankLoading, setRankLoading] = useState(false);
+  // "Where am I on this ladder" — one call, whatever the position. Paging the
+  // board to find yourself is fine at #12 and hopeless at #4,000.
+  const [mine, setMine] = useState(null);
+  const [view, setView] = useState("ladder");   // ladder | stats
+  const [stats, setStats] = useState(null);
 
   async function loadRanking(hubId, seasonKey) {
     setRankLoading(true);
+    setMine(null);
     try {
       const qs = seasonKey ? `?season=${encodeURIComponent(seasonKey)}` : "";
       const json = await getJson(`/api/hub/${encodeURIComponent(hubId)}/ranking/${qs}`);
       setRank(json);
     } catch { setRank(null); }
     finally { setRankLoading(false); }
+  }
+
+  /** This visitor's own row on one ladder.
+   *
+   * Needs a signed-in account with a linked FACEIT profile — without a player
+   * id there is nobody to look up — and the leaderboard id of the board being
+   * shown, which the hub's own leaderboard list already gave us. Silent on
+   * failure: not being ranked is the common case, not an error worth a banner.
+   */
+  async function loadMine(seasonKey, boardList) {
+    const pid = user?.profile?.faceit_player_id;
+    // The list is passed in rather than read from state: the first call
+    // happens in the same tick as setBoards, which would still see the old
+    // value and look up a leaderboard from the previous hub.
+    const list = boardList || boards;
+    const board = list.find((b) => (seasonKey ? b.season === seasonKey : !b.season));
+    if (!pid || !board?.leaderboard_id) { setMine(null); return; }
+    try {
+      const j = await getJson(
+        `/api/rank/?leaderboard=${encodeURIComponent(board.leaderboard_id)}` +
+        `&player=${encodeURIComponent(pid)}`,
+      );
+      setMine(j.ranked ? j.rank : null);
+    } catch { setMine(null); }
+  }
+
+  async function loadStats(hubId) {
+    setStats(null);
+    try {
+      setStats(await getJson(`/api/hub/${encodeURIComponent(hubId)}/stats/`));
+    } catch { setStats({ items: [] }); }
   }
 
   useEffect(() => {
@@ -72,6 +109,7 @@ export default function Hubs({ onPick }) {
         if ((lj.items || []).length) {
           setBoards(lj.items);
           loadRanking(h.hub_id, null);
+          loadMine(null, lj.items);
         }
       } catch { /* no ladder for this hub */ }
     } catch (e) { setError(e.message); }
@@ -171,18 +209,57 @@ export default function Hubs({ onPick }) {
           {boards.length > 0 && (
             <>
               <div className="section-title">
-                Ranking
-                {rank?.items?.length ? (
+                {view === "stats" ? "Player stats" : "Ranking"}
+                {view === "ladder" && rank?.items?.length ? (
                   <span className="section-count">top {rank.items.length}</span>
                 ) : null}
+                <div className="hub-view">
+                  <button
+                    className={`hub-view-opt ${view === "ladder" ? "on" : ""}`}
+                    onClick={() => setView("ladder")}
+                  >
+                    Ladder
+                  </button>
+                  <button
+                    className={`hub-view-opt ${view === "stats" ? "on" : ""}`}
+                    onClick={() => {
+                      setView("stats");
+                      // Fetched on first switch, not with the hub: most
+                      // visitors never open this view, and it is a request per
+                      // hub they would pay for anyway.
+                      if (!stats) loadStats(hub.hub_id);
+                    }}
+                  >
+                    Stats
+                  </button>
+                </div>
               </div>
+
+              {/* Your own row, whatever your position. Only appears when a
+                  signed-in account has a linked FACEIT profile AND is actually
+                  on this ladder — the common case is neither. */}
+              {view === "ladder" && mine && (
+                <div className="hub-mine">
+                  <span className="hub-mine-label">You</span>
+                  <span className="hub-pos">#{mine.position}</span>
+                  <div className="lrow-main">
+                    <div className="lrow-name">{mine.nickname}</div>
+                    <div className="lrow-sub">
+                      <span>{mine.played} played</span>
+                      <span>{mine.won}W {mine.lost}L</span>
+                      {mine.win_rate != null && <span>{mine.win_rate}% win rate</span>}
+                    </div>
+                  </div>
+                  <span className="hub-points">{mine.points}<small>pts</small></span>
+                </div>
+              )}
 
               {/* Only worth a switcher when the hub actually runs seasons. */}
               {boards.some((b) => b.season) && (
                 <div className="hub-seasons">
                   <button
                     className={`hub-season ${season === null ? "on" : ""}`}
-                    onClick={() => { setSeason(null); loadRanking(hub.hub_id, null); }}
+                    onClick={() => { setSeason(null); loadRanking(hub.hub_id, null); loadMine(null); }}
                   >
                     All-time
                   </button>
@@ -190,7 +267,7 @@ export default function Hubs({ onPick }) {
                     <button
                       key={b.leaderboard_id}
                       className={`hub-season ${season === b.season ? "on" : ""}`}
-                      onClick={() => { setSeason(b.season); loadRanking(hub.hub_id, b.season); }}
+                      onClick={() => { setSeason(b.season); loadRanking(hub.hub_id, b.season); loadMine(b.season); }}
                     >
                       {b.name || `Season ${b.season}`}
                     </button>
@@ -198,11 +275,11 @@ export default function Hubs({ onPick }) {
                 </div>
               )}
 
-              {rankLoading && <div className="state">Loading ranking…</div>}
-              {!rankLoading && rank?.items?.length === 0 && (
+              {view === "ladder" && rankLoading && <div className="state">Loading ranking…</div>}
+              {view === "ladder" && !rankLoading && rank?.items?.length === 0 && (
                 <div className="state">Nobody has placed on this ladder yet.</div>
               )}
-              {!rankLoading && rank?.items?.length > 0 && (
+              {view === "ladder" && !rankLoading && rank?.items?.length > 0 && (
                 <div className="lrows">
                   {rank.items.map((r) => (
                     <div
@@ -227,6 +304,41 @@ export default function Hubs({ onPick }) {
                       <span className="hub-points">{r.points}<small>pts</small></span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {view === "stats" && !stats && <div className="state">Loading stats…</div>}
+              {view === "stats" && stats && !stats.items?.length && (
+                <div className="state">This hub reports no player statistics.</div>
+              )}
+              {view === "stats" && stats?.items?.length > 0 && (
+                <div className="hub-stats">
+                  {/* Columns come from the data, not a fixed list: FACEIT
+                      reports a different set of keys per game, and hardcoding
+                      CS2 ones would blank the table for every other title. */}
+                  {(() => {
+                    const cols = Object.keys(stats.items[0].stats || {}).slice(0, 6);
+                    return (
+                      <>
+                        <div className="hub-stats-head">
+                          <span>Player</span>
+                          {cols.map((c) => <span key={c}>{c}</span>)}
+                        </div>
+                        {stats.items.map((p) => (
+                          <div
+                            className="hub-stats-row"
+                            key={p.player_id}
+                            onClick={() => p.nickname && onPick(p.nickname)}
+                          >
+                            <span className="hub-stats-name">{p.nickname}</span>
+                            {cols.map((c) => (
+                              <span key={c}>{p.stats?.[c] ?? "—"}</span>
+                            ))}
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </>

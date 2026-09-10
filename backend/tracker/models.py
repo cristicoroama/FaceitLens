@@ -257,6 +257,49 @@ class ProfileReport(models.Model):
         return f"{self.profile} — {self.get_reason_display()}"
 
 
+class Notification(models.Model):
+    """Something worth telling one signed-in user about.
+
+    The site had no way to reach a visitor at all: every feature waited for
+    someone to remember to come back. This is the store that changes that —
+    detection already existed (the ban cron has been finding bans for months),
+    it just had nobody to tell.
+
+    Deliberately transport-agnostic. Rows land here first and the bell in the
+    topbar reads them; a Discord or email sender added later delivers the same
+    rows rather than growing its own parallel notion of what happened.
+    """
+
+    KIND_CHOICES = [
+        ("ban", "Ban on a followed player"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="ban")
+    title = models.CharField(max_length=140)
+    body = models.CharField(max_length=240, blank=True)
+    # An in-site path ("/player/s1mple"), never an absolute URL: these are
+    # rendered as router links, and a full URL would leave the SPA.
+    link = models.CharField(max_length=200, blank=True)
+    read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # One event, one row per user, forever. Two things create BanRecords — the
+    # cron and a profile view — and a retry or a race between them must not
+    # notify the same person twice about the same ban.
+    dedupe = models.CharField(max_length=140)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ("user", "dedupe")
+        indexes = [models.Index(fields=["user", "read"])]
+
+    def __str__(self):
+        return f"{self.user_id}: {self.title}"
+
+
 class Favorite(models.Model):
     """A user's favorited FACEIT nickname (synced across devices when signed in)."""
     user = models.ForeignKey(

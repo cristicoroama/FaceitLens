@@ -34,6 +34,7 @@ import SteamInfo from "./components/SteamInfo.jsx";
 import Nicknames from "./components/Nicknames.jsx";
 import HaveWeMet from "./components/HaveWeMet.jsx";
 import OverviewGrid from "./components/OverviewGrid.jsx";
+import PlayerTeams from "./components/PlayerTeams.jsx";
 import CsgoOverview from "./components/CsgoOverview.jsx";
 import Games from "./components/Games.jsx";
 import ProGuesser from "./components/ProGuesser.jsx";
@@ -50,6 +51,7 @@ import Leaderboard from "./components/Leaderboard.jsx";
 import WorldMap from "./components/WorldMap.jsx";
 import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
+import NotificationBell from "./components/NotificationBell.jsx";
 import MatchRoom from "./components/MatchRoom.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import EloProjector from "./components/EloProjector.jsx";
@@ -874,6 +876,12 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         actions={
           <>
             {/* News and Status live in the More menu now — see buildNav. */}
+            <NotificationBell
+              user={user}
+              /* Links are in-site paths, so they go through the router rather
+                 than a full page load. */
+              onOpen={(link) => nav(link)}
+            />
             <AccountMenu
               user={user}
               onLogout={logout}
@@ -1059,7 +1067,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {mode === "bans" && <FaceitBans onPick={go} />}
           {mode === "prosettings" && <ProSettings />}
           {mode === "matchroom" && <MatchRoom onPick={go} />}
-          {mode === "hubs" && <Hubs onPick={go} />}
+          {mode === "hubs" && <Hubs onPick={go} user={user} />}
           {mode === "teams" && <Teams onPick={go} />}
           {mode === "competitions" && <Competitions onPick={go} />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
@@ -1301,6 +1309,10 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                       tab, and its own tab shows it full width — a third copy
                       inside Overview was the same picture three times. */}
                   <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
+                  {/* What this player does outside solo queue. Renders nothing
+                      at all for the majority who have neither, so it costs an
+                      ordinary profile no space. */}
+                  <PlayerTeams nickname={data.nickname} />
                 </>
               )}
                 </div>

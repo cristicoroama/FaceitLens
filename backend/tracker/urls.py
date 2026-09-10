@@ -13,6 +13,7 @@ urlpatterns = [
     path("auth/me/", auth.me, name="auth-me"),
     path("auth/logout/", auth.logout_view, name="auth-logout"),
     path("auth/favorites/", auth.favorites, name="auth-favorites"),
+    path("notifications/", views.notifications_view, name="notifications"),
 
     # --- Sign in with FACEIT (FACEIT Connect / OAuth2 + PKCE) ---
     path("auth/faceit/login/", faceit_oauth.faceit_login, name="auth-faceit-login"),
@@ -73,6 +74,10 @@ urlpatterns = [
     path("hubs/", require_api_key(views.hubs_search), name="hubs-search"),
     path("teams/", require_api_key(views.teams_search), name="teams-search"),
     path("team/<str:team_id>/", views.team_detail, name="team-detail"),
+    path("player/<str:nickname>/teams/", require_api_key(views.player_teams), name="player-teams"),
+    path("player/<str:nickname>/tournaments/", require_api_key(views.player_tournaments), name="player-tournaments"),
+    path("rank/", require_api_key(views.player_rank), name="player-rank"),
+    path("hub/<str:hub_id>/stats/", require_api_key(views.hub_stats), name="hub-stats"),
     path("hub/<str:hub_id>/leaderboards/", views.hub_leaderboards, name="hub-leaderboards"),
     path("hub/<str:hub_id>/ranking/", views.hub_ranking, name="hub-ranking"),
     path("competitions/", require_api_key(views.competitions), name="competitions"),

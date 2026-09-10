@@ -9,6 +9,8 @@ const ENDPOINTS = [
     items: [
       { m: "GET", path: "/api/player/{nickname}/", desc: "Full player summary: ELO, level, lifetime + recent stats, maps, teammates, nemeses, activity, match history and smurf signals.", ex: "/api/player/donk666/" },
       { m: "GET", path: "/api/player/{nickname}/collectibles/", desc: "Account trust score, Steam level, medals and the full Steam inventory with market value.", ex: "/api/player/donk666/collectibles/" },
+      { m: "GET", path: "/api/player/{nickname}/teams/", desc: "The FACEIT teams a player belongs to, with game, roster size and a link to each.", ex: "/api/player/donk666/teams/" },
+      { m: "GET", path: "/api/player/{nickname}/tournaments/", desc: "Tournaments the player has entered, newest first, with status, region, prize and player count.", ex: "/api/player/donk666/tournaments/" },
       { m: "GET", path: "/api/player/{nickname}/leetify/", desc: "Leetify demo-based ranks and skill ratings (aim, utility, positioning).", ex: "/api/player/donk666/leetify/" },
       { m: "GET", path: "/api/player/{nickname}/real/", desc: "Real demo-parsed HLTV 2.0 stats (requires the demo worker to have parsed matches).", ex: "/api/player/donk666/real/" },
       { m: "GET", path: "/api/player/{nickname}/clips/", desc: "Allstar.gg auto-generated highlight clips: embeddable iframe URLs, thumbnails, map and kill count. Empty until Allstar has clips for the player.", ex: "/api/player/donk666/clips/" },
@@ -25,6 +27,8 @@ const ENDPOINTS = [
       { m: "GET", path: "/api/hubs/?q={name}", desc: "Search FACEIT hubs by name.", ex: "/api/hubs/?q=ESEA" },
       { m: "GET", path: "/api/teams/?q={name}", desc: "Search FACEIT teams by name.", ex: "/api/teams/?q=NAVI" },
       { m: "GET", path: "/api/hub/{id}/ranking/", desc: "A hub's ladder, all-time or by season.", ex: "/api/hub/{id}/ranking/" },
+      { m: "GET", path: "/api/hub/{id}/stats/", desc: "Per-player statistics inside a hub. The stat keys vary by game and are passed through as reported.", ex: "/api/hub/{id}/stats/" },
+      { m: "GET", path: "/api/rank/?leaderboard={id}&player={player_id}", desc: "One player's standing on one leaderboard, in a single call — no paging the board to find them. Returns ranked:false when they are not on it.", ex: "/api/rank/?leaderboard={id}&player={player_id}" },
       { m: "GET", path: "/api/competitions/", desc: "Browse CS2 championships, or search with ?q=.", ex: "/api/competitions/" },
       { m: "GET", path: "/api/organizer/{id}/", desc: "An organiser and everything they run.", ex: "/api/organizer/{id}/" },
     ],
