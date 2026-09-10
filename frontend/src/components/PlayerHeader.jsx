@@ -222,30 +222,14 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 title="ESEA subscriber"
               />
             )}
-            {/* The team the player is on NOW, beside the account badges.
-                Strictly current: FACEIT's team list is a history, so an
-                unfiltered version put NAVI next to a player who moved to
-                BC Game years ago. A stale crest on the most prominent part of
-                the profile is worse than no crest, so a team we cannot confirm
-                he is still on does not appear here — the Overview section
-                lists those, labelled.
-                Capped at two; the logo is required, since a blank tile in a
-                row of real badges says less than nothing. */}
-            {(player.teams || [])
-              .filter((t) => t.current && t.avatar)
-              .slice(0, 2)
-              .map((t) => (
-                <a
-                  key={t.team_id}
-                  className="acct-badge team"
-                  href={t.faceit_url || undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${t.name} — team on FACEIT`}
-                >
-                  <img src={t.avatar} alt={t.name} />
-                </a>
-              ))}
+            {/* No team crest here, deliberately.
+                FACEIT's teams for a player are premade squads anyone can name
+                anything — s1mple's list holds two called "Natus Vincere" — and
+                the API publishes nothing that says which, if any, he currently
+                plays for. A crest in this row sits among verified and ESEA,
+                marks that mean something exact, and would be read as "plays
+                for NAVI". It does not say that, so it is not shown.
+                The Overview section lists them for what they are. */}
             <NicknameMenu history={player.nickname_history} />
           </div>
           <div className="ph-meta">

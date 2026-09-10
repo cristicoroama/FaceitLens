@@ -3042,38 +3042,28 @@ def get_player_rank(leaderboard_id, player_id):
     return result
 
 
-def _team_has_player(team_id, player_id):
-    """Is this player on that team's roster right now?
-
-    FACEIT's team list for a player is a HISTORY: s1mple's comes back with
-    NAVI, Falcons and BC Game together, and the Team objects in it carry no
-    `current`, `active` or `joined` field — and no populated `members` array
-    either, so the list alone cannot say which one he plays for today.
-
-    The roster on the team's own record can. It is a second call per team, but
-    `get_team` is cached and only players who have teams at all pay it.
-
-    This is inference, not a flag FACEIT publishes: it holds as long as leaving
-    a team removes you from its roster. A team that keeps former players listed
-    would still read as current.
-    """
-    try:
-        detail = get_team(team_id)
-    except Exception:
-        return None  # unknown, which is not the same as "no"
-    ids = {m.get("player_id") for m in (detail or {}).get("members") or []}
-    return player_id in ids
-
-
 def get_player_teams(player_id, limit=20):
-    """Teams the player belongs to, current ones first.
+    """The FACEIT teams a player is a member of.
+
+    These are FACEIT's own team objects — overwhelmingly `premade` squads that
+    somebody created and invited people into, NOT a roster spot at the
+    organisation whose name the team happens to carry. s1mple's list comes back
+    with TWO teams called "Natus Vincere", which is the tell: anyone may name a
+    premade anything.
+
+    There is no way to identify a CURRENT team here, and this deliberately does
+    not guess at one. The Team schema publishes no `current`, `active`,
+    `joined` or `status` field, the list is a history, and an earlier attempt
+    to infer it from the team's own roster failed against real data: FACEIT
+    leaves former members on a premade until somebody removes them, so every
+    team a player ever joined reports them as still on it.
 
     Best-effort like get_player_hubs: a profile is not broken because the team
     list failed, so a failure is an empty list rather than an exception.
     """
     if not player_id:
         return []
-    cache_key = f"pteams:v2:{player_id}:{limit}"
+    cache_key = f"pteams:v3:{player_id}:{limit}"
     hit = cache.get(cache_key)
     if hit is not None:
         return hit
@@ -3094,26 +3084,6 @@ def get_player_teams(player_id, limit=20):
             "type": t.get("team_type"),
             "faceit_url": (t.get("faceit_url") or "").replace("{lang}", "en") or None,
         })
-
-    # Resolve current membership in parallel — a handful of teams at most, and
-    # a small pool because this already runs inside build_player_summary's.
-    if out:
-        with ThreadPoolExecutor(max_workers=min(5, len(out))) as pool:
-            futures = {
-                t["team_id"]: pool.submit(_team_has_player, t["team_id"], player_id)
-                for t in out if t["team_id"]
-            }
-            for t in out:
-                fut = futures.get(t["team_id"])
-                try:
-                    t["current"] = fut.result() if fut else None
-                except Exception:
-                    t["current"] = None
-
-    # Current first, then unknown, then former — and a team whose roster we
-    # could not read sorts above one we know he left.
-    order = {True: 0, None: 1, False: 2}
-    out.sort(key=lambda t: order.get(t.get("current"), 1))
 
     cache.set(cache_key, out, 30 * 60)
     return out

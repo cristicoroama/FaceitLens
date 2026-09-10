@@ -60,8 +60,18 @@ export default function PlayerTeams({ nickname }) {
       {teams.length > 0 && (
         <>
           <div className="section-title">
-            Teams <span className="section-count">{teams.length}</span>
+            FACEIT teams <span className="section-count">{teams.length}</span>
           </div>
+          {/* Named precisely, because the obvious reading is wrong. These are
+              premade squads the player is a member of — created by anyone,
+              named anything, and never automatically left. A team called
+              "Natus Vincere" here is not a roster spot at NAVI, and the list
+              is a history rather than a current affiliation. */}
+          <p className="pteam-note">
+            Premade squads this player belongs to on FACEIT. Team names are
+            chosen by whoever created them and membership is not removed
+            automatically, so these are not roster spots or current teams.
+          </p>
           <div className="pteam-grid">
             {teams.map((t) => (
               <a
@@ -80,17 +90,10 @@ export default function PlayerTeams({ nickname }) {
                   <span className="pteam-logo ph">{initials(t.name)}</span>
                 )}
                 <div className="pteam-main">
-                  <div className="pteam-name">
-                    {t.name || "—"}
-                    {/* FACEIT's team list is a history and publishes no
-                        "current" flag, so this is our reading of the team's
-                        roster. Said plainly rather than shown as a bare list
-                        that implies every one of them is current. */}
-                    {t.current === false && <span className="pteam-past">former</span>}
-                  </div>
+                  <div className="pteam-name">{t.name || "—"}</div>
                   <div className="pteam-meta">
                     {t.type && <span className="pteam-type">{t.type}</span>}
-                    {t.current === true && <span className="pteam-now">Current team</span>}
+                    {t.game && <span>{t.game}</span>}
                   </div>
                 </div>
                 <span className="pteam-go">{Icon.boxArrowUpRight}</span>

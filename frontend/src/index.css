@@ -2533,20 +2533,11 @@ body, .topnav, .card, .squad-row, .rank-card,
   font-size: 11px; color: var(--text-dim);
 }
 .pteam-type { text-transform: capitalize; }
-.pteam-now { color: var(--accent); font-weight: 700; }
-.pteam-past {
-  margin-left: 7px; padding: 1px 6px; border-radius: 999px;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.7px; text-transform: uppercase;
-  color: var(--text-dim); border: 1px solid var(--glass-brd); vertical-align: middle;
-}
-/* A team crest in the badge row: same box as the other marks, but its own
-   image inside, and clickable. */
-.acct-badge.team {
-  width: auto; height: auto; padding: 0; background: none; border: none;
-  display: inline-flex; align-items: center;
-}
-.acct-badge.team img {
-  width: 19px; height: 19px; border-radius: 5px; object-fit: cover; display: block;
+/* The section needs a sentence of context, because the obvious reading of a
+   team called "Natus Vincere" is the wrong one. */
+.pteam-note {
+  margin: -4px 0 12px; max-width: 70ch;
+  font-size: 12px; line-height: 1.55; color: var(--text-dim);
 }
 .pteam-go { color: var(--text-dim); display: inline-flex; }
 .pteam-go svg { width: 13px; height: 13px; }
