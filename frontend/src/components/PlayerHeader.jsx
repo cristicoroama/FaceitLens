@@ -1,5 +1,6 @@
 import CountUp from "./CountUp.jsx";
 import LevelProgress from "./LevelProgress.jsx";
+import LiveMatch from "./LiveMatch.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
 import { ResultChip } from "./FormStrip.jsx";
@@ -422,6 +423,15 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
         <PS label="HS%" value={s.avg_hs != null ? `${s.avg_hs}%` : null} />
         <PS label="Streak" value={streak} tone={streakTone} />
       </div>
+
+      {/* Above the level bar, below the identity block: the one thing on this
+          card that is true only right now belongs next to the numbers it
+          explains, not floating over them as an alert. */}
+      {player.live && (
+        <div className="ph-live">
+          <LiveMatch live={player.live} nickname={player.nickname} />
+        </div>
+      )}
 
       {/* level progress lives inside the hero now */}
       <div className="ph-progress">

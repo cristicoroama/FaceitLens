@@ -196,19 +196,22 @@ def _live_state(ov: StreamOverlay) -> dict:
     except Exception:
         pass
 
-    # The match in progress, if any.
+    # The match in progress, if any. Shared with the profile page through
+    # faceit.find_live_match so "live" means one thing on this site.
+    #
+    # This used to count MANUAL_RESULT as live. That status is a FINISHED match
+    # waiting on an admin, so an overlay could sit on screen claiming a game was
+    # in progress long after the stream had moved on.
     match = None
     try:
-        for m in faceit.get_player_history(player_id, limit=3):
-            if (m.get("status") or "").upper() in ("ONGOING", "READY", "MANUAL_RESULT"):
-                teams = m.get("teams") or {}
-                match = {
-                    "id": m.get("match_id"),
-                    "map": (m.get("voting") or {}).get("map", {}).get("pick", [None])[0],
-                    "competition": m.get("competition_name"),
-                    "teams": [t.get("nickname") for t in teams.values() if t],
-                }
-                break
+        live = faceit.find_live_match(faceit.get_player_history(player_id, limit=3))
+        if live:
+            match = {
+                "id": live["match_id"],
+                "map": live["map"],
+                "competition": live["competition"],
+                "teams": live["teams"],
+            }
     except Exception:
         pass
 

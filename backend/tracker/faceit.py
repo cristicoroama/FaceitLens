@@ -643,6 +643,49 @@ def get_player_history(player_id, limit=10, offset=0):
     return data.get("items", [])
 
 
+# What FACEIT's history endpoint reports while a match is still open.
+#
+# Split by meaning rather than lumped together, because they are not the same
+# claim. ONGOING is the only one that means "this person is in a server right
+# now"; READY means the room exists and the map veto is happening, which is
+# worth showing but is not yet play; MANUAL_RESULT is a finished match waiting
+# on an admin, which overlay.py used to count as live and should not — a badge
+# that stays lit for an hour after the game ended discredits every other number
+# on the page.
+LIVE_STATUS = "ONGOING"
+STARTING_STATUS = "READY"
+
+
+def find_live_match(items):
+    """The match this player is in right now, or None.
+
+    Reads the history list the profile already fetched, so this costs no extra
+    FACEIT call — an open match is simply the newest entry, carrying a status
+    other than FINISHED.
+    """
+    for m in items or []:
+        status = (m.get("status") or "").upper()
+        if status not in (LIVE_STATUS, STARTING_STATUS):
+            continue
+
+        teams = m.get("teams") or {}
+        picks = ((m.get("voting") or {}).get("map") or {}).get("pick") or []
+        started = _to_int(m.get("started_at"))
+
+        return {
+            "match_id": m.get("match_id"),
+            "state": "live" if status == LIVE_STATUS else "starting",
+            # The veto has not run yet on a READY match, so there is often no
+            # map to name. Saying "starting" with no map beats inventing one.
+            "map": picks[0] if picks else None,
+            "competition": m.get("competition_name"),
+            "teams": [t.get("nickname") for t in teams.values() if t and t.get("nickname")],
+            "started_at": started,
+            "faceit_url": (m.get("faceit_url") or "").replace("{lang}", "en") or None,
+        }
+    return None
+
+
 def get_recent_history(player_id, total=250):
     """History for `total` matches, paginated 100 at a time.
 
@@ -3922,6 +3965,9 @@ def build_player_summary(nickname):
         # Both Counter-Strike titles the account played. CS:GO is still served
         # by the API, so a veteran's full record is available — see
         # build_game_history.
+        # Costs nothing: an open match is the newest entry of the history this
+        # profile already pulled. No CS2 tracker shows this today.
+        "live": find_live_match(history_all[:3]),
         "game_history": game_history,
         # Every Counter-Strike match on the account, both titles. The
         # header answers "who is this account", the tabs answer "how do

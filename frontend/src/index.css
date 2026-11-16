@@ -4295,11 +4295,14 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
    fine, because a map badge means "this map" and nothing else. */
 .map-icon { flex-shrink: 0; object-fit: contain; }
 .mr-chip.status { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; }
-.mr-chip.status.s-ongoing, .mr-chip.status.s-live { color: var(--win); border-color: var(--win); }
+/* Amber, matching the profile's live strip. These were green, which on a page
+   of win/loss chips says "won" rather than "in progress" — and one site should
+   not have two colours for one state. */
+.mr-chip.status.s-ongoing, .mr-chip.status.s-live { color: var(--gold); border-color: var(--gold); }
 .mr-chip.status.s-finished { color: var(--text-dim); }
-.mr-chip.is-live { color: var(--win); border-color: var(--win); }
+.mr-chip.is-live { color: var(--gold); border-color: var(--gold); }
 .mr-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--win); flex-shrink: 0;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0;
   animation: mr-pulse 1.6s ease-in-out infinite;
 }
 @keyframes mr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
@@ -7587,3 +7590,101 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 @media (prefers-reduced-motion: reduce) {
   .sdock-btn, .sdock-btn:hover { transition: none; transform: none; }
 }
+
+/* --- live match strip -------------------------------------------------- */
+/* Amber on purpose. Red is the broadcast convention but reads as "lost" on a
+   page of W/L chips (and Twitch owns red-LIVE), green reads as "won". Amber is
+   the one signal colour this palette hasn't already spent, and it is the
+   conventional "in flight". */
+.lv {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 14px; padding: 10px 15px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--gold) 8%, var(--bg-elev));
+  border: 1px solid color-mix(in srgb, var(--gold) 32%, transparent);
+}
+
+.lv-mark {
+  display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  color: var(--gold);
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+
+/* The dot stays solid and the ring does the moving. Animating the dot's own
+   opacity would read as fading out — the opposite of what it means — and an
+   animated box-shadow repaints every frame. transform + opacity on a
+   pseudo-element stays on the compositor. */
+.lv-dot {
+  position: relative; flex: 0 0 auto;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold);
+}
+.lv-dot::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 50%; background: var(--gold);
+  animation: lv-ring 2.4s cubic-bezier(.215, .61, .355, 1) infinite;
+}
+@keyframes lv-ring {
+  0%   { transform: scale(1);   opacity: .5; }
+  70%  { transform: scale(2.8); opacity: 0; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+/* Freeze the ring rather than delete it. The motion WAS the signal; without a
+   replacement the dot becomes an ordinary coloured bullet. The site-wide
+   reduce rule already kills the animation, so this only supplies the static
+   state it leaves behind. */
+@media (prefers-reduced-motion: reduce) {
+  .lv-dot::after {
+    transform: scale(2.2);
+    opacity: 1;
+    background: none;
+    border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  }
+}
+
+.lv-map-ic { flex: 0 0 auto; opacity: .9; }
+
+.lv-facts { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; min-width: 0; }
+.lv-fact {
+  font-size: 12.5px; color: var(--text); white-space: nowrap;
+}
+.lv-fact + .lv-fact { color: var(--text-dim); }
+.lv-fact + .lv-fact::before {
+  content: "·"; margin-right: 9px; opacity: .45;
+}
+
+.lv-go {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: auto; flex: 0 0 auto;
+  padding: 5px 11px; border-radius: 7px;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, transparent);
+  color: var(--gold); text-decoration: none;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+  transition: background .15s ease;
+}
+.lv-go:hover { background: color-mix(in srgb, var(--gold) 24%, transparent); }
+
+/* Not yet playing: same layout, quieter, because the veto screen is not the
+   same claim as "they are in a server right now". */
+.lv-starting { border-style: dashed; }
+.lv-starting .lv-dot::after { animation-duration: 3.4s; }
+
+@media (max-width: 560px) {
+  .lv { gap: 9px; padding: 9px 12px; }
+  .lv-go { margin-left: 0; }
+}
+
+/* Visible to screen readers only. Clip rather than display:none — the latter
+   takes the node out of the accessibility tree entirely. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* Sits between the identity block and the level bar, inside the hero's own
+   padding so it lines up with the rows above and below it. */
+.ph-live { padding: 0 18px; }
