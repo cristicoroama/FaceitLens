@@ -4,18 +4,7 @@ import { MapIcon, mapLabel } from "../map-art.jsx";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const POLL_MS = 30000;
 
-/* Off until there is a source that can see a live match.
- *
- * Tested against a player who was in a match at the time: FACEIT's public
- * /players/{id}/history lists only FINISHED matches, the `status` field in
- * /search/players comes back empty, and the internal match endpoint answers
- * 403. So polling asked a question whose answer could never be "yes", and
- * spent API quota every thirty seconds per open profile doing it.
- *
- * The one official source is FACEIT webhooks (User subscription,
- * match_status_ready → finished), which only cover a static list of players.
- * When that is wired into /api/live/, flip this back on. */
-const LIVE_POLLING = false;
+const LIVE_POLLING = true;
 
 /* Dev-only way to see the strip without waiting for someone to queue: append
    ?live=preview to a profile URL under `npm run dev`. Compiled out of the
@@ -56,14 +45,19 @@ function useLiveStatus(playerId, initial) {
     let alive = true;
     let timer = null;
 
+    let watch = true;
+
     async function check() {
       try {
         const r = await fetch(`${API_BASE}/api/live/${encodeURIComponent(playerId)}/`);
         if (!r.ok) return;
         const j = await r.json();
-        // `ok: false` means FACEIT could not be asked. Keep the last answer
-        // rather than clearing a real badge because of a network blip.
-        if (alive && j.ok) setLive(j.live ?? null);
+        if (!alive) return;
+        if (j.ok) setLive(j.live ?? null);
+        if (j.watch === false && !j.live) {
+          watch = false;
+          clearInterval(timer);
+        }
       } catch {
         /* keep the last known state */
       }
@@ -71,7 +65,7 @@ function useLiveStatus(playerId, initial) {
 
     function schedule() {
       clearInterval(timer);
-      if (document.visibilityState === "visible") {
+      if (watch && document.visibilityState === "visible") {
         timer = setInterval(check, POLL_MS);
       }
     }
@@ -79,10 +73,11 @@ function useLiveStatus(playerId, initial) {
     function onVisibility() {
       // Coming back to the tab: answer immediately instead of waiting out the
       // interval with a state that may be half an hour old.
-      if (document.visibilityState === "visible") check();
+      if (watch && document.visibilityState === "visible") check();
       schedule();
     }
 
+    check();
     schedule();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {

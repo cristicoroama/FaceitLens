@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 
 import { Icon } from "../icons.jsx";
 import { getJson } from "../api.js";
+import CompMatches from "./CompMatches.jsx";
 
 function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
@@ -29,6 +30,7 @@ export default function Competitions({ onPick }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
+  const [standings, setStandings] = useState(null);
 
   useEffect(() => { load(""); /* eslint-disable-next-line */ }, []);
 
@@ -45,17 +47,23 @@ export default function Competitions({ onPick }) {
   }
 
   async function open(c) {
-    setLoading(true); setError(""); setItems([]); setOrganizer(null);
+    if (c.kind === "organizer") { openOrganizer(c.id); return; }
+    setLoading(true); setError(""); setItems([]); setOrganizer(null); setStandings(null);
     try {
       const kind = c.kind === "tournament" ? "tournament" : "championship";
       const json = await getJson(`/api/competition/${kind}/${encodeURIComponent(c.id)}/`);
       setDetail(json);
+      if (kind === "championship") {
+        getJson(`/api/competition/championship/${encodeURIComponent(c.id)}/standings/`)
+          .then((j) => setStandings({ id: c.id, groups: j.groups || [] }))
+          .catch(() => setStandings(null));
+      }
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
 
   async function openOrganizer(id) {
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setItems([]);
     try {
       const json = await getJson(`/api/organizer/${encodeURIComponent(id)}/`);
       setOrganizer(json); setDetail(null);
@@ -110,6 +118,7 @@ export default function Competitions({ onPick }) {
                   <div className="lrow-name">
                     {c.name}
                     {c.featured && <span className="cmp-tag hot">Featured</span>}
+                    {c.partner && <span className="org-tag">Partner</span>}
                   </div>
                   <div className="lrow-sub">
                     <span className="cmp-kind">{c.kind}</span>
@@ -164,6 +173,42 @@ export default function Competitions({ onPick }) {
               {detail.description && <div className="hub-hero-desc">{detail.description}</div>}
             </div>
           </div>
+
+          {detail.kind === "championship" && (
+            <CompMatches base={`/api/competition/championship/${encodeURIComponent(detail.id)}/matches/`} onPick={onPick} />
+          )}
+
+          {standings?.id === detail.id && standings.groups.length > 0 && (
+            <>
+              <div className="section-title">Standings</div>
+              <div className="cst-groups">
+                {standings.groups.map((g) => (
+                  <div className="cst-group" key={g.name}>
+                    <div className="cst-head">
+                      <span>#</span><b>{g.name}</b>
+                      <span className="cst-num">P</span><span className="cst-num">W-L</span><span className="cst-num">Pts</span>
+                    </div>
+                    {g.rows.map((r) => (
+                      <div
+                        className={`cst-row ${r.player_id ? "click" : ""}`}
+                        key={`${r.position}-${r.name}`}
+                        onClick={() => r.player_id && onPick?.(r.name)}
+                      >
+                        <span className="cst-pos">{r.position}</span>
+                        <span className="cst-name">
+                          {r.avatar && <img src={r.avatar} alt="" loading="lazy" />}
+                          <span>{r.name}</span>
+                        </span>
+                        <span className="cst-num">{r.played ?? "—"}</span>
+                        <span className="cst-num">{r.won ?? 0}-{r.lost ?? 0}</span>
+                        <span className="cst-pts">{r.points ?? "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Final placements — championships only, and only once played. */}
           {detail.results?.length > 0 && (

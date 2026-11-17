@@ -7,6 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 
 from . import faceit
+from . import faceit_comp
 from . import ai
 from . import useragent
 from .profiles import _client_ip
@@ -469,7 +470,8 @@ def competitions(request):
     """
     q = (request.GET.get("q") or "").strip()
     if q:
-        return _api(lambda: {"items": faceit.search_competitions(q), "searched": True})
+        return _api(lambda: {"items": faceit_comp.search_organizers(q) + faceit.search_competitions(q),
+                             "searched": True})
     return _api(
         faceit.browse_championships,
         limit=_int_arg(request, "limit", 20),
@@ -551,6 +553,39 @@ def hub_detail(request, hub_id):
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
     return JsonResponse(data)
+
+
+@require_GET
+def hub_matches(request, hub_id):
+    """GET /api/hub/<hub_id>/matches/?type=ongoing|upcoming|past"""
+    return _api(faceit_comp.hub_matches, hub_id, request.GET.get("type", "ongoing"))
+
+
+@require_GET
+def hub_rules(request, hub_id):
+    """GET /api/hub/<hub_id>/rules/"""
+    return _api(faceit_comp.hub_rules, hub_id)
+
+
+@require_GET
+def championship_matches(request, comp_id):
+    """GET /api/competition/championship/<id>/matches/?type=ongoing|upcoming|past"""
+    return _api(faceit_comp.championship_matches, comp_id, request.GET.get("type", "ongoing"))
+
+
+@require_GET
+def championship_standings(request, comp_id):
+    """GET /api/competition/championship/<id>/standings/"""
+    return _api(faceit_comp.championship_standings, comp_id)
+
+
+@require_GET
+def clans_search(request):
+    """GET /api/clans/?q=name"""
+    q = (request.GET.get("q") or "").strip()
+    if not q:
+        return JsonResponse({"items": []})
+    return _api(lambda: {"items": faceit_comp.search_clans(q)})
 
 
 @require_GET
@@ -1575,11 +1610,5 @@ def csgo_stats(request, nickname):
 
 @require_GET
 def player_live(request, player_id):
-    """
-    GET /api/live/<player_id>/ - is this player in a match right now.
-
-    Polled by the profile page while it is open. Keyed on player_id rather than
-    nickname so each poll skips the nickname lookup, and cached for twenty
-    seconds in faceit.get_live_status, so concurrent viewers share one call.
-    """
-    return JsonResponse(faceit.get_live_status(player_id))
+    """GET /api/live/<player_id>/"""
+    return JsonResponse(faceit_comp.get_live_status(player_id))

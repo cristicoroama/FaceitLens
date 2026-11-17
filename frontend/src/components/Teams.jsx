@@ -17,6 +17,7 @@ function initials(name) {
 export default function Teams({ onPick }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
+  const [clans, setClans] = useState([]);
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,17 +25,21 @@ export default function Teams({ onPick }) {
   async function search() {
     const query = q.trim();
     if (!query) return;
-    setLoading(true); setError(""); setTeam(null); setResults([]);
+    setLoading(true); setError(""); setTeam(null); setResults([]); setClans([]);
     try {
-      const json = await getJson(`/api/teams/?q=${encodeURIComponent(query)}`);
+      const [json, cj] = await Promise.all([
+        getJson(`/api/teams/?q=${encodeURIComponent(query)}`),
+        getJson(`/api/clans/?q=${encodeURIComponent(query)}`).catch(() => ({ items: [] })),
+      ]);
       setResults(json.items || []);
-      if ((json.items || []).length === 0) setError("No teams found.");
+      setClans(cj.items || []);
+      if (!(json.items || []).length && !(cj.items || []).length) setError("No teams or clubs found.");
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
 
   async function openTeam(t) {
-    setLoading(true); setError(""); setResults([]);
+    setLoading(true); setError(""); setResults([]); setClans([]);
     try {
       const json = await getJson(`/api/team/${encodeURIComponent(t.team_id)}/`);
       setTeam(json);
@@ -70,6 +75,9 @@ export default function Teams({ onPick }) {
       {error && <div className="state error">{error}</div>}
       {loading && <div className="state">Loading…</div>}
 
+      {results.length > 0 && clans.length > 0 && (
+        <div className="section-title">Teams <span className="section-count">{results.length}</span></div>
+      )}
       {results.length > 0 && (
         <div className="lrows stagger">
           {results.map((t) => (
@@ -92,6 +100,45 @@ export default function Teams({ onPick }) {
             </div>
           ))}
         </div>
+      )}
+
+      {clans.length > 0 && (
+        <>
+          <div className="section-title">Clubs <span className="section-count">{clans.length}</span></div>
+          <div className="lrows">
+            {clans.map((c) => {
+              const body = (
+                <>
+                  {c.avatar ? (
+                    <img className="lrow-ava img" src={c.avatar} alt="" loading="lazy"
+                      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                  ) : (
+                    <div className="lrow-ava">{initials(c.name)}</div>
+                  )}
+                  <div className="lrow-main">
+                    <div className="lrow-name">
+                      {c.name}
+                      {c.verified && <span className="tm-verified" title="Verified club">{Icon.patchCheckFill}</span>}
+                    </div>
+                    <div className="lrow-sub">
+                      {c.region && <span>{c.region}</span>}
+                      {c.members != null && <span>{Number(c.members).toLocaleString()} members</span>}
+                    </div>
+                  </div>
+                  {c.faceit_url && <span className="m2-chev">↗</span>}
+                </>
+              );
+              return c.faceit_url ? (
+                <a className="lrow lrow-click" key={c.id} href={c.faceit_url} target="_blank" rel="noopener noreferrer"
+                  style={{ color: "inherit", textDecoration: "none" }}>
+                  {body}
+                </a>
+              ) : (
+                <div className="lrow" key={c.id}>{body}</div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {team && (

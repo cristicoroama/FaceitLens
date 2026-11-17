@@ -204,7 +204,8 @@ def _live_state(ov: StreamOverlay) -> dict:
     # in progress long after the stream had moved on.
     match = None
     try:
-        live = faceit.find_live_match(faceit.get_player_history(player_id, limit=3))
+        from . import faceit_comp
+        live = faceit_comp.get_live_status(player_id).get("live")
         if live:
             match = {
                 "id": live["match_id"],

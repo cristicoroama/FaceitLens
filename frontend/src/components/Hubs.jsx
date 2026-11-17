@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "../icons.jsx";
 import { getJson } from "../api.js";
+import CompMatches from "./CompMatches.jsx";
 
 function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
@@ -24,6 +25,7 @@ export default function Hubs({ onPick, user }) {
   const [mine, setMine] = useState(null);
   const [view, setView] = useState("ladder");   // ladder | stats
   const [stats, setStats] = useState(null);
+  const [rules, setRules] = useState(null);
 
   async function loadRanking(hubId, seasonKey) {
     setRankLoading(true);
@@ -100,6 +102,10 @@ export default function Hubs({ onPick, user }) {
     try {
       const json = await getJson(`/api/hub/${encodeURIComponent(h.hub_id)}/`);
       setHub(json);
+      setRules(null);
+      getJson(`/api/hub/${encodeURIComponent(h.hub_id)}/rules/`)
+        .then((r) => setRules(r?.body ? { ...r, hub_id: h.hub_id } : false))
+        .catch(() => setRules(false));
 
       // Ladders are a separate call and plenty of hubs don't run one, so a
       // failure here must leave the hub profile standing.
@@ -205,6 +211,15 @@ export default function Hubs({ onPick, user }) {
               {hub.description && <div className="hub-hero-desc">{hub.description}</div>}
             </div>
           </div>
+
+          {rules && rules.hub_id === hub.hub_id && (
+            <details className="hub-rules">
+              <summary>{rules.name || "Hub rules"}</summary>
+              <div className="hub-rules-body">{rules.body}</div>
+            </details>
+          )}
+
+          <CompMatches base={`/api/hub/${encodeURIComponent(hub.hub_id)}/matches/`} onPick={onPick} />
 
           {boards.length > 0 && (
             <>
