@@ -47,7 +47,6 @@ export default function AccountView({ nickname }) {
   if (!data) return null;
 
   const inv = data.inventory;
-  const hasInv = inv && inv.available;
 
   return (
     <div className="account-layout">
@@ -55,18 +54,14 @@ export default function AccountView({ nickname }) {
         <TrustScore trust={data.trust} steamLevel={data.steam_level} />
       </div>
       <div className="account-right">
-        {/* A private inventory hides the medals a visitor came to see.
-            CSRep reports them regardless, so the backend supplies them as a
-            fallback — credited, because at that point they are CSRep's data. */}
-        {hasInv && inv.medals && inv.medals.length > 0 ? (
-          <Medals medals={inv.medals} />
-        ) : data.csrep_medals ? (
+        {/* Medals are CSRep's data now — the FACEIT inventory carries weapon
+            skins only — so they always travel with CSRep's credit. */}
+        {data.csrep_medals && (
           <>
             <Medals medals={data.csrep_medals.medals} />
-            <CsrepCredit attribution={data.csrep_medals.attribution}
-                         note="Medals via CSRep — this Steam inventory is private." />
+            <CsrepCredit attribution={data.csrep_medals.attribution} note="Medals via CSRep." />
           </>
-        ) : null}
+        )}
         <Inventory inventory={inv} onRetry={() => load(true)} retrying={retrying} />
       </div>
     </div>

@@ -1791,48 +1791,95 @@ a { color: inherit; }
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 
-/* ---- Inventory ---- */
-.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; margin-bottom: 18px; }
-.inv-grid.special { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+/* ---- Inventory (FACEIT snapshot) ---- */
+/* CS2's own rarity colours: game data, not theme, so they live here rather
+   than in :root. Indexed by FACEIT's rarity grade. */
+.inv {
+  --r-0: #ded6cc; --r-1: #b0c3d9; --r-2: #5e98d9; --r-3: #4b69ff; --r-4: #8847ff;
+  --r-5: #d32ce6; --r-6: #eb4b4b; --r-7: #eb4b4b; --r-8: #ff8000;
+}
+.inv-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.inv-head .section-title { margin: 0; }
+.inv-head-count { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+.inv-head-note { font-size: 11.5px; color: var(--text-dim); margin-left: auto; }
+
+.inv-hl { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.inv-hl-card {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-left: 3px solid var(--rar);
+}
+.inv-hl-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.inv-hl-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.inv-hl-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-hl-val { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.inv-hl-card img { width: 72px; height: 48px; object-fit: contain; flex: 0 0 auto; }
+
+.inv-rar { margin-bottom: 14px; }
+.inv-rar-bar { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.inv-rar-bar i { display: block; min-width: 4px; }
+.inv-rar-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-dim); }
+.inv-rar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.inv-rar-legend i { width: 8px; height: 8px; border-radius: 2px; display: block; }
+.inv-rar-legend b { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.inv-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.inv-filter {
+  padding: 5px 11px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+  font-size: 12px; font-weight: 700;
+}
+.inv-filter:hover { color: var(--text); border-color: var(--border-hi); }
+.inv-filter.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .inv-item {
-  --rar: var(--glass-brd);
-  padding: 10px; position: relative; overflow: hidden;
-  border-bottom: 3px solid var(--rar);
-  transition: transform 0.18s, box-shadow 0.18s;
+  --rar: var(--border);
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 10px 11px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); border-top: 2px solid var(--rar);
+  background: var(--bg-elev);
+  transition: border-color .15s ease, transform .15s ease;
 }
-.inv-item:hover { transform: translateY(-3px) scale(1.02); box-shadow: var(--shadow), 0 6px 22px color-mix(in srgb, var(--rar) 35%, transparent); }
-.inv-item::before {
-  content: ""; position: absolute; inset: auto 0 0 0; height: 60%;
-  background: linear-gradient(transparent, color-mix(in srgb, var(--rar) 20%, transparent));
-  pointer-events: none;
-}
-.inv-item img { width: 100%; height: 66px; object-fit: contain; position: relative; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45)); }
-.inv-item.big img { height: 92px; }
-.inv-noimg { width: 100%; height: 66px; background: var(--bg-elev-2); border-radius: 8px; }
-.inv-name {
-  position: relative; font-size: 11px; color: var(--text); margin-top: 8px; line-height: 1.3;
+.inv-item:hover { transform: translateY(-2px); border-color: var(--border-hi); border-top-color: var(--rar); }
+.inv-item > img { width: 100%; height: 70px; object-fit: contain; }
+.inv-noimg { width: 100%; height: 70px; background: var(--bg-elev-2); border-radius: 6px; }
+.inv-name { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.inv-weapon { font-size: 10.5px; color: var(--text-dim); }
+.inv-skin, .inv-name .inv-weapon:only-child {
+  font-size: 12.5px; font-weight: 700; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.inv-counts { display: flex; flex-wrap: wrap; gap: 14px; color: var(--text-dim); font-size: 13px; }
-.inv-count b { color: var(--text); font-family: var(--font-mono); }
-.inv-price {
-  position: relative; font-family: var(--font-mono); font-size: 11px;
-  color: var(--accent); margin-top: 3px; font-weight: 700;
+.inv-tags { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 1; }
+.inv-tag { font-size: 9.5px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.inv-tag.st { color: #cf6a32; background: rgba(207, 106, 50, .16); }
+.inv-tag.sv { color: #ffd700; background: rgba(255, 215, 0, .12); }
+
+.inv-float-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.inv-float-tier { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; }
+.inv-float-val { font-family: var(--font-mono); font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; }
+.inv-float-track { position: relative; height: 4px; }
+.inv-float-track::before {
+  content: ""; position: absolute; inset: 0; border-radius: 2px; opacity: .5;
+  background: linear-gradient(90deg, #89f336 0 7%, #006400 7% 15%, #ffd700 15% 38%, #ff8000 38% 45%, #eb4b4b 45% 100%);
 }
-.inv-value {
-  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
-  background:
-    linear-gradient(90deg, rgba(var(--accent-rgb), 0.12), transparent 70%),
-    var(--glass-bg);
-  border: 1px solid rgba(var(--accent-rgb), 0.35); border-radius: 14px;
-  padding: 14px 18px; margin-bottom: 16px;
-  box-shadow: inset 0 1px 0 var(--glass-hi);
+.inv-float-edge { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--bg-elev); }
+.inv-float-mark {
+  position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px;
+  background: var(--text); transform: translateX(-1px);
 }
-.inv-value-num {
-  font-family: var(--font-display); font-weight: 700; font-size: 26px;
-  color: var(--accent);
+.inv-pattern { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.inv-marks { display: flex; gap: 3px; flex-wrap: wrap; }
+.inv-marks img { width: 24px; height: 18px; object-fit: contain; }
+.inv-marks span { font-size: 10px; color: var(--text-dim); }
+.inv-marks-charms img { width: 18px; height: 18px; }
+
+@media (max-width: 560px) {
+  .inv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .inv-head-note { margin-left: 0; }
 }
-.inv-value-label { color: var(--text-dim); font-size: 12px; }
 
 /* ============================================================
    Leetify tab
@@ -3342,11 +3389,6 @@ body, .topnav, .card, .squad-row, .rank-card,
 @media (max-width: 640px) { .real-hero2 { flex-direction: column; } }
 
 /* ---- inventory value bar v2 ---- */
-.inv-value .inv-counts { margin-left: auto; gap: 10px; }
-.inv-count {
-  background: var(--glass-bg-2); border: 1px solid var(--glass-brd);
-  border-radius: 999px; padding: 3px 11px; font-size: 12px;
-}
 
 /* ============================================================
    HLTV ranking — inline expandable roster (like hltv.org)

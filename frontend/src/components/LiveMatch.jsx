@@ -4,6 +4,19 @@ import { MapIcon, mapLabel } from "../map-art.jsx";
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const POLL_MS = 30000;
 
+/* Off until there is a source that can see a live match.
+ *
+ * Tested against a player who was in a match at the time: FACEIT's public
+ * /players/{id}/history lists only FINISHED matches, the `status` field in
+ * /search/players comes back empty, and the internal match endpoint answers
+ * 403. So polling asked a question whose answer could never be "yes", and
+ * spent API quota every thirty seconds per open profile doing it.
+ *
+ * The one official source is FACEIT webhooks (User subscription,
+ * match_status_ready → finished), which only cover a static list of players.
+ * When that is wired into /api/live/, flip this back on. */
+const LIVE_POLLING = false;
+
 /* Dev-only way to see the strip without waiting for someone to queue: append
    ?live=preview to a profile URL under `npm run dev`. Compiled out of the
    production bundle by the DEV check, so it can never fake a live match on
@@ -39,7 +52,7 @@ function useLiveStatus(playerId, initial) {
   useEffect(() => { setLive(initial ?? null); }, [playerId, initial]);
 
   useEffect(() => {
-    if (!playerId || PREVIEW) return undefined;
+    if (!playerId || PREVIEW || !LIVE_POLLING) return undefined;
     let alive = true;
     let timer = null;
 

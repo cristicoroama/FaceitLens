@@ -40,9 +40,6 @@ export default function SteamProfileView({ profile }) {
   if (!profile) return null;
 
   const inv = profile.inventory;
-  const hasInv = inv && inv.available;
-
-  const steamMedals = hasInv && inv.medals?.length ? inv.medals : null;
   const csrepMedals = profile.csrep?.medals_detail?.length
     ? profile.csrep.medals_detail
     : null;
@@ -130,18 +127,14 @@ export default function SteamProfileView({ profile }) {
           <TrustScore trust={profile.trust} steamLevel={profile.steam_level} />
         </div>
         <div className="account-right">
-          {/* A private inventory hides the medals a visitor came to see.
-              CSRep reports them regardless, so they still render — credited,
-              because at that point they are CSRep's data, not Steam's. */}
-          {steamMedals ? (
-            <Medals medals={steamMedals} />
-          ) : csrepMedals ? (
+          {/* CSRep is the only medal source now — the FACEIT inventory carries
+              weapon skins only — so they always render with its credit. */}
+          {csrepMedals && (
             <>
               <Medals medals={csrepMedals} />
-              <CsrepCredit attribution={profile.csrep?.attribution}
-                           note="Medals via CSRep — this Steam inventory is private." />
+              <CsrepCredit attribution={profile.csrep?.attribution} note="Medals via CSRep." />
             </>
-          ) : null}
+          )}
           <Inventory inventory={inv} />
         </div>
       </div>

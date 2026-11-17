@@ -392,7 +392,7 @@ def status(request):
         if steam_mod._cooldown_active():
             services.append({"name": "Steam", "ok": False, "detail": "rate-limited (cooldown)"})
         else:
-            services.append({"name": "Steam", "ok": True, "detail": "inventory / trust score"})
+            services.append({"name": "Steam", "ok": True, "detail": "level / trust score"})
     except Exception as exc:
         services.append({"name": "Steam", "ok": False, "detail": str(exc)[:80]})
 
@@ -744,35 +744,29 @@ def collectibles(request, nickname):
 
     force = request.GET.get("refresh") in ("1", "true", "yes")
     try:
-        from . import steam, trust
+        from . import steam, trust, faceit_inventory
         level = steam.get_steam_level(steamid, force=force)
-        inventory = steam.get_inventory(steamid, force=force)
+        inventory = faceit_inventory.get_inventory(summary.get("player_id"), force=force)
         trust_score = trust.build_trust(summary, level, inventory)
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
 
-    # Medals when Steam won't give them up.
-    #
-    # The inventory scrape returns nothing for a private profile, which is
-    # exactly when a visitor most wants to know what the account has. CSRep
-    # reports medals regardless of that setting, so it fills the hole — but
-    # only when there IS a hole: a public inventory already answered, and
-    # spending one of 5,000 monthly calls to re-answer it would be waste.
+    # Medals come only from CSRep now: the FACEIT inventory carries weapon
+    # skins, not Collectibles. Cached 6h per player in csrep, so one profile
+    # costs at most a few of the 5,000 monthly calls.
     csrep_medals = None
-    has_steam_medals = bool(inventory.get("available") and inventory.get("medals"))
-    if not has_steam_medals:
-        try:
-            from . import csrep
-            found = csrep.get_player(steamid)
-            if found.get("available") and not found.get("restricted") and found.get("medals_detail"):
-                csrep_medals = {
-                    "medals": found["medals_detail"],
-                    # §8: their data, so their mark and disclaimer travel with it.
-                    "attribution": found.get("attribution"),
-                }
-        except Exception:
-            import traceback; traceback.print_exc()
+    try:
+        from . import csrep
+        found = csrep.get_player(steamid)
+        if found.get("available") and not found.get("restricted") and found.get("medals_detail"):
+            csrep_medals = {
+                "medals": found["medals_detail"],
+                # §8: their data, so their mark and disclaimer travel with it.
+                "attribution": found.get("attribution"),
+            }
+    except Exception:
+        import traceback; traceback.print_exc()
 
     return JsonResponse({
         "nickname": summary.get("nickname"),
@@ -796,7 +790,7 @@ def steam_profile(request):
     if not raw:
         return JsonResponse({"error": "Provide ?id=<steamid64 / profile url / vanity>."}, status=400)
 
-    from . import steam, trust as trust_mod, leetify, csrep
+    from . import steam, trust as trust_mod, leetify, csrep, faceit_inventory
     steamid = steam.resolve_steamid(raw)
     if not steamid:
         return JsonResponse({
@@ -804,10 +798,22 @@ def steam_profile(request):
                      "steamcommunity.com link (vanity names need STEAM_API_KEY set)."
         }, status=404)
 
+    # Linked FACEIT account, looked up first: the inventory is keyed on its id.
+    # Optional — this page must work for Steam-only players, who simply get no
+    # inventory rather than an error.
+    faceit_nick = faceit_id = None
+    try:
+        player = faceit.get_player_by_steam(steamid)
+        faceit_nick = player.get("nickname")
+        faceit_id = player.get("player_id")
+    except Exception:
+        pass
+
     try:
         info = faceit.get_steam_info(steamid) or {}
         level = steam.get_steam_level(steamid)
-        inventory = steam.get_inventory(steamid)
+        inventory = (faceit_inventory.get_inventory(faceit_id) if faceit_id
+                     else {"available": False, "reason": "no_faceit"})
         leet = leetify.get_profile(steamid)
     except Exception as exc:
         import traceback; traceback.print_exc()
@@ -823,14 +829,6 @@ def steam_profile(request):
     except Exception:
         import traceback; traceback.print_exc()
         csrep_data = {"available": False, "reason": "error"}
-
-    # Linked FACEIT account (optional — this page must work without one).
-    faceit_nick = None
-    try:
-        player = faceit.get_player_by_steam(steamid)
-        faceit_nick = player.get("nickname")
-    except Exception:
-        pass
 
     import time as _t
     created = info.get("created")

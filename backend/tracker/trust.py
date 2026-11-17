@@ -146,7 +146,8 @@ def compute_trust(signals: dict) -> dict:
          "detail": "No" if not fresh else "< 30 days"},
         {"label": "Inventory", "ok": not signals.get("private_inventory"),
          "detail": "Private" if signals.get("private_inventory") else
-                   f"{signals.get('inventory_items') or 0} items"},
+                   ("Unknown" if signals.get("inventory_items") is None
+                    else f"{signals['inventory_items']} items")},
     ]
 
     return {
@@ -171,8 +172,10 @@ def build_trust(summary: dict, steam_level, inventory: dict) -> dict:
     bans = summary.get("bans") or []
     inv = inventory or {}
     # Distinguish "truly empty/private" (score it as 0) from "we couldn't fetch
-    # it" (rate-limited / network / ssl) — the latter is unknown, so drop the
-    # pillar instead of unfairly zeroing the trust score.
+    # it" — the latter is unknown, so drop the pillar instead of unfairly
+    # zeroing the trust score. The FACEIT inventory never reports private or
+    # empty (an empty answer can mean "never snapshotted"), so with it every
+    # miss lands on unknown, which is the honest reading.
     if inv.get("available"):
         inv_items = (inv.get("counts") or {}).get("total")
     elif inv.get("reason") in ("private", "empty") or inv.get("private"):
