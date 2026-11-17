@@ -686,6 +686,42 @@ def find_live_match(items):
     return None
 
 
+# Short on purpose, and separate from the 180s profile summary. A live badge
+# baked into the summary was up to three minutes late to appear and up to three
+# minutes late to clear — the second is worse, a match shown as live after it
+# ended. Same window the stream overlay uses.
+LIVE_TTL = 20
+
+
+def get_live_status(player_id):
+    """{"live": <match or None>, "ok": bool}, cached LIVE_TTL seconds.
+
+    Shared across everyone viewing the same player, so a profile with a hundred
+    visitors still costs one FACEIT call per twenty seconds. `ok` is False when
+    FACEIT could not be asked; the frontend keeps its last answer rather than
+    clearing a badge on a network blip.
+    """
+    if not player_id:
+        return {"live": None, "ok": False}
+
+    key = f"live:{player_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    try:
+        result = {"live": find_live_match(get_player_history(player_id, limit=3)), "ok": True}
+    except FaceitError:
+        # Not cached as a failure for long: a FACEIT hiccup should not pin
+        # "unknown" in place for the full window.
+        result = {"live": None, "ok": False}
+        cache.set(key, result, 5)
+        return result
+
+    cache.set(key, result, LIVE_TTL)
+    return result
+
+
 def get_recent_history(player_id, total=250):
     """History for `total` matches, paginated 100 at a time.
 

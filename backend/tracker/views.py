@@ -1573,3 +1573,15 @@ def csgo_stats(request, nickname):
     if not data:
         return JsonResponse({"available": False, "reason": "no_csgo"})
     return JsonResponse(data)
+
+
+@require_GET
+def player_live(request, player_id):
+    """
+    GET /api/live/<player_id>/ - is this player in a match right now.
+
+    Polled by the profile page while it is open. Keyed on player_id rather than
+    nickname so each poll skips the nickname lookup, and cached for twenty
+    seconds in faceit.get_live_status, so concurrent viewers share one call.
+    """
+    return JsonResponse(faceit.get_live_status(player_id))

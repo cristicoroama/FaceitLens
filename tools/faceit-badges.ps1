@@ -25,7 +25,9 @@
         .\faceit-badges.ps1 -Nicknames dziugss,donk666
 #>
 param(
-    [string[]]$Nicknames = @("dziugss", "donk666")
+    # DALGALI are rama ornamentala, efect pe nume si banner — controlul pozitiv.
+    # Daca la el nu iese nimic, cosmeticele nu sunt in raspunsul asta.
+    [string[]]$Nicknames = @("DALGALI", "dziugss", "donk666")
 )
 
 $headers = @{ "User-Agent" = "faceit-lens.com" }
@@ -42,7 +44,17 @@ function Get-Json($url) {
 }
 
 # Cuvinte care ar trada un badge sub orice nume ar fi impachetat.
-$suspects = @("badge", "pin", "achiev", "award", "cosmetic", "trophy", "medal", "replay", "reward")
+$suspects = @(
+    "badge", "pin", "achiev", "award", "cosmetic", "trophy", "medal", "replay", "reward",
+    # cosmeticele de profil: rama avatarului, efectul pe nume, bannerul
+    # Fara "cover": cover_image_url e bannerul de profil, pe care il avem deja
+    # din API-ul public (cover_image). Cautat aici, dadea un verdict verde fals.
+    "frame", "border", "effect", "banner", "theme", "decor", "nameplate",
+    "skin", "custom", "flair", "glow", "animation", "item", "equipped", "inventory",
+    # taburile noi: Setup (periferice, crosshair) si Skin Vault (beta)
+    "setup", "vault", "loadout", "crosshair", "sensitiv", "mouse", "dpi",
+    "peripheral", "monitor", "float", "stattrak"
+)
 
 foreach ($nick in $Nicknames) {
     Write-Host ""
@@ -59,21 +71,39 @@ foreach ($nick in $Nicknames) {
     Write-Host "  chei in raspunsul intern ($($keys.Count)):" -ForegroundColor Gray
     Write-Host "    $($keys -join ', ')"
 
-    $found = $keys | Where-Object {
-        $k = $_.ToLower()
-        $suspects | Where-Object { $k -like "*$_*" }
+    # Cosmeticele (rama de avatar, efectul pe nume, bannerul) aproape sigur nu
+    # stau la primul nivel — sunt imbricate sub ceva gen settings sau
+    # customization. Coboram pana la adancimea 4 si raportam CALEA completa.
+    $found = @()
+    function Walk($obj, $path, $depth) {
+        if ($depth -gt 4 -or $null -eq $obj) { return }
+        if ($obj -is [System.Management.Automation.PSCustomObject]) {
+            foreach ($prop in $obj.PSObject.Properties) {
+                $full = if ($path) { "$path.$($prop.Name)" } else { $prop.Name }
+                $low = $prop.Name.ToLower()
+                if ($suspects | Where-Object { $low -like "*$_*" }) {
+                    $script:found += [pscustomobject]@{ Path = $full; Value = $prop.Value }
+                }
+                Walk $prop.Value $full ($depth + 1)
+            }
+        } elseif ($obj -is [System.Array]) {
+            if ($obj.Count -gt 0) { Walk $obj[0] "$path[0]" ($depth + 1) }
+        }
     }
+    $script:found = @()
+    Walk $p "" 0
+    $found = $script:found
 
-    if ($found) {
+    if ($found.Count -gt 0) {
         $hit = $true
         Write-Host ""
-        foreach ($k in $found) {
-            $val = $p.$k | ConvertTo-Json -Depth 6 -Compress
-            if ($val.Length -gt 700) { $val = $val.Substring(0, 700) + " ...(taiat)" }
-            Write-Host "  >> $k = $val" -ForegroundColor Green
+        foreach ($f in $found) {
+            $val = $f.Value | ConvertTo-Json -Depth 6 -Compress
+            if ($val -and $val.Length -gt 500) { $val = $val.Substring(0, 500) + " ...(taiat)" }
+            Write-Host "  >> $($f.Path) = $val" -ForegroundColor Green
         }
     } else {
-        Write-Host "  nimic care sa semene a badge in raspunsul asta" -ForegroundColor DarkGray
+        Write-Host "  nimic care sa semene a badge sau cosmetic, la nicio adancime" -ForegroundColor DarkGray
     }
 
     # Daca profilul are un id, mai incearca doua drumuri plauzibile.

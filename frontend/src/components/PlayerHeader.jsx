@@ -427,11 +427,17 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
       {/* Above the level bar, below the identity block: the one thing on this
           card that is true only right now belongs next to the numbers it
           explains, not floating over them as an alert. */}
-      {player.live && (
-        <div className="ph-live">
-          <LiveMatch live={player.live} nickname={player.nickname} />
-        </div>
-      )}
+      {/* Mounted unconditionally: it polls, so a match that starts while the
+          profile is open appears without a reload. It renders nothing when
+          the player is not in one, and .ph-live carries only side padding, so
+          the empty slot takes no height. */}
+      <div className="ph-live">
+        <LiveMatch
+          playerId={player.player_id}
+          initial={player.live}
+          nickname={player.nickname}
+        />
+      </div>
 
       {/* level progress lives inside the hero now */}
       <div className="ph-progress">

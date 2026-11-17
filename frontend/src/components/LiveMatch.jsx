@@ -1,6 +1,87 @@
 import { useState, useEffect } from "react";
 import { MapIcon, mapLabel } from "../map-art.jsx";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+const POLL_MS = 30000;
+
+/* Dev-only way to see the strip without waiting for someone to queue: append
+   ?live=preview to a profile URL under `npm run dev`. Compiled out of the
+   production bundle by the DEV check, so it can never fake a live match on
+   the real site. */
+const PREVIEW = import.meta.env.DEV
+  && typeof window !== "undefined"
+  && new URLSearchParams(window.location.search).get("live") === "preview";
+
+const PREVIEW_MATCH = {
+  match_id: "preview",
+  state: "live",
+  map: "de_mirage",
+  competition: "Europe 5v5 Queue",
+  teams: [],
+  started_at: Math.floor(Date.now() / 1000) - 17 * 60,
+  faceit_url: "https://www.faceit.com/",
+};
+
+/**
+ * Live status that keeps itself current while the profile is open.
+ *
+ * Starts from the summary's answer, so the strip is there on first paint with
+ * no extra request. Then asks /api/live/ every thirty seconds — a match that
+ * starts while you are reading someone's profile now appears without a reload,
+ * and one that ends now clears instead of lingering.
+ *
+ * Paused while the tab is hidden: people leave stats tabs open for hours, and
+ * polling a page nobody is looking at is pure cost.
+ */
+function useLiveStatus(playerId, initial) {
+  const [live, setLive] = useState(initial ?? null);
+
+  useEffect(() => { setLive(initial ?? null); }, [playerId, initial]);
+
+  useEffect(() => {
+    if (!playerId || PREVIEW) return undefined;
+    let alive = true;
+    let timer = null;
+
+    async function check() {
+      try {
+        const r = await fetch(`${API_BASE}/api/live/${encodeURIComponent(playerId)}/`);
+        if (!r.ok) return;
+        const j = await r.json();
+        // `ok: false` means FACEIT could not be asked. Keep the last answer
+        // rather than clearing a real badge because of a network blip.
+        if (alive && j.ok) setLive(j.live ?? null);
+      } catch {
+        /* keep the last known state */
+      }
+    }
+
+    function schedule() {
+      clearInterval(timer);
+      if (document.visibilityState === "visible") {
+        timer = setInterval(check, POLL_MS);
+      }
+    }
+
+    function onVisibility() {
+      // Coming back to the tab: answer immediately instead of waiting out the
+      // interval with a state that may be half an hour old.
+      if (document.visibilityState === "visible") check();
+      schedule();
+    }
+
+    schedule();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [playerId]);
+
+  return PREVIEW ? PREVIEW_MATCH : live;
+}
+
 /**
  * "In a match right now", as a row of the data layout rather than an alert.
  *
@@ -30,7 +111,8 @@ function elapsedLabel(startedAt) {
   return `${h}h ${mins % 60}m in`;
 }
 
-export default function LiveMatch({ live, nickname }) {
+export default function LiveMatch({ playerId, initial, nickname }) {
+  const live = useLiveStatus(playerId, initial);
   // Re-render on a timer so the counter moves. Thirty seconds, not one: the
   // number only changes by the minute, and a per-second interval would wake
   // the tab sixty times for fifty-nine no-ops.
