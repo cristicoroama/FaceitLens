@@ -411,9 +411,13 @@ a { color: inherit; }
 .inc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
 .inc-status {
   font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
-  padding: 3px 9px; border-radius: 6px; color: var(--st);
-  border: 1px solid color-mix(in srgb, var(--st) 45%, transparent);
-  background: color-mix(in srgb, var(--st) 12%, transparent);
+  /* --st comes from a .status-<name> modifier. Fallbacks because the class is
+     built from a backend value: one unrecognised status would leave --st
+     unresolvable, and an unresolvable var() with no fallback invalidates the
+     whole declaration — colour, border and background would all drop at once. */
+  padding: 3px 9px; border-radius: 6px; color: var(--st, var(--text-dim));
+  border: 1px solid color-mix(in srgb, var(--st, var(--text-dim)) 45%, transparent);
+  background: color-mix(in srgb, var(--st, var(--text-dim)) 12%, transparent);
 }
 .inc-impact {
   font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
@@ -437,10 +441,10 @@ a { color: inherit; }
 .inc-update:last-child { padding-bottom: 2px; }
 .inc-up-marker {
   position: absolute; left: -5px; top: 3px; width: 9px; height: 9px; border-radius: 50%;
-  background: var(--st); box-shadow: 0 0 8px var(--st); border: 2px solid var(--bg);
+  background: var(--st, var(--text-dim)); box-shadow: 0 0 8px var(--st, var(--text-dim)); border: 2px solid var(--bg);
 }
 .inc-up-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.inc-up-status { font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--st); }
+.inc-up-status { font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--st, var(--text-dim)); }
 .inc-up-time {
   font-size: 12px; color: var(--text-dim);
   font-family: var(--font-mono);
@@ -975,7 +979,9 @@ a { color: inherit; }
   font-weight: 700;
   white-space: nowrap;
   color: var(--accent);
-  background: var(--accent-soft);
+  /* Was --accent-soft: orange on orange, 1.30:1. This pill sits in the profile
+     header meta row, so it was unreadable on the most-viewed page. */
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   cursor: help;
 }
 /* Account age, in the same meta row as the country and the rank. The date is
@@ -2623,7 +2629,7 @@ body, .topnav, .card, .squad-row, .rank-card,
   position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px;
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0 3px; border-radius: 999px;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-accent);
   font-size: 9px; font-weight: 800; line-height: 1;
   border: 2px solid var(--bg-elev);
 }
@@ -2891,9 +2897,14 @@ body, .topnav, .card, .squad-row, .rank-card,
 .ps-val { font-family: var(--font-display); font-weight: 700; font-size: 21px; line-height: 1.1; }
 .ps-val.pos { color: var(--win); }
 .ps-val.neg { color: var(--loss); }
-.ps-label {
+/* Scoped to the hero strip because ProfileSettings defines its own .ps-label
+   further down this file (the settings form's label, 11.5px with a bottom
+   margin). Equal specificity meant the later rule won everywhere, so these
+   labels — on the most-viewed element of the site — were silently rendering
+   with the settings form's type and their spacing pushed to the wrong side. */
+.ph-strip .ps-label {
   color: var(--text-dim); font-size: 9.5px; text-transform: uppercase;
-  letter-spacing: 1.6px; margin-top: 4px; font-weight: 700;
+  letter-spacing: 1.6px; margin-top: 4px; margin-bottom: 0; font-weight: 700;
 }
 .ph-progress {
   position: relative; z-index: 2;
@@ -3723,6 +3734,30 @@ i.pg-hit, i.pg-close { display: inline-block; width: 12px; height: 12px; border-
   margin-top: 6px;
 }
 .pg-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The board is the page. At 640px it forced a sideways scroll on every guess,
+   on a layout that is six short values wide and had no business needing one.
+   Shrunk rather than restructured: the columns have to stay aligned with their
+   header, so dropping to a card list would cost the comparison the game is
+   built on. */
+@media (max-width: 760px) {
+  .pg-row { min-width: 520px; gap: 5px; }
+  .pg-cell { padding: 11px 5px; font-size: 12px; border-radius: 9px; gap: 4px; }
+  .pg-head .pg-cell { font-size: 9px; letter-spacing: .5px; padding: 2px 4px; }
+}
+@media (max-width: 560px) {
+  /* Fits a 360px phone without scrolling. Names ellipsize rather than wrap,
+     so every row keeps the same height and the columns stay readable as
+     columns. */
+  .pg-row { min-width: 0; gap: 4px; }
+  .pg-cell {
+    padding: 9px 3px; font-size: 11px; border-radius: 7px; gap: 3px;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pg-head .pg-cell { font-size: 8.5px; letter-spacing: .2px; }
+  .pg-arrow { font-size: 10px; }
+  .pg-legend { gap: 10px; font-size: 11px; }
+}
 
 .pg-result {
   background: var(--glass-bg); border: 1px solid var(--glass-brd); border-radius: 16px;
@@ -5365,7 +5400,7 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
 }
 .lm-meta {
-  margin: -4px 0 9px; color: var(--muted);
+  margin: -4px 0 9px; color: var(--text-dim);
   font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .02em;
 }
 
@@ -5376,11 +5411,11 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .lm-tab {
   flex: 0 0 auto; padding: 5px 11px; border-radius: 999px;
   border: 1px solid var(--border); background: transparent;
-  color: var(--muted); font-size: 11.5px; font-weight: 700;
+  color: var(--text-dim); font-size: 11.5px; font-weight: 700;
   letter-spacing: .02em; white-space: nowrap; cursor: pointer;
   transition: color .15s ease, border-color .15s ease, background .15s ease;
 }
-.lm-tab:hover { color: var(--text); border-color: var(--border-strong, var(--border)); }
+.lm-tab:hover { color: var(--text); border-color: var(--border-hi); }
 .lm-tab.on {
   color: var(--accent); border-color: rgba(var(--accent-rgb), 0.55);
   background: rgba(var(--accent-rgb), 0.10);
@@ -6729,7 +6764,9 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   transition: background .12s, color .12s;
 }
 .hl-tab:hover { color: var(--text); background: var(--border); }
-.hl-tab.on { color: #fff; background: var(--accent); }
+/* --on-accent, not #fff: white on #ff6a21 is 2.88:1 and fails AA at this size.
+   The token exists precisely for this and 23 other rules already use it. */
+.hl-tab.on { color: var(--on-accent); background: var(--accent); }
 
 .hl-list { display: flex; flex-direction: column; }
 
@@ -6947,7 +6984,7 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 }
 .am-seg button + button { border-left: 1px solid var(--border); }
 .am-seg button:hover { color: var(--text); }
-.am-seg button.on { background: var(--accent); color: #fff; }
+.am-seg button.on { background: var(--accent); color: var(--on-accent); }
 
 .am-wrap {
   background: var(--bg-elev);
@@ -7078,7 +7115,8 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .nk-badge {
   padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
   letter-spacing: .04em; text-transform: uppercase;
-  color: var(--accent); background: var(--accent-soft);
+  /* Same invisible pairing as .sup-status.open had — see the note there. */
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .nk-num { text-align: right; font-family: var(--font-mono); font-weight: 600; }
 .nk-match { color: var(--accent-2); text-decoration: none; }
@@ -7414,7 +7452,13 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
   text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
   color: var(--text-dim); background: rgba(255,255,255,.07);
 }
-.sup-status.open, .sup-status.progress { color: var(--accent); background: var(--accent-soft); }
+/* --accent on --accent-soft is orange text on orange fill: 1.30:1, which is
+   not a weak contrast but an invisible one. The two siblings below already use
+   a 12% tint of their own colour; this now matches them. */
+.sup-status.open, .sup-status.progress {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .sup-status.resolved { color: var(--win); background: color-mix(in srgb, var(--win) 12%, transparent); }
 .sup-status.rejected { color: var(--loss); background: color-mix(in srgb, var(--loss) 12%, transparent); }
 
