@@ -1612,3 +1612,15 @@ def csgo_stats(request, nickname):
 def player_live(request, player_id):
     """GET /api/live/<player_id>/"""
     return JsonResponse(faceit_comp.get_live_status(player_id))
+
+
+@require_GET
+def sitemap_players(request):
+    """GET /api/sitemap/players/ - recently searched players for the player sitemap."""
+    from .models import TrackedPlayer
+    hit = cache.get("sitemap:players")
+    if hit is None:
+        qs = TrackedPlayer.objects.exclude(last_searched=None).order_by("-last_searched")[:45000]
+        hit = [{"nickname": p.nickname, "lastmod": p.last_searched.date().isoformat()} for p in qs if p.nickname]
+        cache.set("sitemap:players", hit, 6 * 60 * 60)
+    return JsonResponse({"items": hit})

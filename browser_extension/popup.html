@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { margin: 0; width: 280px; background: #0b0b0e; color: #f0f0f4; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { padding: 14px; }
+  h1 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  h1 img { width: 20px; height: 20px; border-radius: 4px; }
+  h1 b { color: #ff5500; }
+  form { display: flex; gap: 6px; }
+  input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid #2a2a33; background: #16161c; color: #fff; font: inherit; }
+  input:focus { outline: none; border-color: #ff5500; }
+  button { padding: 8px 12px; border-radius: 8px; border: 0; background: #ff5500; color: #fff; font: 700 13px system-ui; cursor: pointer; }
+  .links { display: grid; gap: 6px; margin-top: 12px; }
+  .links a { color: #c8c8d0; text-decoration: none; padding: 7px 9px; border-radius: 8px; background: #16161c; }
+  .links a:hover { color: #fff; background: #1f1f27; }
+  p { color: #8a8a96; font-size: 11.5px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><img src="icons/icon32.png" alt="" />Faceit<b>Lens</b></h1>
+  <form id="f">
+    <input id="q" placeholder="FACEIT nickname or room link" autofocus />
+    <button type="submit">Go</button>
+  </form>
+  <div class="links">
+    <a href="https://faceit-lens.com/matchroom" target="_blank">Match room analyser</a>
+    <a href="https://faceit-lens.com/pickem" target="_blank">Major Pick'em</a>
+    <a href="https://faceit-lens.com/leaderboard/EU" target="_blank">Leaderboards</a>
+  </div>
+  <p>On faceit.com and Steam profiles a FaceitLens button appears bottom-right.</p>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

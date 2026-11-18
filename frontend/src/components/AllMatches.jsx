@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { MapIcon, mapLabel } from "../map-art.jsx";
+import { tier } from "../rating-scale.js";
 
 /**
  * The long list — 250 matches, filtered and paged.
@@ -22,6 +23,31 @@ function shortDate(ts) {
 }
 
 const n2 = (v) => (v == null ? "—" : Number(v).toFixed(2));
+
+const GAP = 3 * 60 * 60;
+
+function sessionsOf(rows) {
+  const out = new Map();
+  let start = 0;
+  for (let i = 1; i <= rows.length; i++) {
+    const prev = rows[i - 1];
+    const cur = rows[i];
+    if (!cur || !prev.finished_at || !cur.finished_at || prev.finished_at - cur.finished_at > GAP) {
+      const group = rows.slice(start, i);
+      const w = group.filter((m) => m.won).length;
+      out.set(rows[start].match_id || start, {
+        date: rows[start].finished_at, n: group.length, w, l: group.length - w,
+      });
+      start = i;
+    }
+  }
+  return out;
+}
+
+function sessLabel(ts) {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
 
 export default function AllMatches({ matches }) {
   const [map, setMap] = useState("");
@@ -58,6 +84,7 @@ export default function AllMatches({ matches }) {
 
   // Summary of what's currently on screen, not of the whole career — the
   // filters are the feature, so the totals have to follow them.
+  const sessions = sessionsOf(rows);
   const wins = rows.filter((m) => m.won).length;
   const wr = rows.length ? Math.round((100 * wins) / rows.length) : 0;
 
@@ -120,7 +147,22 @@ export default function AllMatches({ matches }) {
             </tr>
           </thead>
           <tbody>
-            {slice.map((m, i) => (
+            {slice.map((m, i) => {
+              const sess = sessions.get(m.match_id || (cur * PAGE + i));
+              return [
+              sess && sess.n > 1 && (
+                <tr className="am-sess" key={`s-${m.match_id || i}`}>
+                  <td colSpan={12}>
+                    <span>{sessLabel(sess.date)}</span>
+                    <b>{sess.n} matches</b>
+                    <span className="pos">{sess.w}W</span>
+                    <span className="neg">{sess.l}L</span>
+                    <span className={sess.w > sess.l ? "pos" : sess.w < sess.l ? "neg" : ""}>
+                      {sess.w - sess.l > 0 ? "+" : ""}{(sess.w - sess.l) * 25} ELO est.
+                    </span>
+                  </td>
+                </tr>
+              ),
               <tr key={m.match_id || i} className={m.won ? "won" : "lost"}>
                 <td className="am-l am-date">{shortDate(m.finished_at)}</td>
                 <td className="am-l am-map">
@@ -139,14 +181,15 @@ export default function AllMatches({ matches }) {
                 <td className={m.diff > 0 ? "pos" : m.diff < 0 ? "neg" : ""}>
                   {m.diff == null ? "—" : m.diff > 0 ? `+${m.diff}` : m.diff}
                 </td>
-                <td className={m.kd >= 1 ? "pos" : m.kd != null ? "neg" : ""}>{n2(m.kd)}</td>
+                <td className={tier("kd", m.kd)}>{n2(m.kd)}</td>
                 <td>{m.hs == null ? "—" : `${Math.round(m.hs)}%`}</td>
-                <td>{m.adr ?? "—"}</td>
-                <td className={m.rating >= 1 ? "pos" : m.rating != null ? "neg" : ""}>
+                <td className={tier("adr", m.adr)}>{m.adr ?? "—"}</td>
+                <td className={tier("rating", m.rating)}>
                   {n2(m.rating)}
                 </td>
-              </tr>
-            ))}
+              </tr>,
+              ];
+            })}
           </tbody>
         </table>
 

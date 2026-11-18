@@ -1,4 +1,5 @@
 from django.urls import path
+from . import og, pickem, webhooks
 from . import auth, faceit_oauth, feedback, overlay, profiles, support, views
 from .apikeys import require_api_key
 
@@ -51,6 +52,16 @@ urlpatterns = [
     path("steam/", require_api_key(views.player_by_steam), name="player-by-steam"),
     path("steamprofile/", require_api_key(views.steam_profile), name="steam-profile"),
     path("match/<str:match_id>/", require_api_key(views.match_detail), name="match-detail"),
+    path("og/<str:nickname>", og.og_image, name="og-image"),
+    path("webhooks/faceit/", webhooks.faceit_webhook, name="faceit-webhook"),
+    path("sitemap/players/", views.sitemap_players, name="sitemap-players"),
+    path("pickem/", pickem.pickem, name="pickem"),
+    path("pickem/picks/", pickem.save_picks, name="pickem-picks"),
+    path("pickem/league/", pickem.create_league, name="pickem-league-create"),
+    path("pickem/league/join/", pickem.join_league, name="pickem-league-join"),
+    path("pickem/league/leave/", pickem.leave_league, name="pickem-league-leave"),
+    path("pickem/league/<str:code>/", pickem.league_detail, name="pickem-league"),
+    path("pickem/global/", pickem.global_board, name="pickem-global"),
     path("health/", views.health, name="health"),
     path("status/", views.status, name="status"),
     path("incidents/", views.incidents, name="incidents"),

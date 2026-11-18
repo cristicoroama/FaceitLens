@@ -301,6 +301,10 @@ def find_hub_live(player_id):
     return None, True
 
 
+def _webhook_watched(player_id):
+    return player_id in (cache.get("webhook:ids") or set())
+
+
 def get_live_status(player_id):
     if not player_id:
         return {"live": None, "ok": False, "watch": False}
@@ -309,9 +313,19 @@ def get_live_status(player_id):
     if hit is not None:
         return hit
     try:
-        live, watch = find_hub_live(player_id)
+        live = None
+        try:
+            from .webhooks import webhook_live
+            live = webhook_live(player_id)
+        except Exception:
+            live = None
+        watch = True
+        if not live:
+            live, watch = find_hub_live(player_id)
         if not live:
             live = find_live_match(get_player_history(player_id, limit=3))
+        if not watch and _webhook_watched(player_id):
+            watch = True
     except FaceitError:
         out = {"live": None, "ok": False, "watch": True}
         cache.set(key, out, 5)

@@ -407,3 +407,61 @@ class ApiKeyAdmin(admin.ModelAdmin):
     @admin.action(description="Reactivate")
     def reactivate(self, request, queryset):
         queryset.update(active=True)
+
+
+from .models import (  # noqa: E402
+    LiveMatchState, PickemEntry, PickemEvent, PickemLeague, PickemStage, PickemTeam, SeasonSnapshot,
+)
+
+
+class PickemStageInline(admin.TabularInline):
+    model = PickemStage
+    extra = 0
+
+
+@admin.register(PickemEvent)
+class PickemEventAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "active", "created_at")
+    inlines = [PickemStageInline]
+
+
+class PickemTeamInline(admin.TabularInline):
+    model = PickemTeam
+    extra = 0
+    fields = ("seed", "name", "logo", "wins", "losses", "result")
+
+
+@admin.register(PickemStage)
+class PickemStageAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "lock_at", "picks_30", "picks_03", "picks_adv")
+    inlines = [PickemTeamInline]
+
+
+@admin.register(PickemTeam)
+class PickemTeamAdmin(admin.ModelAdmin):
+    list_display = ("name", "stage", "wins", "losses", "result")
+    list_editable = ("wins", "losses", "result")
+    list_filter = ("stage",)
+
+
+@admin.register(PickemLeague)
+class PickemLeagueAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "owner", "created_at")
+    search_fields = ("name", "code")
+
+
+@admin.register(PickemEntry)
+class PickemEntryAdmin(admin.ModelAdmin):
+    list_display = ("user", "stage", "updated_at")
+    list_filter = ("stage",)
+
+
+@admin.register(LiveMatchState)
+class LiveMatchStateAdmin(admin.ModelAdmin):
+    list_display = ("player_id", "match_id", "state", "updated_at")
+
+
+@admin.register(SeasonSnapshot)
+class SeasonSnapshotAdmin(admin.ModelAdmin):
+    list_display = ("nickname", "season", "updated_at")
+    search_fields = ("nickname", "player_id")

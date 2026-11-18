@@ -8,3 +8,5 @@ Disallow: /settings
 Disallow: /overlay/
 
 Sitemap: https://faceit-lens.com/sitemap.xml
+
+Sitemap: https://faceit-lens.com/sitemap-players.xml

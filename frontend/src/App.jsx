@@ -43,6 +43,10 @@ import NewsPage from "./components/NewsPage.jsx";
 import Hubs from "./components/Hubs.jsx";
 import Teams from "./components/Teams.jsx";
 import Competitions from "./components/Competitions.jsx";
+import Pickem from "./components/Pickem.jsx";
+import CommandPalette from "./components/CommandPalette.jsx";
+import MiniHeader from "./components/MiniHeader.jsx";
+import Insights, { InsightsTeaser } from "./components/Insights.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
 import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
@@ -169,6 +173,8 @@ function buildNav(t, lang, flags = {}) { return [
       hint: t("hint.teams") },
     { id: "competitions", label: t("nav.competitions"), href: localePath(lang, "/competitions"), icon: Icon.trophy,
       hint: t("hint.competitions") },
+    { id: "pickem", label: t("nav.pickem"), href: localePath(lang, "/pickem"), icon: Icon.trophy,
+      hint: t("hint.pickem"), badge: t("nav.new") },
     { id: "watchlist", label: t("nav.watchlist"), href: localePath(lang, "/watchlist"), icon: Icon.star,
       hint: t("hint.watchlist") },
   ]},
@@ -317,12 +323,11 @@ function applyMeta(title, desc, robots = "index, follow") {
 /* Ordered the way the page is actually read: the summary, then the four views
    that answer "show me the detail behind it", then the side pages.
 
-   No Seasons tab, though the site this layout came from has one. FACEIT's
-   public API exposes no per-player matchmaking season history — the only
-   seasons in it belong to ESEA leagues. A tab that could only ever be empty is
-   worse than no tab. */
+   The Season tab is built from the player's own match dates against FACEIT's
+   published season windows, since the API has no per-player season history. */
 function buildProfileTabs(t) { return [
   ["overview", t("tab.overview")],
+  ["season", t("tab.season")],
   ["matches", t("tab.matches")],
   ["maps", t("tab.maps")],
   ["hubs", t("tab.hubs")],
@@ -851,6 +856,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         search={
           <>
             <span className="tn-search-ic">{Icon.search}</span>
+            <button
+              type="button"
+              className="tn-kbd"
+              title="Quick search (Ctrl+K)"
+              onClick={() => window.dispatchEvent(new Event("fl:palette"))}
+            >
+              Ctrl K
+            </button>
             <SearchInput
               value={nickname}
               onChange={setNickname}
@@ -1070,6 +1083,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {mode === "hubs" && <Hubs onPick={go} user={user} />}
           {mode === "teams" && <Teams onPick={go} />}
           {mode === "competitions" && <Competitions onPick={go} />}
+          {mode === "pickem" && <Pickem />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}
@@ -1136,6 +1150,12 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {showProfile && (
             <>
               <BanBanner bans={data.bans} />
+              <MiniHeader
+                player={data}
+                tabs={gameView !== "csgo" ? buildProfileTabs(t).filter(([k]) => ["overview", "season", "matches", "maps", "teammates"].includes(k)) : []}
+                active={profileTab}
+                onTab={setProfileTab}
+              />
               <PlayerHeader player={data} onRefresh={refreshPlayer} refreshing={refreshing}>
                 <button className={`act-btn ${isFav ? "on" : ""}`} onClick={onToggleFav}>
                   {isFav ? Icon.starFill : Icon.star}
@@ -1226,6 +1246,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                   nickname={data.nickname}
                   matches={(data.game_history || []).find((g) => g.game === "csgo")?.matches}
                 />
+              ) : profileTab === "season" ? (
+                <Insights insights={data.insights} player={data} onPick={go} />
               ) : profileTab === "matches" ? (
                 <>
                   {/* The detailed ten first — expandable, with full scoreboards
@@ -1299,6 +1321,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                     mapFilter={mapFilter}
                     onMapFilter={applyMapFilter}
                   />
+                  <InsightsTeaser insights={data.insights} onOpen={() => setProfileTab("season")} />
                   <SkillRatings skills={data.skills} />
                   {/* Directly under the ratings: these are the numbers those
                       bars were scored from, so a rating you disagree with can
@@ -1329,6 +1352,16 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           straight to a player, and not while they're already reading the
           page it would send them to. */}
       <SocialDock />
+      <CommandPalette
+        groups={buildNav(t, lang)}
+        onPlayer={go}
+        onNav={pickNav}
+        onPath={(p) => {
+          const page = p.split("?")[0].replace(/^\//, "");
+          if (page === "matchroom") setMode("matchroom");
+          nav(p);
+        }}
+      />
 
       <WhatsNewPopup
         unread={changelog.unread}

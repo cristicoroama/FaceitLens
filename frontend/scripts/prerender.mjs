@@ -140,6 +140,7 @@ const CRAWL_HINTS = {
   "/steamstatus": ["hourly", "0.9"],
   "/prosettings": ["weekly", "0.9"],
   "/competitions": ["daily", "0.8"],
+  "/pickem": ["daily", "0.9"],
   "/news": ["daily", "0.6"],
   "/privacy": ["yearly", "0.3"],
   "/terms": ["yearly", "0.3"],

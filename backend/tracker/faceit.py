@@ -877,6 +877,16 @@ def get_country_stats():
     ]
     countries.sort(key=lambda c: -c["count"])
 
+    challengers = {}
+    for items in pages:
+        for region, p in items:
+            if p.get("player_id"):
+                challengers[p["player_id"]] = {
+                    "nickname": p.get("nickname"), "elo": p.get("elo"),
+                    "region": region, "position": p.get("position"),
+                }
+    cache.set("challengers", challengers, 24 * 60 * 60)
+
     result = {
         "countries": countries,
         "depth": MAP_DEPTH,
@@ -3679,6 +3689,40 @@ def build_activity(items, days=90):
     return [{"date": k, "count": v} for k, v in sorted(counts.items())]
 
 
+def _build_insights(recent_all, history_all, player, player_id, current_elo, snapshots, total, game_history):
+    from . import insights
+    try:
+        csgo = 0
+        for g in (game_history or {}).get("games", []) if isinstance(game_history, dict) else (game_history or []):
+            if (g.get("game") or g.get("id")) == LEGACY_GAME:
+                csgo = g.get("matches") or 0
+        out = insights.build(
+            recent_all, history_all, player_id, current_elo, snapshots,
+            {"level": (player.get("games", {}).get(GAME, {}) or {}).get("skill_level"),
+             "total_matches": total, "csgo_matches": csgo, "verified": player.get("verified")},
+        )
+    except Exception:
+        import traceback; traceback.print_exc()
+        return None
+    rep = out.get("season_report")
+    try:
+        from .models import SeasonSnapshot
+        stored = SeasonSnapshot.objects.filter(player_id=player_id, season=insights.REPORT_SEASON).first()
+        if rep and rep.get("matches"):
+            if stored and (stored.data or {}).get("matches", 0) > rep["matches"] and rep.get("ended"):
+                out["season_report"] = stored.data
+            else:
+                SeasonSnapshot.objects.update_or_create(
+                    player_id=player_id, season=insights.REPORT_SEASON,
+                    defaults={"nickname": player.get("nickname") or "", "data": rep},
+                )
+        elif stored:
+            out["season_report"] = stored.data
+    except Exception:
+        pass
+    return out
+
+
 def build_player_summary(nickname):
     """
     Aggregate everything the frontend needs into a single dict:
@@ -3962,6 +4006,8 @@ def build_player_summary(nickname):
         # Career bests, from `recent_all` rather than `match_items`: the whole
         # point is the long tail, and match_items is the first 50 of it.
         "highlights": build_highlights(recent_all),
+        "insights": _build_insights(recent_all, history_all, player, player_id, current_elo,
+                                    elo_snapshots, total_matches, game_history),
         # Both Counter-Strike titles the account played. CS:GO is still served
         # by the API, so a veteran's full record is available — see
         # build_game_history.

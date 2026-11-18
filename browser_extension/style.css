@@ -1,0 +1,23 @@
+.fl-ext-btn {
+  position: fixed; right: 18px; bottom: 18px; z-index: 2147483000;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255, 85, 0, .55);
+  background: #121216; color: #f0f0f4; text-decoration: none !important;
+  font: 700 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45); cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.fl-ext-btn:hover { transform: translateY(-2px); border-color: #ff5500; color: #fff; }
+.fl-ext-btn img { width: 18px; height: 18px; border-radius: 4px; }
+.fl-ext-btn b { color: #ff5500; }
+.fl-ext-x {
+  position: fixed; right: 10px; bottom: 50px; z-index: 2147483001; width: 18px; height: 18px;
+  border-radius: 50%; border: 0; background: #24242c; color: #aaa; font: 700 11px/18px system-ui; cursor: pointer;
+  padding: 0; text-align: center;
+}
+.fl-ext-steam {
+  display: inline-flex; align-items: center; gap: 8px; margin: 10px 0; padding: 8px 12px; border-radius: 4px;
+  background: linear-gradient(90deg, #ff5500, #ff7a33); color: #fff !important; text-decoration: none !important;
+  font: 700 13px/1 "Motiva Sans", Arial, sans-serif;
+}
+.fl-ext-steam img { width: 16px; height: 16px; }

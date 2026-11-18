@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaceitLevel, Flag } from "./RankIcons.jsx";
 import { ResultChip } from "./FormStrip.jsx";
 import { mapKey, mapLabel, MapIcon } from "../map-art.jsx";
@@ -810,11 +810,17 @@ function MapBanner({ data }) {
 }
 
 export default function MatchRoom({ onPick }) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(() =>
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("room") || "");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState("general");
+
+  useEffect(() => {
+    if (url) scout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function scout() {
     const v = url.trim();

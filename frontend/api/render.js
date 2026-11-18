@@ -142,13 +142,8 @@ export default async function handler(req, res) {
   let imageHeight = 630;
   let twitterCard = "summary_large_image";
 
-  if (player?.avatar) {
-    image = player.avatar;
-    // A square avatar isn't 1200x630; declaring those dimensions makes
-    // Discord letterbox it.
-    imageWidth = null;
-    imageHeight = null;
-    twitterCard = "summary";
+  if (found) {
+    image = `${SITE_URL}/og/${encodeURIComponent(name)}.png`;
   }
 
   /* A nickname that doesn't exist still answers 200 from a static host, so

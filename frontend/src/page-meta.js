@@ -37,6 +37,8 @@ export const PAGE_META = {
     "Put up to 5 FACEIT CS2 players side by side: ELO, K/D, HS%, win rate and map performance."],
   squad: ["Squad Stats — Look Up Your CS2 Team",
     "Check your whole CS2 squad at once. Enter nicknames and get every player's FACEIT ELO and stats on one page."],
+  pickem: ["CS2 Major Pick'em — Play With Your Friends",
+    "Free CS2 Major Pick'em with private friend leagues. Pick the 3-0, 0-3 and advancing teams for every Swiss stage and race your friends on a live leaderboard."],
   competitions: ["CS2 Championships & Tournaments on FACEIT",
     "Browse open CS2 championships and tournaments, see brackets, final standings and who organises them."],
   teams: ["FACEIT Teams — Rosters, Records & Map Stats",
@@ -83,7 +85,7 @@ export const NOINDEX_PAGES = new Set(["settings"]);
    so it doubles as the list the prerenderer is allowed to emit. */
 export const TOOL_PAGES = new Set([
   "watchlist", "leaderboard", "matchroom", "compare",
-  "squad", "hubs", "teams", "competitions", "proguesser", "games", "docs",
+  "squad", "hubs", "teams", "competitions", "pickem", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew", "feedback", "privacy", "terms", "faq", "overlay",
   "support",

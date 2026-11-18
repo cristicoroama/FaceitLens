@@ -1,24 +1,35 @@
 # FaceitLens Discord Bot
 
-Slash command `/faceit <nickname>` posts a player's CS2 stats as an embed.
+Commands: `/elo`, `/stats` (with the generated profile card), `/season`, `/roast`, `/compare`,
+`/link`, `/unlink`, `/leaderboard` (weekly ELO race between linked members), `/pickem <code>`.
 
-Separate from the web app. Run it anywhere (locally or a Render Background Worker).
+Every reply has an "Open profile" button and a "Join FaceitLens Discord" button.
+
+The bot talks to the FaceitLens backend, not to FACEIT directly, so it shares the backend cache.
+
+## Env vars
+
+| Var | Value |
+| --- | --- |
+| `DISCORD_TOKEN` | Bot token |
+| `FACEITLENS_API` | Backend URL, e.g. `https://faceitlens.onrender.com` (no `/api`) |
+| `FACEITLENS_API_KEY` | An API key from Django admin → Api keys (needed when API keys are enforced) |
+| `DATA_PATH` | Optional path for `links.json`. On Render, point it at a persistent disk or links reset on redeploy |
 
 ## Run locally
 ```bash
 cd discord_bot
 pip install -r requirements.txt
-set DISCORD_TOKEN=your-bot-token       # Windows
-set FACEIT_API_KEY=your-faceit-key
+set DISCORD_TOKEN=...
+set FACEITLENS_API=https://faceitlens.onrender.com
+set FACEITLENS_API_KEY=fl_...
 python bot.py
 ```
 
-## Get a Discord token
-1. https://discord.com/developers/applications -> New Application
-2. Bot -> Reset Token -> copy
-3. OAuth2 -> URL Generator -> scopes: bot, applications.commands -> invite to your server
+## Invite
+Developer portal → OAuth2 → URL Generator → scopes `bot` + `applications.commands`,
+permissions `Send Messages` + `Embed Links`. Put the invite link on top.gg and discordbotlist.com.
 
-## Host on Render (free)
-New + -> Background Worker -> Root Directory: discord_bot ->
-Build: pip install -r requirements.txt -> Start: python bot.py ->
-add DISCORD_TOKEN and FACEIT_API_KEY env vars.
+## Host on Render
+New → Background Worker → Root Directory `discord_bot` → Build `pip install -r requirements.txt`
+→ Start `python bot.py` → add the env vars above.

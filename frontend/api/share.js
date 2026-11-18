@@ -25,12 +25,7 @@ export default async function handler(req, res) {
         desc =
           [wr, kd, hs, matches].filter(Boolean).join(" · ") ||
           `View ${p.nickname}'s full FACEIT CS2 stats, trust score and match history on FaceitLens.`;
-        // Use the player's avatar as the preview when we have it (square card);
-        // otherwise keep the branded large card.
-        if (p.avatar) {
-          image = p.avatar;
-          card = "summary";
-        }
+        image = `https://faceit-lens.com/og/${encodeURIComponent(p.nickname)}.png`;
       }
     }
   } catch {

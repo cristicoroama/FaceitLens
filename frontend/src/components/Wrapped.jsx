@@ -1,6 +1,24 @@
 import { useEffect, useState } from "react";
 import { FaceitLevel } from "./RankIcons.jsx";
 import { Icon } from "../icons.jsx";
+import { DISCORD_INVITE } from "../links.js";
+
+function identity(p) {
+  const s = p.stats || {};
+  const kd = Number(s.avg_kd) || 0;
+  const hs = Number(s.avg_hs) || 0;
+  const wr = Number(s.win_rate) || 0;
+  const n = Number(s.matches) || 0;
+  const verdict = p.insights?.tilt?.verdict;
+  if (n >= 4000) return ["touch_grass.exe", `${n.toLocaleString()} matches. The sun misses you.`];
+  if (kd >= 1.3) return ["The Lobby Boss", "Teammates queue with you for a reason."];
+  if (hs >= 58) return ["The Headhunter", `${hs}% headshots. Bodies are for other people.`];
+  if (verdict === "resilient") return ["The Comeback Kid", "Losses make you play better. Weird flex, but OK."];
+  if (verdict === "tilts") return ["The Tilt Machine", "Two losses in a row and the monitor starts to fear you."];
+  if (wr >= 55) return ["The Closer", "You don't just play matches. You finish them."];
+  if (kd < 0.95 && wr >= 50) return ["The Team Player", "Low frags, high wins. The utility does the talking."];
+  return ["The Grinder", "Queue, play, repeat. Respect."];
+}
 
 /** Build the slide list from a player summary. Skips slides with no data. */
 function buildSlides(p) {
@@ -16,6 +34,8 @@ function buildSlides(p) {
     title: `${p.nickname}`,
     sub: "Your CS2 career, wrapped.",
   });
+  const [idName, idSub] = identity(p);
+  slides.push({ kind: "identity", pre: "Your FACEIT identity", title: idName, sub: idSub });
   if (s.matches) {
     slides.push({
       kind: "big",
@@ -81,11 +101,32 @@ function buildSlides(p) {
       tone: "bad",
     });
   }
+  const rep = p.insights?.season_report;
+  if (rep?.matches) {
+    const ch = rep.elo?.change;
+    slides.push({
+      kind: "big",
+      pre: `Season ${rep.season}: ${rep.title}`,
+      big: `${ch > 0 ? "+" : ""}${ch ?? 0}`,
+      post: `ELO${rep.elo?.estimated ? " (est.)" : ""} over ${rep.matches} matches`,
+      tone: ch >= 0 ? "good" : "bad",
+    });
+  }
+  const ach = p.insights?.achievements || [];
+  if (ach.length) {
+    slides.push({
+      kind: "big",
+      pre: "Achievements unlocked",
+      big: `${ach.length}`,
+      post: ach.slice(0, 3).map((a) => a.name).join(" · "),
+    });
+  }
   slides.push({
     kind: "outro",
     title: `Level ${p.skill_level ?? "?"} · ${p.elo ?? "?"} ELO`,
     sub: "See you on the server.",
     level: p.skill_level,
+    nickname: p.nickname,
   });
   return slides;
 }
@@ -107,15 +148,17 @@ export default function Wrapped({ player, onClose }) {
   const prev = () => { if (i > 0) { setI(i - 1); setKey((k) => k + 1); } };
 
   // auto-advance every 3.5s; keyboard nav
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
-    const timer = setTimeout(next, 3500);
+    const timer = i < slides.length - 1 ? setTimeout(next, 3500) : null;
     function onKey(e) {
       if (e.key === "ArrowRight" || e.key === " ") next();
       else if (e.key === "ArrowLeft") prev();
       else if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
-    return () => { clearTimeout(timer); window.removeEventListener("keydown", onKey); };
+    return () => { if (timer) clearTimeout(timer); window.removeEventListener("keydown", onKey); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);
 
@@ -141,6 +184,14 @@ export default function Wrapped({ player, onClose }) {
           <>
             <div className="wrap-brand">FaceitLens · Wrapped</div>
             <div className="wrap-title">{cur.title}</div>
+            <div className="wrap-sub">{cur.sub}</div>
+          </>
+        )}
+
+        {cur.kind === "identity" && (
+          <>
+            <div className="wrap-pre">{cur.pre}</div>
+            <div className="wrap-title wrap-identity">{cur.title}</div>
             <div className="wrap-sub">{cur.sub}</div>
           </>
         )}
@@ -183,6 +234,19 @@ export default function Wrapped({ player, onClose }) {
             <div className="wrap-title">{cur.title}</div>
             <div className="wrap-sub">{cur.sub}</div>
             <div className="wrap-brand" style={{ marginTop: 24 }}>faceit-lens.com</div>
+            <div className="wrap-cta">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  const url = `https://faceit-lens.com/player/${encodeURIComponent(cur.nickname)}`;
+                  navigator.clipboard?.writeText(`My FACEIT Wrapped on FaceitLens: ${url}`).then(() => setCopied(true));
+                }}
+              >
+                {copied ? "Link copied" : "Share my Wrapped"}
+              </button>
+              <a className="act-btn" href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer">Join our Discord</a>
+            </div>
           </>
         )}
       </div>

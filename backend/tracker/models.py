@@ -762,3 +762,110 @@ class ApiKey(models.Model):
     @property
     def masked(self):
         return f"{self.key[:6]}…{self.key[-4:]}"
+
+
+class PickemEvent(models.Model):
+    slug = models.SlugField(max_length=60, unique=True)
+    name = models.CharField(max_length=120)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class PickemStage(models.Model):
+    event = models.ForeignKey(PickemEvent, on_delete=models.CASCADE, related_name="stages")
+    order = models.PositiveSmallIntegerField(default=1)
+    name = models.CharField(max_length=60)
+    lock_at = models.DateTimeField()
+    picks_30 = models.PositiveSmallIntegerField(default=2)
+    picks_03 = models.PositiveSmallIntegerField(default=2)
+    picks_adv = models.PositiveSmallIntegerField(default=6)
+
+    class Meta:
+        ordering = ["event", "order"]
+        unique_together = [("event", "order")]
+
+    def __str__(self):
+        return f"{self.event.name} · {self.name}"
+
+    @property
+    def locked(self):
+        return timezone.now() >= self.lock_at
+
+
+class PickemTeam(models.Model):
+    RESULT_CHOICES = [
+        ("", "Pending"),
+        ("30", "3-0"),
+        ("adv", "Advanced 3-1 / 3-2"),
+        ("elim", "Eliminated 1-3 / 2-3"),
+        ("03", "0-3"),
+    ]
+    stage = models.ForeignKey(PickemStage, on_delete=models.CASCADE, related_name="teams")
+    name = models.CharField(max_length=60)
+    logo = models.URLField(blank=True)
+    seed = models.PositiveSmallIntegerField(default=0)
+    wins = models.PositiveSmallIntegerField(default=0)
+    losses = models.PositiveSmallIntegerField(default=0)
+    result = models.CharField(max_length=4, choices=RESULT_CHOICES, blank=True, default="")
+
+    class Meta:
+        ordering = ["stage", "seed", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.stage.name})"
+
+
+class PickemEntry(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pickem_entries")
+    stage = models.ForeignKey(PickemStage, on_delete=models.CASCADE, related_name="entries")
+    picks = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("user", "stage")]
+
+
+class PickemLeague(models.Model):
+    event = models.ForeignKey(PickemEvent, on_delete=models.CASCADE, related_name="leagues")
+    name = models.CharField(max_length=40)
+    code = models.CharField(max_length=8, unique=True, db_index=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_leagues")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} [{self.code}]"
+
+
+class PickemLeagueMember(models.Model):
+    league = models.ForeignKey(PickemLeague, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pickem_leagues")
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("league", "user")]
+
+
+class LiveMatchState(models.Model):
+    player_id = models.CharField(max_length=64, db_index=True)
+    match_id = models.CharField(max_length=64)
+    state = models.CharField(max_length=12)
+    payload = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("player_id", "match_id")]
+
+
+class SeasonSnapshot(models.Model):
+    player_id = models.CharField(max_length=64, db_index=True)
+    nickname = models.CharField(max_length=100)
+    season = models.PositiveSmallIntegerField()
+    data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("player_id", "season")]

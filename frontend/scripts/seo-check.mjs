@@ -328,15 +328,15 @@ await run("unknown lang falls back", { backend: answers, query: { lang: "de" } }
   ok(`${name} — served as English instead of inventing a /de tree`);
 });
 
-await run("player has an avatar", {
+await run("player gets a generated card", {
   backend: async () => ({
     ok: true, status: 200,
     json: async () => ({ ...PLAYER, avatar: "https://cdn.faceit.com/a.jpg" }),
   }),
 }, (res, name) => {
-  if (!/twitter:card" content="summary"/.test(res.body)) return bad(`${name}: not a square card`);
-  if (/og:image:width/.test(res.body)) return bad(`${name}: declared 1200x630 for a square avatar`);
-  ok(`${name} — square card, no bogus dimensions`);
+  if (!/twitter:card" content="summary_large_image"/.test(res.body)) return bad(`${name}: not a large card`);
+  if (!/og:image" content="https:\/\/faceit-lens\.com\/og\/s1mple\.png"/.test(res.body)) return bad(`${name}: og:image is not the generated card`);
+  ok(`${name} — 1200x630 generated card`);
 });
 
 await run("backend asleep", {

@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "FaceitLens \u2014 FACEIT & Steam stats",
+  "short_name": "FaceitLens",
+  "version": "0.1.0",
+  "description": "Open any FACEIT match room, FACEIT profile or Steam profile in FaceitLens with one click.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "FaceitLens",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.faceit.com/*"
+      ],
+      "js": [
+        "content-faceit.js"
+      ],
+      "css": [
+        "style.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://steamcommunity.com/id/*",
+        "https://steamcommunity.com/profiles/*"
+      ],
+      "js": [
+        "content-steam.js"
+      ],
+      "css": [
+        "style.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icon32.png"
+      ],
+      "matches": [
+        "https://www.faceit.com/*",
+        "https://steamcommunity.com/*"
+      ]
+    }
+  ]
+}
