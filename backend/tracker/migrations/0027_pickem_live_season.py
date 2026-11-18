@@ -28,7 +28,7 @@ def seed(apps, schema_editor):
     )
     Stage.objects.get_or_create(
         event=ev, order=3,
-        defaults={"name": "Stage 3", "lock_at": datetime.datetime(2026, 12, 3, 8, 0, tzinfo=utc)},
+        defaults={"name": "Stage 3", "lock_at": datetime.datetime(2026, 12, 2, 8, 0, tzinfo=utc)},
     )
     if not Team.objects.filter(stage=s1).exists():
         for i, name in enumerate(STAGE1, 1):

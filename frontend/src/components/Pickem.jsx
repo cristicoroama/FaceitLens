@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../api.js";
 import { DISCORD_INVITE } from "../links.js";
 import { DiscordIcon } from "./BrandIcons.jsx";
-
-const SLOTS = [
-  ["30", "3-0"],
-  ["adv", "Advance"],
-  ["03", "0-3"],
-];
-
-const RESULT_LABEL = { "30": "3-0", adv: "Advanced", elim: "Out", "03": "0-3" };
+import { teamLogo } from "../team-logos.js";
+import { Flag } from "./RankIcons.jsx";
+import { simulate, cleanWinners, fillAll, fillRound, resetFrom } from "../swiss.js";
 
 async function call(path, body) {
   const r = await fetch(`${API_BASE}${path}`, {
@@ -28,6 +23,80 @@ function initials(n) {
   return (n || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
+const EVENT_META = {
+  "singapore-2026": {
+    banner: "/img/pickem/singapore-2026-banner.png",
+    bannerRemote: "https://img-cdn.hltv.org/eventbanner/1WB6amkvVfb-X3PMsTVzSR.png?ixlib=java-2.1.0&w=1276&s=847a11fa3c70a3e0e8f59971457fd1c4",
+    logo: "/img/pickem/pgl.png",
+    logoRemote: "https://img-cdn.hltv.org/eventlogo/u-4VdjFWGYz_GwBxLGrr11.png?ixlib=java-2.1.0&w=100&s=d720c0ce81fe5b3e760c5b545c22e819",
+    location: "Singapore",
+    country: "sg",
+    teams: 32,
+    stages: [
+      { name: "Stage 1", dates: "Nov 24 – Nov 27", start: "2026-11-24", end: "2026-11-27", teams: 16 },
+      { name: "Stage 2", dates: "Nov 28 – Dec 1", start: "2026-11-28", end: "2026-12-01", teams: 16 },
+      { name: "Stage 3 & Playoffs", dates: "Dec 2 – Dec 13", start: "2026-12-02", end: "2026-12-13", teams: 16 },
+    ],
+  },
+};
+
+function meta(slug) {
+  return EVENT_META[slug] || {};
+}
+
+function FallbackImg({ src, fallback, alt = "", className, style }) {
+  const [cur, setCur] = useState(src || fallback);
+  const [dead, setDead] = useState(false);
+  if (!cur || dead) return null;
+  return (
+    <img className={className} style={style} src={cur} alt={alt} loading="lazy"
+      onError={() => (cur !== fallback && fallback ? setCur(fallback) : setDead(true))} />
+  );
+}
+
+function EvLogo({ slug, size = 30 }) {
+  const m = meta(slug);
+  if (!m.logo) return null;
+  return <FallbackImg className="pk-evlogo" src={m.logo} fallback={m.logoRemote} style={{ width: size, height: size }} />;
+}
+
+function stageStatus(d) {
+  if (!d?.start) return null;
+  const now = Date.now();
+  const s = new Date(`${d.start}T00:00:00Z`).getTime();
+  const e = new Date(`${d.end}T23:59:59Z`).getTime();
+  if (now < s) return "upcoming";
+  if (now <= e) return "live";
+  return "finished";
+}
+
+function EventHero({ event, stage }) {
+  const m = meta(event.slug);
+  const idx = stage ? stage.order - 1 : 0;
+  const d = m.stages?.[idx];
+  const status = stageStatus(d);
+  return (
+    <div className="pk-hero">
+      <div className="pk-hero-banner">
+        {m.banner && <FallbackImg className="pk-hero-img" src={m.banner} fallback={m.bannerRemote} />}
+        {status && <span className={`pk-hero-status s-${status}`}>{status}</span>}
+        <div className="pk-hero-title">
+          <span className="pk-hero-eyebrow">Major Pick'em</span>
+          {event.name}{d ? ` ${d.name}` : ""}
+        </div>
+      </div>
+      <div className="pk-hero-info">
+        <div><span>Date</span><b>{d?.dates ? `${d.dates} 2026` : "—"}</b></div>
+        <div><span>Format</span><b>Swiss · picks lock at start</b></div>
+        <div><span>Teams</span><b>{d?.teams || stage?.teams?.length || "—"}</b></div>
+        {m.location && (
+          <div><span>Location</span><b className="pk-hero-loc"><Flag country={m.country} size={16} />{m.location}</b></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function countdown(iso) {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return null;
@@ -38,48 +107,104 @@ function countdown(iso) {
   return `${h}h ${m}m`;
 }
 
-function emptyPicks() {
-  return { "30": [], "03": [], adv: [] };
+const LAYOUT = [
+  { r: 1, slots: [["0-0", 8]] },
+  { r: 2, slots: [["1-0", 4], ["0-1", 4]] },
+  { r: 3, slots: [["2-0", 2], ["1-1", 4], ["0-2", 2]] },
+  { r: 4, slots: [["res", "3-0", 2, "win"], ["2-1", 3], ["1-2", 3], ["res", "0-3", 2, "lose"]] },
+  { r: 5, slots: [["res2", ["3-1", "3-2"], 3, "win"], ["2-2", 3], ["res2", ["1-3", "2-3"], 3, "lose"]] },
+];
+
+function Logo({ team, size = 34 }) {
+  const src = team ? teamLogo(team) : null;
+  if (!team) return <span className="sw-logo q" style={{ width: size, height: size }}>?</span>;
+  return src
+    ? <img className="sw-logo" src={src} alt={team.name} title={team.name} style={{ width: size, height: size }} />
+    : <span className="sw-logo txt" title={team.name} style={{ width: size, height: size }}>{initials(team.name)}</span>;
+}
+
+function Match({ m, byId, onPick, locked }) {
+  const ta = m ? byId[m.a] : null;
+  const tb = m ? byId[m.b] : null;
+  const cls = (id) => (!m?.winner ? "" : m.winner === id ? "won" : "lost");
+  return (
+    <div className={`sw-match ${m ? "" : "empty"}`}>
+      <button type="button" className={`sw-side ${m ? cls(m.a) : ""}`} disabled={!m || locked}
+        onClick={() => m && onPick(m.key, m.a)} title={ta ? `${ta.name} wins` : ""}>
+        <Logo team={ta} />
+      </button>
+      <span className="sw-vs">vs</span>
+      <button type="button" className={`sw-side ${m ? cls(m.b) : ""}`} disabled={!m || locked}
+        onClick={() => m && onPick(m.key, m.b)} title={tb ? `${tb.name} wins` : ""}>
+        <Logo team={tb} />
+      </button>
+    </div>
+  );
+}
+
+function ResultBox({ labels, ids, n, tone, byId, hits }) {
+  const list = Array.isArray(labels) ? labels : [labels];
+  return (
+    <div className={`sw-res ${tone}`}>
+      {list.map((lbl, i) => {
+        const got = ids[lbl] || [];
+        return (
+          <div className="sw-res-row" key={lbl}>
+            <div className="sw-res-lbl">{lbl}</div>
+            <div className="sw-res-teams">
+              {Array.from({ length: n }, (_, k) => {
+                const t = got[k] ? byId[got[k]] : null;
+                const hit = t ? hits?.[String(t.id)] : undefined;
+                return (
+                  <span key={k} className={`sw-res-slot ${hit === true ? "hit" : hit === false ? "miss" : ""}`}>
+                    <Logo team={t} size={30} />
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function StageBoard({ stage, signedIn, onSaved }) {
-  const [picks, setPicks] = useState(stage.picks || emptyPicks());
+  const [winners, setWinners] = useState(stage.picks?.sim || {});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [dirty, setDirty] = useState(false);
 
-  useEffect(() => { setPicks(stage.picks || emptyPicks()); setDirty(false); }, [stage.id, stage.picks]);
+  useEffect(() => { setWinners(stage.picks?.sim || {}); setDirty(false); setMsg(""); }, [stage.id, stage.picks]);
 
-  const slotOf = useMemo(() => {
-    const m = {};
-    for (const [k] of SLOTS) for (const id of picks[k] || []) m[id] = k;
-    return m;
-  }, [picks]);
+  const teams = stage.teams;
+  const byId = useMemo(() => Object.fromEntries(teams.map((t) => [t.id, t])), [teams]);
+  const sim = useMemo(() => simulate(teams, winners), [teams, winners]);
+  const locked = stage.locked;
 
-  const full = (k) => (picks[k] || []).length >= stage.need[k];
-  const complete = SLOTS.every(([k]) => (picks[k] || []).length === stage.need[k]);
-  const ready = stage.teams.length > 0;
+  const byOutcome = useMemo(() => {
+    const o = {};
+    for (const [id, rec] of Object.entries(sim.outcome)) (o[rec] = o[rec] || []).push(Number(id));
+    for (const k of Object.keys(o)) o[k].sort((a, b) => sim.seedOf[a] - sim.seedOf[b]);
+    return o;
+  }, [sim]);
 
-  function toggle(teamId, k) {
-    if (stage.locked) return;
-    setMsg("");
-    setPicks((p) => {
-      const next = { "30": [...(p["30"] || [])], "03": [...(p["03"] || [])], adv: [...(p.adv || [])] };
-      const cur = slotOf[teamId];
-      if (cur) next[cur] = next[cur].filter((x) => x !== teamId);
-      if (cur !== k) {
-        if (next[k].length >= stage.need[k]) return p;
-        next[k].push(teamId);
-      }
-      return next;
-    });
+  function update(next) {
+    if (locked) return;
+    setWinners(cleanWinners(teams, next));
     setDirty(true);
+    setMsg("");
+  }
+
+  function pick(key, id) {
+    update({ ...winners, [key]: winners[key] === id ? undefined : id });
   }
 
   async function save() {
+    if (!sim.done) return;
     setSaving(true); setMsg("");
     try {
-      const j = await call("/api/pickem/picks/", { stage_id: stage.id, picks });
+      const j = await call("/api/pickem/picks/", { stage_id: stage.id, picks: { ...sim.picks, sim: winners } });
       setDirty(false);
       setMsg("Saved");
       onSaved(j);
@@ -87,69 +212,86 @@ function StageBoard({ stage, signedIn, onSaved }) {
     finally { setSaving(false); }
   }
 
-  if (!ready) {
+  if (!teams.length) {
     return <div className="state">Teams for {stage.name} are announced when the previous stage ends.</div>;
   }
 
+  const legacy = !stage.picks?.sim && stage.picks && (stage.picks["30"] || []).length > 0;
   const left = countdown(stage.lock_at);
+  const decided = Object.keys(winners).length;
 
   return (
     <div className="pk-board">
-      <div className="pk-meter">
-        {SLOTS.map(([k, label]) => (
-          <div className={`pk-meter-slot s-${k} ${full(k) ? "full" : ""}`} key={k}>
-            <span className="pk-meter-label">{label}</span>
-            <span className="pk-meter-num">{(picks[k] || []).length}/{stage.need[k]}</span>
-          </div>
-        ))}
-        <div className="pk-meter-side">
-          {stage.locked ? (
+      <div className="sw-bar">
+        <div className="sw-bar-info">
+          {locked ? (
             <span className="pk-lock">Locked{stage.score != null ? ` · ${stage.score} pts` : ""}</span>
           ) : (
-            left && <span className="pk-lock open">Locks in {left}</span>
+            <>
+              {left && <span className="pk-lock open">Locks in {left}</span>}
+              <span className="sw-progress">{decided}/33 matches picked</span>
+            </>
           )}
+        </div>
+        {!locked && (
+          <div className="sw-tools">
+            <button type="button" onClick={() => update({})}>Reset</button>
+            <button type="button" onClick={() => update(fillAll(teams, winners, "rand"))} title="Fill the rest at random">Shuffle</button>
+            <button type="button" onClick={() => update(fillAll(teams, winners, "seed"))}>Higher seed</button>
+          </div>
+        )}
+      </div>
+
+      {legacy && (
+        <div className="pk-hint">You saved picks before the bracket existed. They still count; simulate again to change them.</div>
+      )}
+
+      <div className="sw-scroll">
+        <div className="sw-grid">
+          {LAYOUT.map((col) => {
+            const round = sim.rounds.find((x) => x.r === col.r);
+            return (
+              <div className="sw-col" key={col.r}>
+                {!locked && (
+                  <div className="sw-col-tools">
+                    <button type="button" onClick={() => update(resetFrom(teams, winners, col.r))}>Reset</button>
+                    <button type="button" aria-label="Random" title="Random" onClick={() => update(fillRound(teams, winners, col.r, "rand"))}>⤨</button>
+                    <button type="button" onClick={() => update(fillRound(teams, winners, col.r, "seed"))}>Higher seed</button>
+                  </div>
+                )}
+                {col.slots.map((slot) => {
+                  if (slot[0] === "res" || slot[0] === "res2") {
+                    return (
+                      <ResultBox key={String(slot[1])} labels={slot[1]} ids={byOutcome} n={slot[2]} tone={slot[3]}
+                        byId={byId} hits={stage.hits} />
+                    );
+                  }
+                  const [rec, n] = slot;
+                  const g = round?.groups.find((x) => x.record === rec);
+                  return (
+                    <div className="sw-group" key={rec}>
+                      <div className="sw-rec">{rec}</div>
+                      {Array.from({ length: n }, (_, i) => (
+                        <Match key={i} m={g?.matches[i]} byId={byId} onPick={pick} locked={locked} />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="pk-teams">
-        {stage.teams.map((t) => {
-          const s = slotOf[t.id];
-          const hit = stage.hits?.[String(t.id)];
-          return (
-            <div key={t.id} className={`pk-team ${s ? `on s-${s}` : ""} ${hit === true ? "hit" : hit === false ? "miss" : ""}`}>
-              <div className="pk-team-id">
-                {t.logo ? <img src={t.logo} alt="" loading="lazy" /> : <span className="pk-ph">{initials(t.name)}</span>}
-                <span className="pk-team-name">{t.name}</span>
-                {(t.wins > 0 || t.losses > 0) && <span className="pk-rec">{t.wins}-{t.losses}</span>}
-                {t.result && <span className={`pk-res r-${t.result}`}>{RESULT_LABEL[t.result]}</span>}
-              </div>
-              <div className="pk-opts" role="group" aria-label={`Pick for ${t.name}`}>
-                {SLOTS.map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={`pk-opt s-${k} ${s === k ? "on" : ""}`}
-                    disabled={stage.locked || !signedIn || (s !== k && full(k))}
-                    aria-pressed={s === k}
-                    onClick={() => toggle(t.id, k)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {signedIn && !stage.locked && (
+      {signedIn && !locked && (
         <div className="pk-save">
-          <button className="btn-primary" onClick={save} disabled={saving || !dirty}>
-            {saving ? "Saving…" : complete ? "Save picks" : "Save (incomplete)"}
+          <button className="btn-primary" onClick={save} disabled={saving || !dirty || !sim.done}>
+            {saving ? "Saving…" : sim.done ? "Save picks" : "Finish the bracket to save"}
           </button>
           {msg && <span className={`pk-msg ${msg === "Saved" ? "ok" : ""}`}>{msg}</span>}
         </div>
       )}
+      {!signedIn && <div className="pk-hint">Sign in to save your bracket and join leagues.</div>}
     </div>
   );
 }
@@ -274,19 +416,7 @@ export default function Pickem() {
 
   return (
     <>
-      <div className="page-hero">
-        <div className="page-hero-title">
-          <div className="panel-ic" style={{ width: 38, height: 38 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-              <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4" />
-            </svg>
-          </div>
-          Major <em>Pick'em</em>
-        </div>
-        <div className="page-hero-sub">
-          {data.event.name}. Pick two 3-0 teams, two 0-3 teams and six that advance, then race your friends in a private league.
-        </div>
-      </div>
+      <EventHero event={data.event} stage={stage} />
 
       {!data.signed_in && (
         <div className="pk-signin">
@@ -296,12 +426,19 @@ export default function Pickem() {
       )}
 
       <div className="pk-stages">
-        {data.stages.map((s, i) => (
-          <button key={s.id} type="button" className={`hub-season ${i === stageIdx ? "on" : ""}`} onClick={() => setStageIdx(i)}>
-            {s.name}
-            {s.score != null && <b className="pk-stage-pts">{s.score}</b>}
-          </button>
-        ))}
+        {data.stages.map((s, i) => {
+          const d = meta(data.event.slug).stages?.[i];
+          return (
+            <button key={s.id} type="button" className={`pk-stage ${i === stageIdx ? "on" : ""}`} onClick={() => setStageIdx(i)}>
+              <EvLogo slug={data.event.slug} size={30} />
+              <span className="pk-stage-txt">
+                <b>{d?.name || s.name}</b>
+                <small>{d?.dates || new Date(s.lock_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</small>
+              </span>
+              {s.score != null && <b className="pk-stage-pts">{s.score}</b>}
+            </button>
+          );
+        })}
         {data.signed_in && <span className="pk-total-pill">Your total: <b>{total}</b></span>}
       </div>
 

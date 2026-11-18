@@ -169,6 +169,16 @@ def save_picks(request):
         if len(ids) > need[slot]:
             return JsonResponse({"error": f"Too many picks for {slot}."}, status=400)
         picks[slot] = ids
+    sim = {}
+    for k, v in list((raw.get("sim") or {}).items())[:60]:
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(k, str) and len(k) <= 40 and v in valid:
+            sim[k] = v
+    if sim:
+        picks["sim"] = sim
     PickemEntry.objects.update_or_create(user=request.user, stage=stage, defaults={"picks": picks})
     return JsonResponse(_stage_payload(stage, request.user))
 
