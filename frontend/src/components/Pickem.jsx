@@ -4,6 +4,7 @@ import { DISCORD_INVITE } from "../links.js";
 import { DiscordIcon } from "./BrandIcons.jsx";
 import { teamLogo } from "../team-logos.js";
 import { Flag } from "./RankIcons.jsx";
+import Stickers from "./Stickers.jsx";
 import { simulate, cleanWinners, fillAll, fillRound, resetFrom } from "../swiss.js";
 
 async function call(path, body) {
@@ -341,6 +342,8 @@ export default function Pickem() {
   const [joinCode, setJoinCode] = useState("");
   const [lmsg, setLmsg] = useState("");
   const [copied, setCopied] = useState(false);
+  const [view, setView] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "stickers" ? "stickers" : "pickem");
 
   async function load() {
     try {
@@ -417,6 +420,26 @@ export default function Pickem() {
   return (
     <>
       <EventHero event={data.event} stage={stage} />
+
+      <div className="pk-views">
+        {[["pickem", "Pick'em"], ["stickers", "Stickers"]].map(([k, label]) => (
+          <button key={k} type="button" className={`pk-view ${view === k ? "on" : ""}`}
+            onClick={() => {
+              setView(k);
+              const u = new URL(window.location.href);
+              if (k === "stickers") u.searchParams.set("view", "stickers"); else u.searchParams.delete("view");
+              window.history.replaceState(null, "", u);
+            }}>
+            {label}
+            {k === "stickers" && <span className="pk-view-new">805</span>}
+          </button>
+        ))}
+      </div>
+
+      {view === "stickers" ? (
+        <Stickers teamsInStage={stage?.teams} />
+      ) : (
+      <>
 
       {!data.signed_in && (
         <div className="pk-signin">
@@ -514,6 +537,8 @@ export default function Pickem() {
           <Standings data={global} title="Global top 50" />
         </div>
       </div>
+      </>
+      )}
     </>
   );
 }
