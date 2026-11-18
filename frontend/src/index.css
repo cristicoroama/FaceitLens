@@ -8345,3 +8345,12 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .pk-stage-txt b { font-size: 13px; }
 .pk-stage-txt small { font-size: 11px; color: var(--text-dim); }
 .pk-evlogo { object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+.pk-hero-banner { display: block; min-height: 0; }
+.pk-hero-banner:not(:has(.pk-hero-img)) { min-height: 170px; }
+.pk-hero-img { position: static; display: block; width: 100%; height: auto; max-height: 340px; object-fit: cover; object-position: center top; }
+.pk-hero-banner::after { background: linear-gradient(180deg, transparent 62%, rgba(0, 0, 0, .72)); }
+.pk-hero-title { position: absolute; left: 0; right: 0; bottom: 0; }
+@media (max-width: 640px) {
+  .pk-hero-title { position: static; background: #1a0b08; }
+  .pk-hero-banner::after { display: none; }
+}
