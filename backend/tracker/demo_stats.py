@@ -60,6 +60,7 @@ def store_match(data: dict) -> ParsedMatch:
             clutch_won=p["clutch_won"],
         )
         for sid, p in data.get("players", {}).items()
+        if not _suppressed(sid)
     ]
     DemoPlayerStat.objects.bulk_create(rows)
     return match
@@ -140,3 +141,11 @@ def aggregate(steamid: str) -> dict | None:
         "clutch_attempts": t["clutch_attempts"] or 0,
         "clutch_won": t["clutch_won"] or 0,
     }
+
+
+def _suppressed(steamid):
+    try:
+        from .privacy import is_suppressed
+        return is_suppressed(steamid=str(steamid))
+    except Exception:
+        return False

@@ -3729,9 +3729,12 @@ def build_player_summary(nickname):
     profile + lifetime stats + match history + ELO history + maps + ranking + bans.
     Result is cached for CACHE_TTL seconds.
     """
+    from . import privacy
+    privacy.check(nickname=nickname)
     cache_key = f"summary:{nickname.lower()}"
     cached = cache.get(cache_key)
     if cached is not None:
+        privacy.check(player_id=cached.get("player_id"))
         return cached
 
     player = get_player_by_nickname(nickname)
@@ -3741,6 +3744,7 @@ def build_player_summary(nickname):
     current_elo = cs2.get("faceit_elo")
     region = cs2.get("region")
     steam_id = cs2.get("game_player_id")
+    privacy.check(player_id=player_id, steamid=steam_id, nickname=player.get("nickname"))
 
     # Everything below needs only player_id / region / steam_id, so fetch it in
     # parallel instead of paying ~10 round-trips back to back. None of these

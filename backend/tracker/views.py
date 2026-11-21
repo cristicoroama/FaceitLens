@@ -73,8 +73,11 @@ def _record_bans(data):
 @require_GET
 def player_summary(request, nickname):
     """GET /api/player/<nickname>/ - full profile. Optional ?map=de_mirage filters averages."""
+    from . import privacy
     try:
         data = faceit.build_player_summary(nickname)
+    except privacy.Suppressed as exc:
+        return JsonResponse({"error": str(exc)}, status=404)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
     except Exception as exc:
@@ -98,10 +101,14 @@ def player_summary(request, nickname):
 def player_by_steam(request):
     """GET /api/steam/?id=<steamid64 or steam profile url> - resolve FACEIT player."""
     steam_input = request.GET.get("id", "")
+    from . import privacy
     try:
         player = faceit.get_player_by_steam(steam_input)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
+    cs2 = (player.get("games") or {}).get(faceit.GAME) or {}
+    if privacy.is_suppressed(player.get("player_id"), cs2.get("game_player_id"), player.get("nickname")):
+        return JsonResponse({"error": privacy.UNAVAILABLE}, status=404)
     return JsonResponse({"nickname": player.get("nickname")})
 
 
@@ -644,8 +651,11 @@ def squad_stats(request):
 @require_GET
 def search(request):
     """GET /api/search/?q=... - nickname autocomplete suggestions."""
+    from . import privacy
     q = request.GET.get("q", "").strip()
-    return JsonResponse({"items": faceit.search_players(q)})
+    items = [i for i in faceit.search_players(q)
+             if not privacy.is_suppressed(i.get("player_id"), None, i.get("nickname"))]
+    return JsonResponse({"items": items})
 
 
 @require_GET
@@ -843,6 +853,10 @@ def steam_profile(request):
         faceit_id = player.get("player_id")
     except Exception:
         pass
+
+    from . import privacy
+    if privacy.is_suppressed(faceit_id, steamid, faceit_nick):
+        return JsonResponse({"error": privacy.UNAVAILABLE}, status=404)
 
     try:
         info = faceit.get_steam_info(steamid) or {}
@@ -1611,6 +1625,9 @@ def csgo_stats(request, nickname):
 @require_GET
 def player_live(request, player_id):
     """GET /api/live/<player_id>/"""
+    from . import privacy
+    if privacy.is_suppressed(player_id=player_id):
+        return JsonResponse({"live": None, "ok": True, "watch": False})
     return JsonResponse(faceit_comp.get_live_status(player_id))
 
 
@@ -1621,6 +1638,8 @@ def sitemap_players(request):
     hit = cache.get("sitemap:players")
     if hit is None:
         qs = TrackedPlayer.objects.exclude(last_searched=None).order_by("-last_searched")[:45000]
-        hit = [{"nickname": p.nickname, "lastmod": p.last_searched.date().isoformat()} for p in qs if p.nickname]
+        from . import privacy
+        hit = [{"nickname": p.nickname, "lastmod": p.last_searched.date().isoformat()} for p in qs
+               if p.nickname and not privacy.is_suppressed(p.player_id, None, p.nickname)]
         cache.set("sitemap:players", hit, 6 * 60 * 60)
     return JsonResponse({"items": hit})

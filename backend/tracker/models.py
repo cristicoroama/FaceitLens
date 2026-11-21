@@ -869,3 +869,20 @@ class SeasonSnapshot(models.Model):
 
     class Meta:
         unique_together = [("player_id", "season")]
+
+
+class PlayerSuppression(models.Model):
+    """A player who asked not to be shown. Kept minimal on purpose: identifiers only."""
+    player_id = models.CharField(max_length=64, blank=True, db_index=True)
+    steamid = models.CharField(max_length=32, blank=True, db_index=True)
+    nicknames = models.TextField(blank=True, help_text="Lowercase nicknames, one per line")
+    note = models.CharField(max_length=200, blank=True, help_text="Internal reference only, no personal data")
+    verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Suppression #{self.pk}"
+
+    def nickname_list(self):
+        return [n.strip().lower() for n in (self.nicknames or "").splitlines() if n.strip()]

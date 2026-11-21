@@ -465,3 +465,23 @@ class LiveMatchStateAdmin(admin.ModelAdmin):
 class SeasonSnapshotAdmin(admin.ModelAdmin):
     list_display = ("nickname", "season", "updated_at")
     search_fields = ("nickname", "player_id")
+
+
+from .models import PlayerSuppression  # noqa: E402
+
+
+@admin.register(PlayerSuppression)
+class PlayerSuppressionAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "player_id", "steamid", "verified", "created_at")
+    search_fields = ("player_id", "steamid", "nicknames")
+
+    def save_model(self, request, obj, form, change):
+        obj.nicknames = "\n".join(sorted({n.strip().lower() for n in (obj.nicknames or "").splitlines() if n.strip()}))
+        super().save_model(request, obj, form, change)
+        from . import privacy
+        privacy.refresh()
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        from . import privacy
+        privacy.refresh()

@@ -69,9 +69,12 @@ def _fit(draw, text, font_name, size, max_w, min_size=28):
 
 
 def _data(nickname):
+    from . import privacy
+    privacy.check(nickname=nickname)
     p = faceit.get_player_by_nickname(nickname)
     pid = p["player_id"]
     cs2 = (p.get("games") or {}).get(faceit.GAME) or {}
+    privacy.check(player_id=pid, steamid=cs2.get("game_player_id"), nickname=p.get("nickname"))
     life = {}
     try:
         life = (faceit.get_player_stats(pid) or {}).get("lifetime") or {}
