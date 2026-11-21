@@ -474,14 +474,38 @@ from .models import PlayerSuppression  # noqa: E402
 class PlayerSuppressionAdmin(admin.ModelAdmin):
     list_display = ("__str__", "player_id", "steamid", "verified", "created_at")
     search_fields = ("player_id", "steamid", "nicknames")
+    actions = ["erase_stored_data"]
 
     def save_model(self, request, obj, form, change):
-        obj.nicknames = "\n".join(sorted({n.strip().lower() for n in (obj.nicknames or "").splitlines() if n.strip()}))
+        from . import faceit, privacy
+        from .models import NicknameHistory
+        names = {n.strip().lower() for n in (obj.nicknames or "").splitlines() if n.strip()}
+        obj.steamid = (obj.steamid or "").strip()
+        if obj.steamid and not obj.player_id:
+            try:
+                p = faceit._get("/players", params={"game": faceit.GAME, "game_player_id": obj.steamid})
+                obj.player_id = p.get("player_id") or ""
+                if p.get("nickname"):
+                    names.add(p["nickname"].lower())
+            except Exception as exc:
+                self.message_user(request, f"FACEIT lookup by SteamID failed: {exc}", level="warning")
+        if obj.player_id:
+            names.update(n.lower() for n in NicknameHistory.objects.filter(player_id=obj.player_id)
+                         .values_list("nickname", flat=True))
+        obj.nicknames = "\n".join(sorted(names))
         super().save_model(request, obj, form, change)
-        from . import privacy
         privacy.refresh()
+        self.message_user(request, "Player hidden everywhere on the site.")
 
     def delete_model(self, request, obj):
         super().delete_model(request, obj)
         from . import privacy
         privacy.refresh()
+
+    @admin.action(description="Erase all stored data for the selected players")
+    def erase_stored_data(self, request, queryset):
+        from . import privacy
+        for obj in queryset:
+            report = privacy.purge(obj.player_id, obj.steamid, obj.nickname_list())
+            parts = [f"{k}: {v}" for k, v in report.items() if v not in (0, [], None)]
+            self.message_user(request, f"{obj}: " + ("; ".join(parts) if parts else "nothing was stored"))

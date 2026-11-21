@@ -43,7 +43,7 @@ def load(force=False):
     except Exception:
         return {"ids": set(), "steam": set(), "names": set()}
     data = {"ids": ids, "steam": steam, "names": names}
-    cache.set(CACHE_KEY, data, 10 * 60)
+    cache.set(CACHE_KEY, data, 30)
     return data
 
 
