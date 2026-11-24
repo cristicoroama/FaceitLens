@@ -134,3 +134,23 @@ def levels(request):
             continue
         out[pid] = _player(pid)
     return JsonResponse({"players": out})
+
+
+@csrf_exempt
+def state(request):
+    """GET/POST /api/discord/state/ - the bot's own storage (tracked players, links)."""
+    if not _bot_ok(request):
+        return JsonResponse({"error": "Unauthorized."}, status=401)
+    from .models import BotState
+    if request.method == "GET":
+        row = BotState.objects.filter(key="main").first()
+        return JsonResponse({"data": row.data if row else None})
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed."}, status=405)
+    if len(request.body or b"") > 2_000_000:
+        return JsonResponse({"error": "Too large."}, status=413)
+    data = _body(request).get("data")
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Bad request."}, status=400)
+    BotState.objects.update_or_create(key="main", defaults={"data": data})
+    return JsonResponse({"ok": True})

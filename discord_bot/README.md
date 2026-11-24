@@ -15,7 +15,7 @@ The bot talks to the FaceitLens backend, not to FACEIT directly, so it shares th
 | `FACEITLENS_API` | Backend URL, e.g. `https://faceitlens.onrender.com` (no `/api`) |
 | `FACEITLENS_API_KEY` | An API key from Django admin → Api keys (needed when API keys are enforced) |
 | `DISCORD_BOT_SECRET` | Long random string, same value as on the backend (Render env). Needed for `/verify` level roles |
-| `DATA_PATH` | Optional path for `links.json`. On Render, point it at a persistent disk or links reset on redeploy |
+| `DATA_PATH` | Optional local copy of the bot's data. The real copy is saved in the backend database (needs `DISCORD_BOT_SECRET`), so no Render disk is needed |
 
 ## Run locally
 ```bash

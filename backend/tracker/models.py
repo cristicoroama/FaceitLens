@@ -901,3 +901,9 @@ class DiscordLinkCode(models.Model):
     code = models.CharField(max_length=12, unique=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="discord_codes")
     expires_at = models.DateTimeField()
+
+
+class BotState(models.Model):
+    key = models.CharField(max_length=40, unique=True)
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)

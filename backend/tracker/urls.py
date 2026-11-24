@@ -60,6 +60,7 @@ urlpatterns = [
     path("discord/claim/", discord_link.claim, name="discord-claim"),
     path("discord/unlink/", discord_link.unlink, name="discord-unlink"),
     path("discord/levels/", discord_link.levels, name="discord-levels"),
+    path("discord/state/", discord_link.state, name="discord-state"),
     path("sitemap/players/", views.sitemap_players, name="sitemap-players"),
     path("pickem/", pickem.pickem, name="pickem"),
     path("pickem/picks/", pickem.save_picks, name="pickem-picks"),

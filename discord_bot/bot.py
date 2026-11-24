@@ -26,6 +26,7 @@ Env:
 import asyncio
 import json
 import os
+import threading
 import time
 
 import discord
@@ -105,7 +106,11 @@ def player(nick):
     return f"/api/player/{requests.utils.quote(nick)}/"
 
 
-def load_links():
+_STATE = None
+_SAVE_LOCK = threading.Lock()
+
+
+def _read_file():
     try:
         with open(DATA_PATH, encoding="utf-8") as f:
             return json.load(f)
@@ -113,11 +118,44 @@ def load_links():
         return {}
 
 
+def _remote_load():
+    if not (API and BOT_SECRET):
+        return None
+    try:
+        return _bot("GET", "/api/discord/state/").get("data")
+    except Exception as exc:
+        print(f"Could not load state from backend: {exc}")
+        return None
+
+
+def load_links():
+    global _STATE
+    if _STATE is None:
+        remote = _remote_load()
+        _STATE = remote if isinstance(remote, dict) else _read_file()
+    return _STATE
+
+
+def _upload(snapshot):
+    with _SAVE_LOCK:
+        try:
+            _bot("POST", "/api/discord/state/", {"data": snapshot})
+        except Exception as exc:
+            print(f"Could not save state to backend: {exc}")
+
+
 def save_links(data):
-    tmp = DATA_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f)
-    os.replace(tmp, DATA_PATH)
+    global _STATE
+    _STATE = data
+    try:
+        tmp = DATA_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, DATA_PATH)
+    except OSError:
+        pass
+    if API and BOT_SECRET:
+        threading.Thread(target=_upload, args=(json.loads(json.dumps(data)),), daemon=True).start()
 
 
 def profile_url(nick):
@@ -602,14 +640,38 @@ async def refresh_levels():
     save_links(data)
 
 
+@tree.command(name="botinfo", description="How many servers use the FaceitLens bot")
+async def botinfo(interaction: discord.Interaction):
+    guilds = client.guilds
+    members = sum(g.member_count or 0 for g in guilds)
+    tracked_total = sum(len(t.get("players", {})) for t in load_links().get("_track", {}).values())
+    e = discord.Embed(title="FaceitLens bot", color=ORANGE,
+                      description=f"**{len(guilds)}** servers · ~**{members:,}** members · **{tracked_total}** tracked players")
+    e.set_footer(text=FOOTER)
+    await interaction.response.send_message(embed=e, view=buttons(), ephemeral=True)
+
+
+@client.event
+async def on_guild_join(guild):
+    print(f"[+] Added to {guild.name} ({guild.member_count} members) — now in {len(client.guilds)} servers")
+
+
+@client.event
+async def on_guild_remove(guild):
+    print(f"[-] Removed from {guild.name} — now in {len(client.guilds)} servers")
+
+
 @client.event
 async def on_ready():
+    await asyncio.to_thread(load_links)
     await tree.sync()
     if not refresh_levels.is_running():
         refresh_levels.start()
     if not post_match_updates.is_running():
         post_match_updates.start()
-    print(f"Logged in as {client.user}")
+    print(f"Logged in as {client.user} — in {len(client.guilds)} servers:")
+    for g in sorted(client.guilds, key=lambda g: -(g.member_count or 0)):
+        print(f"   {g.name} ({g.member_count} members)")
 
 
 if __name__ == "__main__":
