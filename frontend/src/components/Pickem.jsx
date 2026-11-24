@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../api.js";
 import { DISCORD_INVITE } from "../links.js";
-import { DiscordIcon } from "./BrandIcons.jsx";
+import { DiscordIcon, SteamIcon } from "./BrandIcons.jsx";
 import { teamLogo } from "../team-logos.js";
 import { Flag } from "./RankIcons.jsx";
 import Stickers from "./Stickers.jsx";
@@ -444,7 +444,10 @@ export default function Pickem() {
       {!data.signed_in && (
         <div className="pk-signin">
           <span>Sign in to save picks and join leagues.</span>
-          <a className="btn-primary" href={`${API_BASE}/api/auth/steam/login/`}>Sign in with Steam</a>
+          <a className="tb-btn steam-login pk-steam" href={`${API_BASE}/api/auth/steam/login/`}>
+            <SteamIcon />
+            <span>Sign in with Steam</span>
+          </a>
         </div>
       )}
 

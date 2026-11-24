@@ -663,8 +663,10 @@ def recent(request):
     """GET /api/recent/ - most recently searched players."""
     try:
         from .models import TrackedPlayer
-        qs = TrackedPlayer.objects.exclude(last_searched=None).order_by("-last_searched")[:8]
-        items = [{"nickname": p.nickname} for p in qs]
+        from . import privacy
+        qs = TrackedPlayer.objects.exclude(last_searched=None).order_by("-last_searched")[:16]
+        items = [{"nickname": p.nickname} for p in qs
+                 if not privacy.is_suppressed(p.player_id, None, p.nickname)][:8]
     except Exception:
         items = []
     return JsonResponse({"items": items})
@@ -1643,3 +1645,18 @@ def sitemap_players(request):
                if p.nickname and not privacy.is_suppressed(p.player_id, None, p.nickname)]
         cache.set("sitemap:players", hit, 6 * 60 * 60)
     return JsonResponse({"items": hit})
+
+
+@require_GET
+def player_analysis(request, nickname):
+    """GET /api/player/<nickname>/analysis/ - luck, best times, role profile, consistency."""
+    from . import analysis, privacy
+    try:
+        return JsonResponse(analysis.build(nickname))
+    except privacy.Suppressed as exc:
+        return JsonResponse({"error": str(exc)}, status=404)
+    except faceit.FaceitError as exc:
+        return JsonResponse({"error": str(exc)}, status=502)
+    except Exception as exc:
+        import traceback; traceback.print_exc()
+        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)

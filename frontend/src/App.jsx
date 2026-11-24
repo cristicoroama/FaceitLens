@@ -47,6 +47,7 @@ import Pickem from "./components/Pickem.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import MiniHeader from "./components/MiniHeader.jsx";
 import Insights, { InsightsTeaser } from "./components/Insights.jsx";
+import Analysis from "./components/Analysis.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
 import ProSettings from "./components/ProSettings.jsx";
 import FaceitBans from "./components/FaceitBans.jsx";
@@ -328,6 +329,7 @@ function applyMeta(title, desc, robots = "index, follow") {
 function buildProfileTabs(t) { return [
   ["overview", t("tab.overview")],
   ["season", t("tab.season")],
+  ["analysis", t("tab.analysis")],
   ["matches", t("tab.matches")],
   ["maps", t("tab.maps")],
   ["hubs", t("tab.hubs")],
@@ -1248,6 +1250,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 />
               ) : profileTab === "season" ? (
                 <Insights insights={data.insights} player={data} onPick={go} />
+              ) : profileTab === "analysis" ? (
+                <Analysis nickname={data.nickname} />
               ) : profileTab === "matches" ? (
                 <>
                   {/* The detailed ten first — expandable, with full scoreboards

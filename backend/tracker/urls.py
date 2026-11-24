@@ -46,6 +46,7 @@ urlpatterns = [
     path("player/<str:nickname>/clips/generate/", views.player_clips_generate, name="player-clips-generate"),
     path("allstar/webhook/", views.allstar_webhook, name="allstar-webhook"),
     path("player/<str:nickname>/leetify/matches/", views.leetify_matches, name="player-leetify-matches"),
+    path("player/<str:nickname>/analysis/", require_api_key(views.player_analysis), name="player-analysis"),
     path("player/<str:nickname>/csgo/", require_api_key(views.csgo_stats), name="player-csgo"),
     path("live/<str:player_id>/", require_api_key(views.player_live), name="player-live"),
     path("leetify/match/", views.leetify_match, name="leetify-match"),
