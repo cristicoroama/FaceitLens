@@ -45,6 +45,7 @@ import Teams from "./components/Teams.jsx";
 import Competitions from "./components/Competitions.jsx";
 import Pickem from "./components/Pickem.jsx";
 import DiscordBot from "./components/DiscordBot.jsx";
+import { SmurfChecker, EloChecker, FaceitLevels } from "./components/SeoTools.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import MiniHeader from "./components/MiniHeader.jsx";
 import ToolAbout from "./components/ToolAbout.jsx";
@@ -166,6 +167,12 @@ function buildNav(t, lang, flags = {}) { return [
       hint: t("hint.overlay"), badge: t("nav.new") },
     { id: "matchroom", label: t("nav.matchRoom"), href: localePath(lang, "/matchroom"), icon: Icon.binoculars,
       hint: t("hint.matchRoom") },
+    { id: "smurf-checker", label: t("nav.smurf"), href: localePath(lang, "/smurf-checker"), icon: Icon.shieldCheck,
+      hint: t("hint.smurf") },
+    { id: "faceit-elo-checker", label: t("nav.elocheck"), href: localePath(lang, "/faceit-elo-checker"), icon: Icon.search,
+      hint: t("hint.elocheck") },
+    { id: "faceit-levels", label: t("nav.levels"), href: localePath(lang, "/faceit-levels"), icon: Icon.trophy,
+      hint: t("hint.levels") },
     { id: "compare", label: t("nav.compare"), href: localePath(lang, "/compare"), icon: Icon.arrowLeftRight,
       hint: t("hint.compare") },
     { id: "squad", label: t("nav.squad"), href: localePath(lang, "/squad"), icon: Icon.people,
@@ -1112,6 +1119,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {mode === "competitions" && <Competitions onPick={go} />}
           {mode === "pickem" && <Pickem />}
           {mode === "discordbot" && <DiscordBot />}
+          {mode === "smurf-checker" && (
+            <SmurfChecker
+              onPick={go}
+              onPath={(p) => { if (p.startsWith("/matchroom")) setMode("matchroom"); nav(p); }}
+            />
+          )}
+          {mode === "faceit-elo-checker" && <EloChecker onPick={go} />}
+          {mode === "faceit-levels" && <FaceitLevels />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}

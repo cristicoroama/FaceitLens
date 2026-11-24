@@ -11,6 +11,11 @@ Slash commands:
   /unlink                remove your link
   /leaderboard           this week's ELO race between linked members
   /pickem <code>         a FaceitLens Pick'em league table
+  /profile <nick>        full stats with tabs: overview, maps, matches, teammates, trust
+  /last <nick>           scoreboard image of the last match
+  /maps <nick>           map performance image
+  /lobby <room link>     scout both teams of a FACEIT match room
+  /h2h <a> <b>           how often two players played together or against each other
   /elos                  ELO table of the players tracked in this server
   /track add|remove|list|channel   manage tracked players and the auto-update channel (Manage Server)
   /verify <code>         verified FACEIT level role (code from faceit-lens.com/settings)
@@ -191,9 +196,62 @@ def base_embed(p, title=None):
     return e
 
 
+LEVEL_EMOJI = {1: "⚪", 2: "🟢", 3: "🟢", 4: "🟡", 5: "🟡", 6: "🟡", 7: "🟡", 8: "🟠", 9: "🟠", 10: "🔴"}
+RECENT_NICKS = []
+
+
+def remember(nick):
+    if not nick:
+        return
+    low = nick.lower()
+    for i, n in enumerate(RECENT_NICKS):
+        if n.lower() == low:
+            RECENT_NICKS.pop(i)
+            break
+    RECENT_NICKS.insert(0, nick)
+    del RECENT_NICKS[200:]
+
+
+def level_colour(level):
+    return LEVEL_COLORS.get(int(level or 0), ORANGE)
+
+
+def img_url(path):
+    return f"{API}{path}{'&' if '?' in path else '?'}t={int(time.time() // 1800)}"
+
+
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
+
+
+async def nick_autocomplete(interaction: discord.Interaction, current: str):
+    cur = (current or "").strip().lower()
+    pool = []
+    data = load_links()
+    gid = str(interaction.guild_id or "")
+    for p in (data.get("_track", {}).get(gid, {}).get("players", {}) or {}).values():
+        pool.append(p["nick"])
+    pool += list((data.get(gid) or {}).values()) if isinstance(data.get(gid), dict) else []
+    pool += RECENT_NICKS
+    seen, out = set(), []
+    for n in pool:
+        if not isinstance(n, str) or n.lower() in seen:
+            continue
+        if not cur or n.lower().startswith(cur) or cur in n.lower():
+            seen.add(n.lower())
+            out.append(n)
+    if len(cur) >= 2 and len(out) < 10:
+        try:
+            res = await asyncio.wait_for(fetch(f"/api/search/?q={requests.utils.quote(current)}", timeout=3), 2.2)
+            for it in res.get("items", []):
+                n = it.get("nickname")
+                if n and n.lower() not in seen:
+                    seen.add(n.lower())
+                    out.append(n)
+        except Exception:
+            pass
+    return [app_commands.Choice(name=n, value=n) for n in out[:25]]
 
 
 async def fail(interaction, msg):
@@ -202,6 +260,7 @@ async def fail(interaction, msg):
 
 @tree.command(name="elo", description="FACEIT ELO, level and recent form")
 @app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
 async def elo(interaction: discord.Interaction, nickname: str):
     await interaction.response.defer()
     try:
@@ -219,6 +278,7 @@ async def elo(interaction: discord.Interaction, nickname: str):
 
 @tree.command(name="stats", description="Full FACEIT stats card")
 @app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
 async def stats(interaction: discord.Interaction, nickname: str):
     await interaction.response.defer()
     try:
@@ -239,6 +299,7 @@ async def stats(interaction: discord.Interaction, nickname: str):
 
 @tree.command(name="season", description="Season 9 report and Season 10 placements")
 @app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
 async def season(interaction: discord.Interaction, nickname: str):
     await interaction.response.defer()
     try:
@@ -272,6 +333,7 @@ async def season(interaction: discord.Interaction, nickname: str):
 
 @tree.command(name="roast", description="Let the AI roast a FACEIT player")
 @app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
 async def roast(interaction: discord.Interaction, nickname: str):
     await interaction.response.defer()
     try:
@@ -424,6 +486,7 @@ track = app_commands.Group(name="track", description="Players this server follow
 @track.command(name="add", description="Track a FACEIT player in this server")
 @app_commands.describe(nickname="FACEIT nickname")
 @app_commands.default_permissions(manage_guild=True)
+@app_commands.autocomplete(nickname=nick_autocomplete)
 async def track_add(interaction: discord.Interaction, nickname: str):
     await interaction.response.defer(ephemeral=True)
     if not interaction.guild:
@@ -538,6 +601,7 @@ async def post_match_updates():
                     description=f"{'🟩' if last.get('win') else '🟥'} **[{r['nickname']}]({profile_url(r['nickname'])})** {res} on "
                                 f"**{(last.get('map') or '?').replace('de_', '').title()}** {last.get('score') or ''}{kd}{elo_txt}",
                     color=0x3DD67F if last.get("win") else 0xFF5A5A)
+                e.set_image(url=img_url(f"/api/og/match/{mid}.png?player={requests.utils.quote(r['nickname'])}"))
                 try:
                     await channel.send(embed=e)
                 except discord.Forbidden:
@@ -638,6 +702,224 @@ async def refresh_levels():
                     pass
             row["level"] = new
     save_links(data)
+
+
+def _pct(v):
+    try:
+        return f"{round(float(v))}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _num(v, d=2):
+    try:
+        return f"{float(v):.{d}f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def profile_header(p, title=None):
+    lvl = p.get("skill_level")
+    e = discord.Embed(color=level_colour(lvl), url=profile_url(p.get("nickname")),
+                      title=title or f"{LEVEL_EMOJI.get(int(lvl or 0), '')} {p.get('nickname')}")
+    if p.get("avatar"):
+        e.set_thumbnail(url=p["avatar"])
+    e.set_footer(text=FOOTER)
+    return e
+
+
+def tab_overview(p):
+    s, ra = p.get("stats") or {}, p.get("recent_avg") or {}
+    e = profile_header(p)
+    e.description = f"**{p.get('elo')} ELO** · Level {p.get('skill_level')} · {(p.get('country') or '').upper()}"
+    e.add_field(name="Matches", value=str(s.get("matches") or "—"))
+    e.add_field(name="Win rate", value=_pct(s.get("win_rate")))
+    e.add_field(name="K/D", value=str(s.get("avg_kd") or "—"))
+    e.add_field(name="Last 30 · K/D", value=_num(ra.get("kd")))
+    e.add_field(name="Last 30 · ADR", value=_num(ra.get("adr"), 0))
+    e.add_field(name="Last 30 · HS", value=_pct(ra.get("hs")))
+    e.add_field(name="Last 10", value=form_line(p), inline=False)
+    e.set_image(url=img_url(f"/api/og/{requests.utils.quote(p.get('nickname'))}.png"))
+    return e
+
+
+def tab_maps(p):
+    e = profile_header(p, f"{p.get('nickname')} · Maps")
+    rows = [m for m in (p.get("map_stats") or []) if m.get("matches")][:8]
+    if rows:
+        e.description = "\n".join(
+            f"`{m['map'][:9]:<9}` {m['matches']:>4} games · **{_pct(m.get('win_rate'))}** · K/D {_num(m.get('avg_kd'))} · ADR {_num(m.get('adr'), 0)}"
+            for m in rows)
+    e.set_image(url=img_url(f"/api/og/maps/{requests.utils.quote(p.get('nickname'))}.png"))
+    return e
+
+
+def tab_matches(p):
+    e = profile_header(p, f"{p.get('nickname')} · Last matches")
+    lines = []
+    for m in (p.get("recent_matches") or [])[:10]:
+        mark = "🟩" if m.get("won") else "🟥" if m.get("won") is False else "⬜"
+        when = f"<t:{int(m['finished_at'])}:R>" if m.get("finished_at") else ""
+        kda = f"{m.get('kills')}-{m.get('deaths')}" if m.get("kills") is not None else ""
+        rating = f" · {m['rating']:.2f}" if isinstance(m.get("rating"), (int, float)) else ""
+        lines.append(f"{mark} **{(m.get('map') or '?').replace('de_', '').title()}** {m.get('score') or ''} · {kda}{rating} · {when}")
+    e.description = "\n".join(lines) or "No recent matches."
+    return e
+
+
+def tab_mates(p):
+    e = profile_header(p, f"{p.get('nickname')} · Teammates & nemeses")
+    mates = p.get("best_teammates") or []
+    nem = p.get("nemeses") or []
+    e.add_field(name="Best teammates", inline=False, value="\n".join(
+        f"**{m['nickname']}** · {m['games']} games · {m['win_rate']}% together" for m in mates[:5]) or "—")
+    e.add_field(name="Nemeses", inline=False, value="\n".join(
+        f"**{m['nickname']}** · {m['games']} games · {m['win_rate']}% vs them" for m in nem[:5]) or "—")
+    return e
+
+
+async def tab_trust(p):
+    e = profile_header(p, f"{p.get('nickname')} · Trust")
+    try:
+        c = await fetch(f"/api/player/{requests.utils.quote(p.get('nickname'))}/collectibles/", timeout=30)
+    except Exception as exc:
+        e.description = f"Couldn't load trust data: {exc}"
+        return e
+    t = c.get("trust") or {}
+    score = t.get("score")
+    e.description = f"**Trust score: {score if score is not None else '—'}/100** · {t.get('tier') or ''}"
+    for f in (t.get("flags") or [])[:8]:
+        e.add_field(name=("✅ " if f.get("ok") else "⚠️ ") + str(f.get("label")), value=str(f.get("detail") or "—"))
+    return e
+
+
+class ProfileView(discord.ui.View):
+    TABS = [("ov", "Overview"), ("maps", "Maps"), ("matches", "Matches"), ("mates", "Teammates"), ("trust", "Trust")]
+
+    def __init__(self, p, owner_id):
+        super().__init__(timeout=900)
+        self.p = p
+        self.owner = owner_id
+        self.render_buttons("ov")
+
+    def render_buttons(self, active):
+        self.clear_items()
+        for key, label in self.TABS:
+            b = discord.ui.Button(label=label, style=discord.ButtonStyle.primary if key == active else discord.ButtonStyle.secondary)
+            b.callback = self._make(key)
+            self.add_item(b)
+        self.add_item(discord.ui.Button(label="Open profile", url=profile_url(self.p.get("nickname")), row=1))
+
+    def _make(self, key):
+        async def cb(interaction: discord.Interaction):
+            self.render_buttons(key)
+            if key == "trust":
+                await interaction.response.defer()
+                e = await tab_trust(self.p)
+                return await interaction.edit_original_response(embed=e, view=self)
+            e = {"ov": tab_overview, "maps": tab_maps, "matches": tab_matches, "mates": tab_mates}[key](self.p)
+            await interaction.response.edit_message(embed=e, view=self)
+        return cb
+
+
+@tree.command(name="profile", description="Full FACEIT stats with tabs")
+@app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
+async def profile(interaction: discord.Interaction, nickname: str):
+    await interaction.response.defer()
+    try:
+        p = await fetch(player(nickname))
+    except Exception as exc:
+        return await fail(interaction, str(exc))
+    remember(p.get("nickname"))
+    await interaction.followup.send(embed=tab_overview(p), view=ProfileView(p, interaction.user.id))
+
+
+@tree.command(name="last", description="Scoreboard of a player's last FACEIT match")
+@app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
+async def last(interaction: discord.Interaction, nickname: str):
+    await interaction.response.defer()
+    rows = await elo_rows([nickname])
+    if not rows or not rows[0].get("found"):
+        return await fail(interaction, f"No FACEIT player called **{nickname}**.")
+    r = rows[0]
+    remember(r["nickname"])
+    m = (r.get("last") or [None])[0]
+    if not m or not m.get("match_id"):
+        return await fail(interaction, f"**{r['nickname']}** has no recent matches.")
+    mid = m["match_id"]
+    e = discord.Embed(
+        color=0x3DD67F if m.get("win") else 0xFF5A5A,
+        title=f"{r['nickname']} {'won' if m.get('win') else 'lost'} on {(m.get('map') or '?').replace('de_', '').title()} {m.get('score') or ''}",
+        url=f"https://www.faceit.com/en/cs2/room/{mid}",
+        description=f"{m.get('kills')}-{m.get('deaths')} · ADR {m.get('adr') or '—'}"
+                    + (f" · <t:{m['finished_at']}:R>" if m.get("finished_at") else ""),
+    )
+    e.set_image(url=img_url(f"/api/og/match/{mid}.png?player={requests.utils.quote(r['nickname'])}"))
+    e.set_footer(text=FOOTER)
+    room = discord.ui.Button(label="Match room", url=f"https://www.faceit.com/en/cs2/room/{mid}")
+    await interaction.followup.send(embed=e, view=buttons(r["nickname"], room))
+
+
+@tree.command(name="maps", description="Map performance of a FACEIT player")
+@app_commands.describe(nickname="FACEIT nickname")
+@app_commands.autocomplete(nickname=nick_autocomplete)
+async def maps_cmd(interaction: discord.Interaction, nickname: str):
+    await interaction.response.defer()
+    try:
+        p = await fetch(player(nickname))
+    except Exception as exc:
+        return await fail(interaction, str(exc))
+    remember(p.get("nickname"))
+    await interaction.followup.send(embed=tab_maps(p), view=buttons(p.get("nickname")))
+
+
+@tree.command(name="lobby", description="Scout both teams of a FACEIT match room")
+@app_commands.describe(room="Match room link from faceit.com")
+async def lobby(interaction: discord.Interaction, room: str):
+    await interaction.response.defer()
+    try:
+        d = await fetch(f"/api/matchroom/?url={requests.utils.quote(room)}", timeout=60)
+    except Exception as exc:
+        return await fail(interaction, str(exc))
+    e = discord.Embed(title=f"Lobby · {(d.get('map') or 'veto in progress').replace('de_', '').title()}",
+                      url=d.get("faceit_url"), color=ORANGE)
+    for key, prob in (("team1", d.get("prob1")), ("team2", d.get("prob2"))):
+        t = d.get(key) or {}
+        lines = []
+        for pl in (t.get("players") or [])[:5]:
+            rec = pl.get("recent") or {}
+            lines.append(f"{LEVEL_EMOJI.get(int(pl.get('level') or 0), '')} **{pl.get('nickname')}** · {pl.get('elo') or '—'}"
+                         f" · K/D {_num(rec.get('kd'))} · {_pct(rec.get('win_rate'))}")
+        head = f"{t.get('name') or key} · avg {t.get('avg_elo') or '—'} ELO" + (f" · **{prob}%**" if prob is not None and not d.get("finished") else "")
+        e.add_field(name=head, value="\n".join(lines) or "—", inline=False)
+    if d.get("prob_source") == "faceit" and not d.get("finished"):
+        e.set_footer(text="Win chance from FACEIT · " + FOOTER)
+    else:
+        e.set_footer(text=FOOTER)
+    view = buttons()
+    view.add_item(discord.ui.Button(label="Full lobby analysis", url=f"{SITE}/matchroom?room={requests.utils.quote(room)}"))
+    await interaction.followup.send(embed=e, view=view)
+
+
+@tree.command(name="h2h", description="How often two players played together or against each other")
+@app_commands.describe(a="First nickname", b="Second nickname")
+@app_commands.autocomplete(a=nick_autocomplete, b=nick_autocomplete)
+async def h2h(interaction: discord.Interaction, a: str, b: str):
+    await interaction.response.defer()
+    try:
+        d = await fetch(f"/api/met/?p1={requests.utils.quote(a)}&p2={requests.utils.quote(b)}", timeout=60)
+    except Exception as exc:
+        return await fail(interaction, str(exc))
+    e = discord.Embed(title=f"{d.get('p1', a)} × {d.get('p2', b)}", color=ORANGE)
+    if not d.get("encounters"):
+        e.description = "They haven't played in the same match in their recent history."
+    else:
+        e.description = (f"**{d['encounters']}** shared matches\n"
+                         f"🤝 **{d.get('together', 0)}** on the same team · ⚔️ **{d.get('against', 0)}** against each other")
+    e.set_footer(text=FOOTER)
+    await interaction.followup.send(embed=e, view=buttons())
 
 
 @tree.command(name="botinfo", description="How many servers use the FaceitLens bot")

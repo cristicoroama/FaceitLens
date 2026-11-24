@@ -1,6 +1,6 @@
 # FaceitLens Discord Bot
 
-Commands: `/elo`, `/stats` (with the generated profile card), `/season`, `/roast`, `/compare`,
+Commands: `/profile` (tabs: overview, maps, matches, teammates, trust), `/last` (scoreboard image), `/maps` (map image), `/lobby <room link>`, `/h2h`, `/elo`, `/stats` (with the generated profile card), `/season`, `/roast`, `/compare`,
 `/link`, `/unlink`, `/leaderboard` (weekly ELO race between linked members), `/pickem <code>`.
 
 Every reply has an "Open profile" button and a "Join FaceitLens Discord" button.

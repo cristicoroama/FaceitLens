@@ -1,4 +1,40 @@
 export const TOOL_COPY = {
+  "smurf-checker": {
+    heading: "How to spot a smurf on FACEIT",
+    paras: [
+      "A smurf is an experienced player on a new or low-level account. On FACEIT that usually shows up as a combination of signals rather than one number: a Steam account that is only weeks old, few CS2 hours, very few FACEIT matches and stats that are far above the player's level.",
+      "Faceit-Lens puts those signals together into a trust score for every player. Paste a match room link and all ten players are checked at once, with FACEIT's own win probability for each team, so you know before the veto whether the lobby is fair.",
+      "No single signal proves anything. Plenty of honest players are new to FACEIT, play on a second account after a ban wave or simply improve fast. Use the score to decide who to keep an eye on, not to accuse anyone.",
+    ],
+    faq: [
+      ["Can I check a whole lobby at once?", "Yes. Copy the match room address from faceit.com (it looks like faceit.com/en/cs2/room/1-…) and paste it here. All ten players are scanned together."],
+      ["What is a good trust score?", "Most established accounts score well above 60. Scores under 40 usually mean a young or very new account, which is common for smurfs but also for new players."],
+      ["Do you detect cheaters?", "No. Faceit-Lens shows public account data and statistics. Cheating is detected and punished by FACEIT's anti-cheat; bans already on the account are shown."],
+    ],
+  },
+  "faceit-elo-checker": {
+    heading: "Check any FACEIT ELO in seconds",
+    paras: [
+      "Type a FACEIT nickname or paste a FACEIT profile link to see the player's current CS2 ELO and level, their win rate and K/D, ADR and headshot rate, map performance, the last matches with results and an ELO chart.",
+      "Nicknames on FACEIT are case-sensitive, so 'S1mple' and 's1mple' can be different accounts. If a search finds nothing, try the exact capitalisation or paste the profile link instead.",
+    ],
+    faq: [
+      ["How often is the ELO updated?", "Every time you open the profile, straight from FACEIT's official API. Profiles are cached for a few minutes to keep the site fast."],
+      ["Can I check someone by Steam profile?", "Yes. Paste their steamcommunity.com link or SteamID64 in the search bar and Faceit-Lens finds the FACEIT account linked to it."],
+    ],
+  },
+  "faceit-levels": {
+    heading: "How FACEIT ELO and levels work",
+    paras: [
+      "Every FACEIT CS2 player has an ELO rating and a skill level from 1 to 10 that is derived from it. Level 10 starts at 2001 ELO and has no upper limit; the top 1000 players of each region are FACEIT Challengers.",
+      "You win or lose ELO after every match. The amount depends on the average ELO of both teams: beating a stronger team gives more than the usual 25 or so points, beating a weaker team gives less, and losing works the same way in reverse. Individual performance does not change the ELO you gain or lose in a normal match.",
+      "At the start of a new FACEIT season ELO can be soft-reset, and placement matches decide where you land. The calculator above assumes a flat amount per match, so treat it as an estimate.",
+    ],
+    faq: [
+      ["What ELO is Level 10?", "Level 10 starts at 2001 ELO. Level 9 is 1751 to 2000 and Level 8 is 1531 to 1750."],
+      ["How much ELO do you get for a win?", "Usually around 25, more when you beat a stronger team and less when you beat a weaker one."],
+    ],
+  },
   discordbot: {
     heading: "A FACEIT bot for your Discord server",
     paras: [

@@ -2,6 +2,11 @@ import { DISCORD_BOT_INVITE, DISCORD_INVITE } from "../links.js";
 import { DiscordIcon } from "./BrandIcons.jsx";
 
 const COMMANDS = [
+  ["/profile nickname", "Full stats with tabs: overview, maps, last matches, teammates and trust score."],
+  ["/last nickname", "Scoreboard image of the last match, both teams, with the player highlighted."],
+  ["/maps nickname", "Map performance image: win rate, K/D, ADR and HS on every map."],
+  ["/lobby room-link", "Scout both teams of a FACEIT match room, with FACEIT's win chance."],
+  ["/h2h a b", "How often two players played together or against each other."],
   ["/elo nickname", "Level, ELO, win rate and the last 10 results of any FACEIT player."],
   ["/stats nickname", "Full stats card with the generated profile image."],
   ["/season nickname", "Season report and placement progress."],

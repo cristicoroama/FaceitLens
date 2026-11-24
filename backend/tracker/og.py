@@ -245,3 +245,199 @@ def og_image(request, nickname):
     resp["Cache-Control"] = "public, max-age=3600, s-maxage=21600"
     resp["Access-Control-Allow-Origin"] = "*"
     return resp
+
+
+MAP_DIR = os.path.join(os.path.dirname(__file__), "data", "maps")
+
+
+def _map_img(name, w, h):
+    key = (name or "").lower().replace("de_", "").replace(" ", "_")
+    path = os.path.join(MAP_DIR, f"{key}.webp")
+    try:
+        im = Image.open(path).convert("RGB")
+    except OSError:
+        return Image.new("RGB", (w, h), PANEL)
+    r = max(w / im.width, h / im.height)
+    im = im.resize((round(im.width * r), round(im.height * r)), Image.LANCZOS)
+    left, top = (im.width - w) // 2, (im.height - h) // 2
+    return im.crop((left, top, left + w, top + h))
+
+
+def _rounded(im, radius):
+    mask = Image.new("L", im.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, im.width - 1, im.height - 1), radius=radius, fill=255)
+    return mask
+
+
+def _base(w, h):
+    img = Image.new("RGB", (w, h), BG)
+    dr = ImageDraw.Draw(img)
+    dr.rectangle((0, 0, w, 6), fill=ACCENT)
+    return img, dr
+
+
+def _wr_color(v):
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return DIM
+    return WIN if v >= 50 else LOSS
+
+
+def render_maps(nickname, avatar, level, maps):
+    rows = [m for m in maps if m.get("matches")][:8]
+    W = 1200
+    H = 150 + max(1, len(rows)) * 86 + 40
+    img, dr = _base(W, H)
+    av, mask = _avatar(avatar, 64)
+    img.paste(av, (48, 40), mask)
+    dr.text((128, 40), nickname, font=_font("DejaVuSans-Bold.ttf", 40), fill=TEXT)
+    dr.text((130, 88), "MAP PERFORMANCE · FACEIT CS2", font=_font("DejaVuSans-Bold.ttf", 16), fill=DIM)
+    if level:
+        b = level_badge(level, 56)
+        img.paste(b, (W - 48 - 56, 44), b)
+    heads = [("MATCHES", 520), ("WIN RATE", 680), ("K/D", 850), ("ADR", 960), ("HS", 1070)]
+    for t, x in heads:
+        dr.text((x, 128), t, font=_font("DejaVuSans-Bold.ttf", 14), fill=DIM)
+    best = max(rows, key=lambda m: (float(m.get("win_rate") or 0), m["matches"]), default=None)
+    worst = min(rows, key=lambda m: (float(m.get("win_rate") or 0), -m["matches"]), default=None)
+    y = 152
+    mono, bold = _font("DejaVuSansMono-Bold.ttf", 26), _font("DejaVuSans-Bold.ttf", 24)
+    for m in rows:
+        dr.rounded_rectangle((48, y, W - 48, y + 74), radius=14, fill=PANEL)
+        thumb = _map_img(m["map"], 150, 74)
+        img.paste(thumb, (48, y), _rounded(thumb, 14))
+        dr.text((220, y + 22), m["map"], font=bold, fill=TEXT)
+        tag = "BEST" if m is best and len(rows) > 1 else "WORST" if m is worst and len(rows) > 1 else None
+        if tag:
+            tx = 220 + dr.textlength(m["map"], font=bold) + 14
+            col = WIN if tag == "BEST" else LOSS
+            dr.rounded_rectangle((tx, y + 25, tx + 70, y + 49), radius=6, outline=col, width=2)
+            f = _font("DejaVuSans-Bold.ttf", 13)
+            dr.text((tx + 35 - dr.textlength(tag, font=f) / 2, y + 29), tag, font=f, fill=col)
+        wr = m.get("win_rate")
+        dr.text((520, y + 22), f"{m['matches']:,}", font=mono, fill=TEXT)
+        dr.text((680, y + 22), f"{round(float(wr))}%" if wr is not None else "—", font=mono, fill=_wr_color(wr))
+        bar_w = 110
+        dr.rounded_rectangle((680, y + 56, 680 + bar_w, y + 61), radius=3, fill=(40, 40, 48))
+        if wr is not None:
+            dr.rounded_rectangle((680, y + 56, 680 + bar_w * min(100, float(wr)) / 100, y + 61), radius=3, fill=_wr_color(wr))
+        kd = m.get("avg_kd")
+        dr.text((850, y + 22), f"{float(kd):.2f}" if kd is not None else "—", font=mono,
+                fill=WIN if kd is not None and float(kd) >= 1 else LOSS if kd is not None else DIM)
+        adr = m.get("adr")
+        dr.text((960, y + 22), f"{round(float(adr))}" if adr is not None else "—", font=mono, fill=TEXT)
+        hs = m.get("avg_hs")
+        dr.text((1070, y + 22), f"{round(float(hs))}%" if hs is not None else "—", font=mono, fill=TEXT)
+        y += 86
+    if not rows:
+        dr.text((48, 160), "No map data yet.", font=bold, fill=DIM)
+    f = _font("DejaVuSans-Bold.ttf", 18)
+    dr.text((W - 48 - dr.textlength("faceit-lens.com", font=f), H - 34), "faceit-lens.com", font=f, fill=DIM)
+    out = io.BytesIO()
+    img.save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+def render_match(detail, highlight=None):
+    teams = detail.get("teams") or []
+    W, H = 1200, 160 + 2 * (56 + 5 * 50) + 60
+    img, dr = _base(W, H)
+    banner = _map_img(detail.get("map"), W, 120).filter(ImageFilter.GaussianBlur(1.5))
+    dark = Image.new("RGB", banner.size, (0, 0, 0))
+    img.paste(Image.blend(banner, dark, 0.55), (0, 6))
+    mapname = (detail.get("map") or "?").replace("de_", "").title()
+    dr.text((48, 30), mapname, font=_font("DejaVuSans-Bold.ttf", 44), fill=TEXT)
+    sub = " · ".join(x for x in [detail.get("competition"), "Bo%s" % detail["best_of"] if (detail.get("best_of") or 1) > 1 else None] if x)
+    if sub:
+        dr.text((50, 86), sub, font=_font("DejaVuSans.ttf", 18), fill=(200, 200, 210))
+    if len(teams) == 2:
+        a, b = teams
+        sf = _font("DejaVuSansMono-Bold.ttf", 60)
+        s = f"{a.get('score', '?')} : {b.get('score', '?')}"
+        dr.text((W - 48 - dr.textlength(s, font=sf), 28), s, font=sf, fill=TEXT)
+    cols = [("K", 560), ("D", 630), ("A", 700), ("K/D", 770), ("ADR", 860), ("HS%", 950), ("RATING", 1040)]
+    from concurrent.futures import ThreadPoolExecutor
+    urls = [p.get("avatar") for t in teams for p in (t.get("players") or [])]
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        avatars = dict(zip(urls, pool.map(lambda u: _avatar(u, 32), urls)))
+    y = 140
+    hl = (highlight or "").lower()
+    for t in teams:
+        won = t.get("win")
+        col = WIN if won else LOSS
+        dr.text((48, y), (t.get("name") or "Team").upper()[:28], font=_font("DejaVuSans-Bold.ttf", 20), fill=col)
+        dr.text((48 + 420, y + 2), "WIN" if won else "LOSS", font=_font("DejaVuSans-Bold.ttf", 16), fill=col)
+        for name, x in cols:
+            dr.text((x, y + 4), name, font=_font("DejaVuSans-Bold.ttf", 13), fill=DIM)
+        y += 36
+        players = sorted(t.get("players") or [], key=lambda p: -(faceit._to_int(p.get("kills")) or 0))
+        for i, p in enumerate(players[:5]):
+            me = (p.get("nickname") or "").lower() == hl
+            fill = (40, 26, 18) if me else PANEL
+            dr.rounded_rectangle((48, y, W - 48, y + 44), radius=10, fill=fill,
+                                 outline=ACCENT if me else None, width=2 if me else 0)
+            av, mask = avatars.get(p.get("avatar")) or _avatar(None, 32)
+            img.paste(av, (58, y + 6), mask)
+            nm = (p.get("nickname") or "?")[:20]
+            dr.text((102, y + 10), nm, font=_font("DejaVuSans-Bold.ttf", 20), fill=TEXT)
+            if i == 0:
+                dr.text((102 + dr.textlength(nm, font=_font("DejaVuSans-Bold.ttf", 20)) + 10, y + 13), "MVP",
+                        font=_font("DejaVuSans-Bold.ttf", 13), fill=ACCENT)
+            mono = _font("DejaVuSansMono-Bold.ttf", 20)
+            vals = [p.get("kills"), p.get("deaths"), p.get("assists"), p.get("kd"), p.get("adr"), p.get("hs"), p.get("rating")]
+            for (name, x), v in zip(cols, vals):
+                txt = "—" if v in (None, "") else (f"{float(v):.2f}" if name in ("K/D", "RATING") else str(round(float(v))))
+                c = TEXT
+                if name in ("K/D", "RATING") and v not in (None, ""):
+                    c = WIN if float(v) >= 1 else LOSS
+                dr.text((x, y + 10), txt, font=mono, fill=c)
+            y += 50
+        y += 20
+    f = _font("DejaVuSans-Bold.ttf", 18)
+    dr.text((W - 48 - dr.textlength("faceit-lens.com", font=f), H - 36), "faceit-lens.com", font=f, fill=DIM)
+    out = io.BytesIO()
+    img.save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+def _png(data):
+    resp = HttpResponse(data, content_type="image/png")
+    resp["Cache-Control"] = "public, max-age=3600, s-maxage=21600"
+    resp["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@require_GET
+def og_maps(request, nickname):
+    from . import privacy
+    nickname = (nickname or "").removesuffix(".png").strip()[:40]
+    key = f"ogmaps:{nickname.lower()}"
+    png = cache.get(key)
+    if png is None:
+        try:
+            privacy.check(nickname=nickname)
+            s = faceit.build_player_summary(nickname)
+            png = render_maps(s.get("nickname") or nickname, s.get("avatar"), s.get("skill_level"), s.get("map_stats") or [])
+        except Exception:
+            return HttpResponseRedirect(FALLBACK)
+        cache.set(key, png, TTL)
+    return _png(png)
+
+
+@require_GET
+def og_match(request, match_id):
+    match_id = (match_id or "").removesuffix(".png").strip()[:80]
+    hl = (request.GET.get("player") or "")[:40]
+    key = f"ogmatch:{match_id}:{hl.lower()}"
+    png = cache.get(key)
+    if png is None:
+        try:
+            detail = faceit.get_match_detail(match_id)
+            from . import privacy
+            privacy.scrub(detail)
+            png = render_match(detail, hl)
+        except Exception:
+            return HttpResponseRedirect(FALLBACK)
+        cache.set(key, png, 24 * 60 * 60)
+    return _png(png)
