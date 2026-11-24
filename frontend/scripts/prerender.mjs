@@ -31,7 +31,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { injectMeta, injectBody, canonicalUrl, buildAlternates } from "../lib/seo.js";
+import { injectMeta, injectBody, canonicalUrl, buildAlternates, renderCopy, renderCrawlLinks, faqJsonLd } from "../lib/seo.js";
+import { TOOL_COPY } from "../src/tool-copy.js";
+import { CRAWL_LINKS } from "../src/page-meta.js";
 import {
   PAGE_META,
   DEFAULT_TITLE,
@@ -85,17 +87,23 @@ for (const [path, key] of routes) {
     const title =
       key && !/faceit-lens/i.test(rawTitle) ? `${rawTitle} | Faceit-Lens` : rawTitle;
 
+    const copy = locale === "en" && key ? TOOL_COPY[key] : null;
     let html = injectMeta(shell, {
       title,
       description,
       canonical: canonicalUrl(localePath(locale, path)),
       alternates,
       locale,
+      jsonLd: faqJsonLd(copy),
     });
 
     // The heading is the title without the brand suffix — a visible "|
     // Faceit-Lens" in an <h1> reads like a mistake.
-    html = injectBody(html, { heading: rawTitle, body: description });
+    html = injectBody(html, {
+      heading: rawTitle,
+      body: description,
+      extraHtml: renderCopy(copy) + renderCrawlLinks(CRAWL_LINKS.map(([h, l]) => [localePath(locale, h), l])),
+    });
 
     const outPath = localePath(locale, path);
     const out = outPath === "/"

@@ -189,7 +189,7 @@ const BODY_END = "<!-- /SEO:BODY -->";
  * Silently does nothing if the markers are absent, because a missing intro
  * costs some ranking signal while a thrown error costs the whole page.
  */
-export function injectBody(html, { heading, body, facts, sections } = {}) {
+export function injectBody(html, { heading, body, facts, sections, extraHtml } = {}) {
   const start = html.indexOf(BODY_START);
   const end = html.indexOf(BODY_END);
   if (start === -1 || end === -1 || end < start || !heading) return html;
@@ -204,6 +204,8 @@ export function injectBody(html, { heading, body, facts, sections } = {}) {
     for (const section of sections || []) content += renderSection(section);
     content += `</div>`;
   }
+
+  if (extraHtml) content += extraHtml;
 
   return html.slice(0, start) + content + html.slice(end);
 }
@@ -271,4 +273,36 @@ export function buildAlternates(path, locales) {
     locale,
     url: canonicalUrl(locale === "en" ? path : `/${locale}${path === "/" ? "" : path}`),
   }));
+}
+
+
+/** Plain HTML for a tool page's explainer and FAQ (server-side copy for crawlers). */
+export function renderCopy(copy) {
+  if (!copy) return "";
+  let h = `<div class="seo-copy"><h2>${escapeHtml(copy.heading)}</h2>`;
+  for (const p of copy.paras || []) h += `<p>${escapeHtml(p)}</p>`;
+  if (copy.faq?.length) {
+    h += `<h2>FAQ</h2>`;
+    for (const [q, a] of copy.faq) h += `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`;
+  }
+  return h + `</div>`;
+}
+
+/** Real links to every tool page, so crawlers can walk the site from any page. */
+export function renderCrawlLinks(links) {
+  if (!links?.length) return "";
+  return `<nav class="seo-links" aria-label="Site">` +
+    links.map(([href, label]) => `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`).join(" · ") +
+    `</nav>`;
+}
+
+export function faqJsonLd(copy) {
+  if (!copy?.faq?.length) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: copy.faq.map(([q, a]) => ({
+      "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a },
+    })),
+  };
 }

@@ -46,6 +46,7 @@ import Competitions from "./components/Competitions.jsx";
 import Pickem from "./components/Pickem.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import MiniHeader from "./components/MiniHeader.jsx";
+import ToolAbout from "./components/ToolAbout.jsx";
 import Insights, { InsightsTeaser } from "./components/Insights.jsx";
 import Analysis from "./components/Analysis.jsx";
 import FaceitStatus from "./components/FaceitStatus.jsx";
@@ -547,6 +548,13 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       );
       return;
     }
+    if (routeNick && mode === "single" && !data) {
+      if (error) {
+        applyMeta(`Player not found | Faceit-Lens`,
+          "No FACEIT player with that nickname. Search for a CS2 player instead.", "noindex, follow");
+      }
+      return;
+    }
     if (steamProfile) {
       const name = steamProfile.persona || steamProfile.faceit_nickname || "Steam player";
       applyMeta(
@@ -567,8 +575,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     const [title, desc] = metaFor(
       lang, isPage ? mode : null, PAGE_META[mode], [DEFAULT_TITLE, DEFAULT_DESC],
     );
-    applyMeta(isPage ? `${title} | Faceit-Lens` : title, desc);
-  }, [mode, data, steamProfile, lang]);
+    applyMeta(isPage && !/faceit-lens/i.test(title) ? `${title} | Faceit-Lens` : title, desc);
+  }, [mode, data, steamProfile, lang, routeNick, error]);
 
   // Screen readers pick their voice off this, and Google reads it as a signal
   // of which language the page answers for.
@@ -1348,6 +1356,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
             </>
           )}
 
+          {!data && <ToolAbout page={mode} />}
           <SiteFooter onNav={pickNav} lang={lang} />
         </div>
       </div>

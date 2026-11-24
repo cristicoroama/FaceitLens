@@ -108,3 +108,23 @@ export function prerenderRoutes() {
   routes.push(["/leaderboard/map", "worldmap"]);
   return routes;
 }
+
+/* Real links rendered into every prerendered page and the footer, so a crawler
+   can reach every tool from anywhere without opening a dropdown. */
+export const CRAWL_LINKS = [
+  ["/leaderboard", "FACEIT leaderboard"],
+  ["/matchroom", "Match room analyser"],
+  ["/pickem", "Major Pick'em"],
+  ["/compare", "Compare players"],
+  ["/squad", "Squad stats"],
+  ["/hubs", "FACEIT hubs"],
+  ["/teams", "FACEIT teams"],
+  ["/competitions", "Championships"],
+  ["/bans", "Recent FACEIT bans"],
+  ["/prosettings", "CS2 pro settings"],
+  ["/overlay", "Stream overlay"],
+  ["/faceitstatus", "FACEIT status"],
+  ["/steamstatus", "CS2 server status"],
+  ["/proguesser", "ProGuesser"],
+  ["/faq", "FAQ"],
+];

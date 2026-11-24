@@ -17,7 +17,8 @@
  * Env: BACKEND_URL = https://<your-service>.onrender.com
  */
 
-import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL } from "../lib/seo.js";
+import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL, renderCrawlLinks } from "../lib/seo.js";
+import { CRAWL_LINKS } from "../src/page-meta.js";
 import { ALL_LOCALES, DEFAULT_LOCALE, PLAYER_META, STAT_LABELS, FACT_LABELS, localePath } from "../src/i18n.js";
 import { COUNTRY_NAMES } from "../src/country-names.js";
 
@@ -253,7 +254,10 @@ export default async function handler(req, res) {
       imageHeight,
       twitterCard,
     });
-    html = injectBody(html, { heading: bareTitle, body: description, facts, sections });
+    html = injectBody(html, {
+      heading: bareTitle, body: description, facts, sections,
+      extraHtml: renderCrawlLinks(CRAWL_LINKS.map(([h, l]) => [localePath(lang, h), l])),
+    });
   } catch {
     html = shell; // markers missing: still serve a working page
   }

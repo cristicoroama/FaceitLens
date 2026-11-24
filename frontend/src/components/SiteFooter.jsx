@@ -1,5 +1,6 @@
 import { DISCORD_INVITE, GITHUB_REPO, CONTACT_EMAIL, TELEGRAM_URL } from "../links.js";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
+import { CRAWL_LINKS } from "../page-meta.js";
 
 /* Flag by association, not by language code — Ukrainian is `uk` but flies
    `ua`, and English gets the Union Jack. */
@@ -71,6 +72,19 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
         <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
         {langSwitch}
       </div>
+
+      <nav className="site-foot-tools" aria-label="Tools">
+        {CRAWL_LINKS.map(([href, label]) => (
+          <a key={href} href={localePath(lang, href)}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              onNav(href.replace(/^\//, ""));
+            }}>
+            {label}
+          </a>
+        ))}
+      </nav>
 
       <p className="site-foot-note">
         Faceit-Lens is an independent open-source project. It is <b>not affiliated

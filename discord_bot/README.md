@@ -42,3 +42,10 @@ New → Background Worker → Root Directory `discord_bot` → Build `pip instal
 
 The bot needs the **Manage Roles** permission and its own role must sit above the `FACEIT Level` roles.
 Invite URL permissions: Send Messages, Embed Links, Manage Roles.
+
+## Tracking players in a server
+- `/track add <nick>` · `/track remove <nick>` · `/track list` (add/remove/channel need **Manage Server**)
+- `/elos` — anyone can post the ELO table of the tracked players (level, ELO, change today, last 5 matches).
+- `/track channel #faceit` — every 10 minutes the bot posts a line when a tracked player finishes a match:
+  result, map, score, K-D and the ELO change. `/track channel` with no channel turns it off.
+- Up to 25 players per server.

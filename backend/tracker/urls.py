@@ -55,6 +55,7 @@ urlpatterns = [
     path("match/<str:match_id>/", require_api_key(views.match_detail), name="match-detail"),
     path("og/<str:nickname>", og.og_image, name="og-image"),
     path("webhooks/faceit/", webhooks.faceit_webhook, name="faceit-webhook"),
+    path("elo/", require_api_key(views.elo_batch), name="elo-batch"),
     path("discord/code/", discord_link.code, name="discord-code"),
     path("discord/claim/", discord_link.claim, name="discord-claim"),
     path("discord/unlink/", discord_link.unlink, name="discord-unlink"),

@@ -8523,3 +8523,18 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 }
 .dr-join { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; background: #5865f2; color: #fff; border-color: #5865f2; }
 .dr-join:hover { background: #4752c4; color: #fff; }
+
+/* Tool page explainer + FAQ, and crawlable tool links */
+.tool-about { margin: 34px 0 10px; padding-top: 22px; border-top: 1px solid var(--border); max-width: 860px; }
+.tool-about h2 { font-family: var(--font-display); font-size: 17px; margin: 0 0 10px; }
+.tool-about p { font-size: 13.5px; line-height: 1.65; color: var(--text-dim); margin: 0 0 10px; }
+.tool-faq { display: grid; gap: 6px; margin-top: 12px; }
+.tool-faq details { border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--border); padding: 10px 13px; }
+.tool-faq summary { cursor: pointer; font-weight: 700; font-size: 13.5px; }
+.tool-faq details p { margin: 8px 0 0; }
+.site-foot-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: 10px 0 4px; font-size: 12px; }
+.site-foot-tools a { color: var(--text-dim); text-decoration: none; }
+.site-foot-tools a:hover { color: var(--accent); }
+.seo-copy h2 { font-size: 18px; margin: 18px 0 8px; }
+.seo-copy h3 { font-size: 15px; margin: 12px 0 4px; }
+.seo-links { margin-top: 16px; font-size: 13px; }

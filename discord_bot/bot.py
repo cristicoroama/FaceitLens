@@ -11,6 +11,8 @@ Slash commands:
   /unlink                remove your link
   /leaderboard           this week's ELO race between linked members
   /pickem <code>         a FaceitLens Pick'em league table
+  /elos                  ELO table of the players tracked in this server
+  /track add|remove|list|channel   manage tracked players and the auto-update channel (Manage Server)
   /verify <code>         verified FACEIT level role (code from faceit-lens.com/settings)
   /unverify              remove your level role
 
@@ -356,6 +358,160 @@ async def pickem(interaction: discord.Interaction, code: str):
     await interaction.followup.send(embed=e, view=buttons(extra=join))
 
 
+MAX_TRACKED = 25
+
+
+def tracked(data, gid):
+    return data.setdefault("_track", {}).setdefault(str(gid), {"channel": None, "players": {}})
+
+
+async def elo_rows(nicks):
+    if not nicks:
+        return []
+    q = ",".join(requests.utils.quote(n) for n in nicks)
+    return (await fetch(f"/api/elo/?nicks={q}")).get("players", [])
+
+
+def form(row):
+    return "".join("🟩" if m.get("win") else "🟥" for m in reversed(row.get("last") or [])) or "—"
+
+
+def today():
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+track = app_commands.Group(name="track", description="Players this server follows")
+
+
+@track.command(name="add", description="Track a FACEIT player in this server")
+@app_commands.describe(nickname="FACEIT nickname")
+@app_commands.default_permissions(manage_guild=True)
+async def track_add(interaction: discord.Interaction, nickname: str):
+    await interaction.response.defer(ephemeral=True)
+    if not interaction.guild:
+        return await fail(interaction, "Use this inside a server.")
+    data = load_links()
+    t = tracked(data, interaction.guild.id)
+    if len(t["players"]) >= MAX_TRACKED:
+        return await fail(interaction, f"This server already tracks {MAX_TRACKED} players.")
+    rows = await elo_rows([nickname])
+    if not rows or not rows[0].get("found"):
+        return await fail(interaction, f"No FACEIT player called **{nickname}** (nicknames are case-sensitive).")
+    r = rows[0]
+    t["players"][r["nickname"].lower()] = {
+        "nick": r["nickname"], "elo": r.get("elo"), "day": today(), "day_elo": r.get("elo"),
+        "last_match": (r.get("last") or [{}])[0].get("match_id"),
+    }
+    save_links(data)
+    await interaction.followup.send(f"Tracking **{r['nickname']}** · Level {r.get('level')} · {r.get('elo')} ELO.", ephemeral=True)
+
+
+@track.command(name="remove", description="Stop tracking a player")
+@app_commands.describe(nickname="FACEIT nickname")
+@app_commands.default_permissions(manage_guild=True)
+async def track_remove(interaction: discord.Interaction, nickname: str):
+    data = load_links()
+    t = tracked(data, interaction.guild_id)
+    gone = t["players"].pop(nickname.lower(), None)
+    save_links(data)
+    await interaction.response.send_message(
+        f"Removed **{gone['nick']}**." if gone else f"**{nickname}** wasn't tracked.", ephemeral=True)
+
+
+@track.command(name="list", description="Players tracked in this server")
+async def track_list(interaction: discord.Interaction):
+    t = tracked(load_links(), interaction.guild_id)
+    names = ", ".join(p["nick"] for p in t["players"].values()) or "nobody yet — use `/track add`"
+    ch = f"<#{t['channel']}>" if t.get("channel") else "off"
+    await interaction.response.send_message(f"**Tracked ({len(t['players'])}/{MAX_TRACKED}):** {names}\n**Auto updates:** {ch}",
+                                            ephemeral=True)
+
+
+@track.command(name="channel", description="Post match results of tracked players in a channel")
+@app_commands.describe(channel="Channel for updates (leave empty to turn updates off)")
+@app_commands.default_permissions(manage_guild=True)
+async def track_channel(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    data = load_links()
+    t = tracked(data, interaction.guild_id)
+    t["channel"] = channel.id if channel else None
+    save_links(data)
+    await interaction.response.send_message(
+        f"Match updates will be posted in {channel.mention}." if channel else "Auto updates turned off.", ephemeral=True)
+
+
+tree.add_command(track)
+
+
+@tree.command(name="elos", description="ELO table of the players tracked in this server")
+async def elos(interaction: discord.Interaction):
+    await interaction.response.defer()
+    data = load_links()
+    t = tracked(data, interaction.guild_id)
+    if not t["players"]:
+        return await interaction.followup.send("Nobody is tracked yet. An admin can add players with `/track add`.", view=buttons())
+    rows = [r for r in await elo_rows([p["nick"] for p in t["players"].values()]) if r.get("found")]
+    rows.sort(key=lambda r: -(r.get("elo") or 0))
+    lines = []
+    for i, r in enumerate(rows, 1):
+        st = t["players"].get(r["nickname"].lower(), {})
+        if st.get("day") != today():
+            st["day"], st["day_elo"] = today(), r.get("elo")
+        d = (r.get("elo") or 0) - (st.get("day_elo") or r.get("elo") or 0)
+        delta = f" ({'+' if d > 0 else ''}{d} today)" if d else ""
+        lines.append(f"`{i:>2}` **[{r['nickname']}]({profile_url(r['nickname'])})** · Lvl {r.get('level')} · "
+                     f"**{r.get('elo')}**{delta}  {form(r)}")
+    save_links(data)
+    e = discord.Embed(title="FACEIT ELO", description="\n".join(lines), color=ORANGE)
+    e.set_footer(text=FOOTER)
+    await interaction.followup.send(embed=e, view=buttons())
+
+
+@tasks.loop(minutes=10)
+async def post_match_updates():
+    if not API:
+        return
+    data = load_links()
+    changed = False
+    for gid, t in list(data.get("_track", {}).items()):
+        if not t.get("channel") or not t.get("players"):
+            continue
+        channel = client.get_channel(int(t["channel"]))
+        if channel is None:
+            continue
+        try:
+            rows = await elo_rows([p["nick"] for p in t["players"].values()])
+        except Exception:
+            continue
+        for r in rows:
+            if not r.get("found"):
+                continue
+            st = t["players"].get(r["nickname"].lower())
+            if not st:
+                continue
+            last = (r.get("last") or [{}])[0]
+            mid = last.get("match_id")
+            if mid and mid != st.get("last_match") and st.get("last_match") is not None:
+                old, new = st.get("elo"), r.get("elo")
+                diff = (new - old) if (old is not None and new is not None) else None
+                res = "won" if last.get("win") else "lost"
+                kd = f" · {last.get('kills')}-{last.get('deaths')}" if last.get("kills") is not None else ""
+                elo_txt = f" · ELO {old} → **{new}** ({'+' if diff and diff > 0 else ''}{diff})" if diff is not None else f" · **{new}** ELO"
+                e = discord.Embed(
+                    description=f"{'🟩' if last.get('win') else '🟥'} **[{r['nickname']}]({profile_url(r['nickname'])})** {res} on "
+                                f"**{(last.get('map') or '?').replace('de_', '').title()}** {last.get('score') or ''}{kd}{elo_txt}",
+                    color=0x3DD67F if last.get("win") else 0xFF5A5A)
+                try:
+                    await channel.send(embed=e)
+                except discord.Forbidden:
+                    break
+            if mid:
+                st["last_match"] = mid
+            st["elo"] = r.get("elo")
+            changed = True
+    if changed:
+        save_links(data)
+
+
 @tree.command(name="verify", description="Get your verified FACEIT level role")
 @app_commands.describe(code="Code from faceit-lens.com/settings")
 async def verify(interaction: discord.Interaction, code: str):
@@ -451,6 +607,8 @@ async def on_ready():
     await tree.sync()
     if not refresh_levels.is_running():
         refresh_levels.start()
+    if not post_match_updates.is_running():
+        post_match_updates.start()
     print(f"Logged in as {client.user}")
 
 

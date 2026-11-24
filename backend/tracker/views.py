@@ -1662,3 +1662,60 @@ def player_analysis(request, nickname):
     except Exception as exc:
         import traceback; traceback.print_exc()
         return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+
+
+def _elo_row(nick):
+    from . import privacy
+    key = f"elorow:{nick.lower()}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    try:
+        privacy.check(nickname=nick)
+        p = faceit.get_player_by_nickname(nick)
+    except faceit.FaceitError:
+        cache.set(key, {"nickname": nick, "found": False}, 60)
+        return {"nickname": nick, "found": False}
+    cs2 = (p.get("games") or {}).get(faceit.GAME) or {}
+    if privacy.is_suppressed(p.get("player_id"), cs2.get("game_player_id"), p.get("nickname")):
+        return {"nickname": nick, "found": False}
+    last = []
+    try:
+        for it in faceit.get_match_stats(p["player_id"], limit=5):
+            s = it.get("stats") or {}
+            last.append({
+                "match_id": s.get("Match Id"),
+                "win": faceit._to_int(s.get("Result")) == 1,
+                "map": s.get("Map"),
+                "score": s.get("Score"),
+                "kills": faceit._to_int(s.get("Kills")),
+                "deaths": faceit._to_int(s.get("Deaths")),
+                "adr": s.get("ADR"),
+                "finished_at": faceit._ts_seconds(s.get("Match Finished At")),
+            })
+    except faceit.FaceitError:
+        pass
+    row = {
+        "found": True,
+        "nickname": p.get("nickname"),
+        "player_id": p.get("player_id"),
+        "avatar": p.get("avatar") or None,
+        "country": p.get("country"),
+        "level": cs2.get("skill_level"),
+        "elo": cs2.get("faceit_elo"),
+        "last": last,
+    }
+    cache.set(key, row, 120)
+    return row
+
+
+@require_GET
+def elo_batch(request):
+    """GET /api/elo/?nicks=a,b,c - light ELO/level/last-5 lookup for up to 25 players (bot use)."""
+    from concurrent.futures import ThreadPoolExecutor
+    nicks = [n.strip() for n in (request.GET.get("nicks") or "").split(",") if n.strip()][:25]
+    if not nicks:
+        return JsonResponse({"players": []})
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        rows = list(pool.map(_elo_row, nicks))
+    return JsonResponse({"players": rows})
