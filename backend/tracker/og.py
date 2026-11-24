@@ -42,6 +42,59 @@ def _level_color(level):
     return (254, 31, 0)
 
 
+LEVEL_GRADIENT = {
+    1: ("#d4d4d4", "#8f8f8f"), 2: ("#32e15f", "#1a8f38"), 3: ("#32e15f", "#1a8f38"),
+    4: ("#ffc400", "#b57e00"), 5: ("#ffc400", "#b57e00"), 6: ("#ffc400", "#b57e00"),
+    7: ("#ffc400", "#b57e00"), 8: ("#ff7a26", "#b54400"), 9: ("#ff7a26", "#b54400"),
+    10: ("#ff5a4d", "#b3160b"),
+}
+ARC_START, ARC_SWEEP = 130.67, 278.66
+
+
+def _hex(c):
+    c = c.lstrip("#")
+    return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _vgrad(size, top, bottom, split=0.5):
+    g = Image.new("RGB", (size, size))
+    d = ImageDraw.Draw(g)
+    t, b = _hex(top), _hex(bottom)
+    for y in range(size):
+        k = max(0.0, (y / size - split) / (1 - split))
+        d.line((0, y, size, y), fill=tuple(round(t[i] + (b[i] - t[i]) * k) for i in range(3)))
+    return g
+
+
+def level_badge(level, size):
+    """The site's FACEIT level badge (RankIcons.jsx), drawn at 4x and scaled down."""
+    lvl = max(1, min(10, int(level or 1)))
+    S = size * 4
+    u = S / 24
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse((0, 0, S - 1, S - 1), fill=(6, 6, 6, 255))
+    r, w = 8.4 * u, round(2.4 * u)
+    box = (12 * u - r - w / 2, 12 * u - r - w / 2, 12 * u + r + w / 2, 12 * u + r + w / 2)
+    track = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(track).arc(box, ARC_START, ARC_START + ARC_SWEEP, fill=255, width=w)
+    img.paste(_vgrad(S, "#5d5d5d", "#242424", 0.3), (0, 0), track)
+    frm, to = LEVEL_GRADIENT[lvl]
+    fill = 1.0 if lvl == 10 else lvl / 10
+    arc = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(arc).arc(box, ARC_START, ARC_START + ARC_SWEEP * fill, fill=255, width=w)
+    grad = _vgrad(S, frm, to)
+    img.paste(grad, (0, 0), arc)
+    txt = Image.new("L", (S, S), 0)
+    td = ImageDraw.Draw(txt)
+    f = _font("DejaVuSans-Bold.ttf", round(8 * u * (0.82 if lvl == 10 else 1)))
+    t = str(lvl)
+    bb = td.textbbox((0, 0), t, font=f)
+    td.text((S / 2 - (bb[0] + bb[2]) / 2, S * 0.49 - (bb[1] + bb[3]) / 2), t, font=f, fill=255)
+    img.paste(grad, (0, 0), txt)
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def _avatar(url, size):
     img = None
     if url:
@@ -130,15 +183,12 @@ def render(d):
     lvl = d.get("level")
     cy = 262
     if lvl:
-        col = _level_color(lvl)
-        dr.ellipse((x0, cy - 30, x0 + 60, cy + 30), outline=col, width=5)
-        lf = _font("DejaVuSans-Bold.ttf", 28)
-        t = str(lvl)
-        dr.text((x0 + 30 - dr.textlength(t, font=lf) / 2, cy - 17), t, font=lf, fill=col)
+        badge = level_badge(lvl, 80)
+        img.paste(badge, (x0 - 4, cy - 38), badge)
     elo = f"{d['elo']:,}" if isinstance(d.get("elo"), int) else "—"
     ef = _font("DejaVuSansMono-Bold.ttf", 64)
-    dr.text((x0 + 80, cy - 38), elo, font=ef, fill=ACCENT)
-    dr.text((x0 + 90 + dr.textlength(elo, font=ef), cy - 2), "ELO", font=_font("DejaVuSans-Bold.ttf", 24), fill=DIM)
+    dr.text((x0 + 94, cy - 36), elo, font=ef, fill=ACCENT)
+    dr.text((x0 + 104 + dr.textlength(elo, font=ef), cy), "ELO", font=_font("DejaVuSans-Bold.ttf", 24), fill=DIM)
 
     def fmt(v, suffix=""):
         if v in (None, ""):

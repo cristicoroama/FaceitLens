@@ -195,7 +195,7 @@ async def stats(interaction: discord.Interaction, nickname: str):
     e.add_field(name="Win rate", value=f"{s.get('win_rate') or '—'}%")
     e.add_field(name="K/D", value=str(s.get("avg_kd") or "—"))
     e.add_field(name="HS", value=f"{s.get('avg_hs') or '—'}%")
-    e.set_image(url=f"{SITE}/og/{requests.utils.quote(p.get('nickname') or nickname)}.png?t={int(time.time() // 3600)}")
+    e.set_image(url=f"{API}/api/og/{requests.utils.quote(p.get('nickname') or nickname)}.png?t={int(time.time() // 3600)}")
     await interaction.followup.send(embed=e, view=buttons(p.get("nickname")))
 
 
