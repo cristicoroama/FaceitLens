@@ -177,14 +177,63 @@ def buttons(nick=None, extra=None):
     return v
 
 
+EMOJI = {}
+EMOJI_DIR = os.path.join(os.path.dirname(__file__), "emojis")
+FALLBACK = {"fl_w": "🟩", "fl_l": "🟥", "fl_x": "⬜"}
+
+
+def em(name):
+    e = EMOJI.get(name)
+    if e:
+        return str(e)
+    if name.startswith("fl_lvl"):
+        return {1: "⚪", 2: "🟢", 3: "🟢", 8: "🟠", 9: "🟠", 10: "🔴"}.get(int(name[6:] or 0), "🟡")
+    return FALLBACK.get(name, "")
+
+
+def wl(won):
+    return em("fl_w") if won is True else em("fl_l") if won is False else em("fl_x")
+
+
+def lvl(level):
+    try:
+        return em(f"fl_lvl{int(level)}")
+    except (TypeError, ValueError):
+        return ""
+
+
+def map_em(name):
+    key = (name or "").lower().replace("de_", "").strip()
+    return em(f"fl_map_{key}") if f"fl_map_{key}" in EMOJI else ""
+
+
+async def sync_emojis():
+    try:
+        existing = {e.name: e for e in await client.fetch_application_emojis()}
+    except Exception as exc:
+        print(f"Could not list app emojis: {exc}")
+        return
+    EMOJI.update(existing)
+    if not os.path.isdir(EMOJI_DIR):
+        return
+    for f in sorted(os.listdir(EMOJI_DIR)):
+        name, ext = os.path.splitext(f)
+        if ext.lower() != ".png" or name in EMOJI:
+            continue
+        try:
+            with open(os.path.join(EMOJI_DIR, f), "rb") as fh:
+                EMOJI[name] = await client.create_application_emoji(name=name, image=fh.read())
+            print(f"Uploaded emoji {name}")
+        except Exception as exc:
+            print(f"Emoji {name} failed: {exc}")
+
+
 def form_line(p):
     rm = p.get("recent_matches") or []
     marks = []
     for m in rm[:10]:
-        if m.get("won") is True:
-            marks.append("🟩")
-        elif m.get("won") is False:
-            marks.append("🟥")
+        if m.get("won") is not None:
+            marks.append(wl(m.get("won")))
     return "".join(marks) or "—"
 
 
@@ -267,12 +316,16 @@ async def elo(interaction: discord.Interaction, nickname: str):
         p = await fetch(player(nickname))
     except Exception as exc:
         return await fail(interaction, str(exc))
-    e = base_embed(p)
-    e.add_field(name="ELO", value=f"**{p.get('elo') or '—'}**")
-    e.add_field(name="Level", value=str(p.get("skill_level") or "—"))
+    remember(p.get("nickname"))
     s = p.get("stats") or {}
-    e.add_field(name="Win rate", value=f"{s.get('win_rate') or '—'}%")
-    e.add_field(name="Last 10", value=form_line(p), inline=False)
+    ra = p.get("recent_avg") or {}
+    e = base_embed(p)
+    e.color = level_colour(p.get("skill_level"))
+    e.description = (f"{lvl(p.get('skill_level'))} **{p.get('elo') or '—'}** ELO · Level {p.get('skill_level') or '—'}\n"
+                     f"{form_line(p)}")
+    e.add_field(name="Win rate", value=f"**{s.get('win_rate') or '—'}%**")
+    e.add_field(name="K/D", value=f"**{s.get('avg_kd') or '—'}**")
+    e.add_field(name="ADR · last 30", value=f"**{_num(ra.get('adr'), 0)}**")
     await interaction.followup.send(embed=e, view=buttons(p.get("nickname")))
 
 
@@ -324,7 +377,7 @@ async def season(interaction: discord.Interaction, nickname: str):
     else:
         e.description = "No matches this season."
     if pl.get("status") in ("in_progress", "done"):
-        marks = "".join("🟩" if x == "W" else "🟥" for x in pl.get("results") or [])
+        marks = "".join(wl(x == "W") for x in pl.get("results") or [])
         e.add_field(name=f"Season {pl['season']} placements {pl['played']}/{pl['need']}", value=marks or "—", inline=False)
     elif pl.get("status") == "upcoming":
         e.add_field(name=f"Season {pl['season']}", value=f"Starts <t:{pl['starts_at']}:R>", inline=False)
@@ -473,7 +526,7 @@ async def elo_rows(nicks):
 
 
 def form(row):
-    return "".join("🟩" if m.get("win") else "🟥" for m in reversed(row.get("last") or [])) or "—"
+    return "".join(wl(bool(m.get("win"))) for m in reversed(row.get("last") or [])) or "—"
 
 
 def today():
@@ -559,7 +612,7 @@ async def elos(interaction: discord.Interaction):
             st["day"], st["day_elo"] = today(), r.get("elo")
         d = (r.get("elo") or 0) - (st.get("day_elo") or r.get("elo") or 0)
         delta = f" ({'+' if d > 0 else ''}{d} today)" if d else ""
-        lines.append(f"`{i:>2}` **[{r['nickname']}]({profile_url(r['nickname'])})** · Lvl {r.get('level')} · "
+        lines.append(f"`{i:>2}` {lvl(r.get('level'))} **[{r['nickname']}]({profile_url(r['nickname'])})** · "
                      f"**{r.get('elo')}**{delta}  {form(r)}")
     save_links(data)
     e = discord.Embed(title="FACEIT ELO", description="\n".join(lines), color=ORANGE)
@@ -598,7 +651,7 @@ async def post_match_updates():
                 kd = f" · {last.get('kills')}-{last.get('deaths')}" if last.get("kills") is not None else ""
                 elo_txt = f" · ELO {old} → **{new}** ({'+' if diff and diff > 0 else ''}{diff})" if diff is not None else f" · **{new}** ELO"
                 e = discord.Embed(
-                    description=f"{'🟩' if last.get('win') else '🟥'} **[{r['nickname']}]({profile_url(r['nickname'])})** {res} on "
+                    description=f"{wl(bool(last.get('win')))} {map_em(last.get('map'))} **[{r['nickname']}]({profile_url(r['nickname'])})** {res} on "
                                 f"**{(last.get('map') or '?').replace('de_', '').title()}** {last.get('score') or ''}{kd}{elo_txt}",
                     color=0x3DD67F if last.get("win") else 0xFF5A5A)
                 e.set_image(url=img_url(f"/api/og/match/{mid}.png?player={requests.utils.quote(r['nickname'])}"))
@@ -721,7 +774,7 @@ def _num(v, d=2):
 def profile_header(p, title=None):
     lvl = p.get("skill_level")
     e = discord.Embed(color=level_colour(lvl), url=profile_url(p.get("nickname")),
-                      title=title or f"{LEVEL_EMOJI.get(int(lvl or 0), '')} {p.get('nickname')}")
+                      title=title or f"{p.get('nickname')}")
     if p.get("avatar"):
         e.set_thumbnail(url=p["avatar"])
     e.set_footer(text=FOOTER)
@@ -731,7 +784,7 @@ def profile_header(p, title=None):
 def tab_overview(p):
     s, ra = p.get("stats") or {}, p.get("recent_avg") or {}
     e = profile_header(p)
-    e.description = f"**{p.get('elo')} ELO** · Level {p.get('skill_level')} · {(p.get('country') or '').upper()}"
+    e.description = f"{lvl(p.get('skill_level'))} **{p.get('elo')} ELO** · Level {p.get('skill_level')} · {(p.get('country') or '').upper()}"
     e.add_field(name="Matches", value=str(s.get("matches") or "—"))
     e.add_field(name="Win rate", value=_pct(s.get("win_rate")))
     e.add_field(name="K/D", value=str(s.get("avg_kd") or "—"))
@@ -748,7 +801,7 @@ def tab_maps(p):
     rows = [m for m in (p.get("map_stats") or []) if m.get("matches")][:8]
     if rows:
         e.description = "\n".join(
-            f"`{m['map'][:9]:<9}` {m['matches']:>4} games · **{_pct(m.get('win_rate'))}** · K/D {_num(m.get('avg_kd'))} · ADR {_num(m.get('adr'), 0)}"
+            f"{map_em(m['map'])} `{m['map'][:9]:<9}` {m['matches']:>4} games · **{_pct(m.get('win_rate'))}** · K/D {_num(m.get('avg_kd'))} · ADR {_num(m.get('adr'), 0)}"
             for m in rows)
     e.set_image(url=img_url(f"/api/og/maps/{requests.utils.quote(p.get('nickname'))}.png"))
     return e
@@ -758,11 +811,11 @@ def tab_matches(p):
     e = profile_header(p, f"{p.get('nickname')} · Last matches")
     lines = []
     for m in (p.get("recent_matches") or [])[:10]:
-        mark = "🟩" if m.get("won") else "🟥" if m.get("won") is False else "⬜"
+        mark = wl(m.get("won"))
         when = f"<t:{int(m['finished_at'])}:R>" if m.get("finished_at") else ""
         kda = f"{m.get('kills')}-{m.get('deaths')}" if m.get("kills") is not None else ""
         rating = f" · {m['rating']:.2f}" if isinstance(m.get("rating"), (int, float)) else ""
-        lines.append(f"{mark} **{(m.get('map') or '?').replace('de_', '').title()}** {m.get('score') or ''} · {kda}{rating} · {when}")
+        lines.append(f"{mark} {map_em(m.get('map'))} **{(m.get('map') or '?').replace('de_', '').title()}** {m.get('score') or ''} · {kda}{rating} · {when}")
     e.description = "\n".join(lines) or "No recent matches."
     return e
 
@@ -890,7 +943,7 @@ async def lobby(interaction: discord.Interaction, room: str):
         lines = []
         for pl in (t.get("players") or [])[:5]:
             rec = pl.get("recent") or {}
-            lines.append(f"{LEVEL_EMOJI.get(int(pl.get('level') or 0), '')} **{pl.get('nickname')}** · {pl.get('elo') or '—'}"
+            lines.append(f"{lvl(pl.get('level'))} **{pl.get('nickname')}** · {pl.get('elo') or '—'}"
                          f" · K/D {_num(rec.get('kd'))} · {_pct(rec.get('win_rate'))}")
         head = f"{t.get('name') or key} · avg {t.get('avg_elo') or '—'} ELO" + (f" · **{prob}%**" if prob is not None and not d.get("finished") else "")
         e.add_field(name=head, value="\n".join(lines) or "—", inline=False)
@@ -917,7 +970,16 @@ async def h2h(interaction: discord.Interaction, a: str, b: str):
         e.description = "They haven't played in the same match in their recent history."
     else:
         e.description = (f"**{d['encounters']}** shared matches\n"
-                         f"🤝 **{d.get('together', 0)}** on the same team · ⚔️ **{d.get('against', 0)}** against each other")
+                         f"🤝 **{d.get('together', 0)}** together ({d.get('together_wins', 0)}W) · "
+                         f"⚔️ **{d.get('against', 0)}** against ({d.get('p1', a)} {d.get('p1_wins_against', 0)}–"
+                         f"{d.get('against', 0) - d.get('p1_wins_against', 0)} {d.get('p2', b)})")
+        lines = []
+        for m in (d.get("matches") or [])[:8]:
+            when = f"<t:{int(m['finished_at'])}:R>" if m.get("finished_at") else ""
+            lines.append(f"{wl(m.get('p1_won'))} {map_em(m.get('map'))} {'🤝' if m.get('together') else '⚔️'} "
+                         f"**{(m.get('map') or '?').replace('de_', '').title()}** {m.get('score') or ''} · {when}")
+        if lines:
+            e.add_field(name="Latest shared matches", value="\n".join(lines), inline=False)
     e.set_footer(text=FOOTER)
     await interaction.followup.send(embed=e, view=buttons())
 
@@ -946,6 +1008,7 @@ async def on_guild_remove(guild):
 @client.event
 async def on_ready():
     await asyncio.to_thread(load_links)
+    await sync_emojis()
     await tree.sync()
     if not refresh_levels.is_running():
         refresh_levels.start()

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MapIcon, mapLabel } from "../map-art.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -53,7 +54,7 @@ export default function HaveWeMet({ player }) {
       {result && (
         result.encounters === 0 ? (
           <div className="state">
-            {result.p1} and {result.p2} have never crossed paths in recent matches.
+            {result.p1} and {result.p2} have never crossed paths in their last {Math.min(...(result.checked || [100]))} matches.
           </div>
         ) : (
           <div className="squad-summary">
@@ -71,6 +72,28 @@ export default function HaveWeMet({ player }) {
             </div>
           </div>
         )
+      )}
+      {result?.matches?.length > 0 && (
+        <div className="hwm">
+          <div className="hwm-sum">
+            {result.together > 0 && <span>Together: <b className="pos">{result.together_wins}W</b> <b className="neg">{result.together - result.together_wins}L</b></span>}
+            {result.against > 0 && <span>Head to head: <b>{result.p1}</b> {result.p1_wins_against} – {result.against - result.p1_wins_against} <b>{result.p2}</b></span>}
+            <span className="hwm-dim">checked the last {result.checked?.[0]} and {result.checked?.[1]} matches</span>
+          </div>
+          <div className="hwm-list">
+            {result.matches.map((m) => (
+              <a key={m.match_id} className="hwm-row" href={`https://www.faceit.com/en/cs2/room/${m.match_id}`} target="_blank" rel="noopener noreferrer">
+                <span className={`hwm-tag ${m.together ? "t" : "a"}`}>{m.together ? "With" : "Vs"}</span>
+                <span className="hwm-map"><MapIcon map={m.map} size={16} />{mapLabel(m.map)}</span>
+                <span className="hwm-score">{m.score || ""}</span>
+                <span className={m.p1_won ? "pos" : "neg"}>{m.p1_won ? "W" : "L"}</span>
+                <span className="hwm-kd">{result.p1} {m.p1 || "—"}</span>
+                <span className="hwm-kd">{result.p2} {m.p2 || "—"}</span>
+                <span className="hwm-dim">{m.finished_at ? new Date(m.finished_at * 1000).toLocaleDateString() : ""}</span>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
     </>
   );

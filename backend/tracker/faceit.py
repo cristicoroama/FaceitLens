@@ -3468,30 +3468,70 @@ def get_player_hubs(player_id):
     return out
 
 
-def build_have_we_met(nick1, nick2):
-    """Matches two players share: together (same team) vs against (opposing)."""
+def build_have_we_met(nick1, nick2, depth=500):
+    """Matches two players share: together (same team) vs against (opposing).
+
+    Walks up to `depth` recent matches of each player (FACEIT pages 100 at a
+    time) and lists every shared match, newest first.
+    """
+    key = f"met:{nick1.lower()}:{nick2.lower()}:{depth}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
     def results_map(nick):
         p = get_player_by_nickname(nick)
         pid = p["player_id"]
         res = {}
-        for it in get_match_stats(pid, limit=100):
+        items = get_recent_match_stats(pid, total=depth)
+        for it in items:
             s = it.get("stats", {})
             mid = s.get("Match Id") or s.get("Match ID")
             r = _to_int(s.get("Result"))
             if mid is not None and r is not None:
-                res[mid] = r
-        return p.get("nickname"), res
+                res[mid] = {
+                    "won": r,
+                    "map": s.get("Map"),
+                    "score": s.get("Score"),
+                    "kills": _to_int(s.get("Kills")),
+                    "deaths": _to_int(s.get("Deaths")),
+                    "finished_at": _ts_seconds(s.get("Match Finished At")),
+                }
+        return p.get("nickname"), res, len(items)
 
-    n1, r1 = results_map(nick1)
-    n2, r2 = results_map(nick2)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f1, f2 = pool.submit(results_map, nick1), pool.submit(results_map, nick2)
+        n1, r1, c1 = f1.result()
+        n2, r2, c2 = f2.result()
     common = set(r1) & set(r2)
-    together = sum(1 for mid in common if r1[mid] == r2[mid])
-    return {
+    rows = []
+    for mid in common:
+        a, b = r1[mid], r2[mid]
+        rows.append({
+            "match_id": mid,
+            "finished_at": a["finished_at"] or b["finished_at"],
+            "map": a["map"],
+            "score": a["score"],
+            "together": a["won"] == b["won"],
+            "p1_won": a["won"] == 1,
+            "p1": f"{a['kills']}-{a['deaths']}" if a["kills"] is not None else None,
+            "p2": f"{b['kills']}-{b['deaths']}" if b["kills"] is not None else None,
+        })
+    rows.sort(key=lambda r: -(r["finished_at"] or 0))
+    together = [r for r in rows if r["together"]]
+    against = [r for r in rows if not r["together"]]
+    out = {
         "p1": n1, "p2": n2,
-        "encounters": len(common),
-        "together": together,
-        "against": len(common) - together,
+        "encounters": len(rows),
+        "together": len(together),
+        "against": len(against),
+        "together_wins": sum(1 for r in together if r["p1_won"]),
+        "p1_wins_against": sum(1 for r in against if r["p1_won"]),
+        "checked": [c1, c2],
+        "matches": rows[:60],
     }
+    cache.set(key, out, 15 * 60)
+    return out
 
 
 def get_steam_info(steam_id):
