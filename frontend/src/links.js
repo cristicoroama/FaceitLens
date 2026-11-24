@@ -10,6 +10,9 @@
 // Permanent invite: never expires, unlimited uses.
 export const DISCORD_INVITE = "https://discord.gg/p5GeaTEYdt";
 
+// "Add to Discord" for the FaceitLens bot (install settings live in the Developer Portal).
+export const DISCORD_BOT_INVITE = "https://discord.com/oauth2/authorize?client_id=1574897964998987867";
+
 export const GITHUB_REPO = "https://github.com/cristicoroama/FaceitLens";
 export const CONTACT_EMAIL = "coroamamh@gmail.com";
 

@@ -1,4 +1,17 @@
 export const TOOL_COPY = {
+  discordbot: {
+    heading: "A FACEIT bot for your Discord server",
+    paras: [
+      "Add the Faceit-Lens bot to any Discord server you manage and everyone can look up a FACEIT CS2 player without leaving Discord: /elo for level, ELO and recent form, /stats for the full card with win rate, K/D and headshot rate, and /compare to put two players head to head.",
+      "Track your friends with /track add and post the whole table with /elos, sorted by ELO with today's change and the last five results. Point it at a channel with /track channel and the bot posts every finished match of a tracked player: result, map, score, K-D and the ELO change.",
+      "Verified level roles give each member a FACEIT Level 1 to 10 role that updates by itself. Members sign in on faceit-lens.com, link their FACEIT account and type /verify with a one-time code, so nobody can claim someone else's level.",
+    ],
+    faq: [
+      ["Is the bot free?", "Yes. There is no paid tier and no premium commands."],
+      ["What permissions does it need?", "View Channels, Send Messages, Embed Links and Use Slash Commands. Manage Roles is only needed for level roles; the bot's own role has to sit above the FACEIT Level roles."],
+      ["Does it read my server's messages?", "No. It only answers slash commands and posts in the channel you choose. It does not request the message content intent."],
+    ],
+  },
   matchroom: {
     heading: "How the FACEIT match room analyser works",
     paras: [

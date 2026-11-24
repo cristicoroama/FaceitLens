@@ -149,6 +149,7 @@ const CRAWL_HINTS = {
   "/prosettings": ["weekly", "0.9"],
   "/competitions": ["daily", "0.8"],
   "/pickem": ["daily", "0.9"],
+  "/discordbot": ["monthly", "0.7"],
   "/news": ["daily", "0.6"],
   "/privacy": ["yearly", "0.3"],
   "/terms": ["yearly", "0.3"],

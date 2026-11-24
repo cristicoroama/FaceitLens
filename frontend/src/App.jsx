@@ -44,6 +44,7 @@ import Hubs from "./components/Hubs.jsx";
 import Teams from "./components/Teams.jsx";
 import Competitions from "./components/Competitions.jsx";
 import Pickem from "./components/Pickem.jsx";
+import DiscordBot from "./components/DiscordBot.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import MiniHeader from "./components/MiniHeader.jsx";
 import ToolAbout from "./components/ToolAbout.jsx";
@@ -179,6 +180,8 @@ function buildNav(t, lang, flags = {}) { return [
       hint: t("hint.pickem"), badge: t("nav.new") },
     { id: "watchlist", label: t("nav.watchlist"), href: localePath(lang, "/watchlist"), icon: Icon.star,
       hint: t("hint.watchlist") },
+    { id: "discordbot", label: t("nav.discordbot"), href: localePath(lang, "/discordbot"), icon: <DiscordIcon size={16} />,
+      hint: t("hint.discordbot"), badge: t("nav.new") },
   ]},
   { label: t("nav.live"), items: [
     { id: "faceitstatus", label: t("nav.faceitStatus"), href: localePath(lang, "/faceitstatus"), icon: Icon.activity,
@@ -1094,6 +1097,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
           {mode === "teams" && <Teams onPick={go} />}
           {mode === "competitions" && <Competitions onPick={go} />}
           {mode === "pickem" && <Pickem />}
+          {mode === "discordbot" && <DiscordBot />}
           {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
           {mode === "games" && <Games />}
           {mode === "proguesser" && <ProGuesser />}
