@@ -1001,6 +1001,20 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
+              <a
+                className="home-promo"
+                href={localePath(lang, "/discordbot")}
+                onClick={(e) => { if (isPlainClick(e)) { e.preventDefault(); pickNav("discordbot"); } }}
+              >
+                <span className="home-promo-ic"><DiscordIcon size={22} /></span>
+                <span className="home-promo-txt">
+                  <span className="home-promo-tag">New</span>
+                  <b>Try our new Discord bot</b>
+                  <span>ELO and stats on demand, a live ELO table of your friends and match results in your channel. Free.</span>
+                </span>
+                <span className="home-promo-go">Add to Discord →</span>
+              </a>
+
               <AdBanner />
 
               <div className="home-section-label">Everything you can do</div>

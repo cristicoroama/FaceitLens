@@ -8579,3 +8579,23 @@ img.mr-crest { object-fit: cover; background: var(--bg-elev-3); }
 .db-steps b { color: var(--text); }
 .db-steps code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-elev-2); padding: 1px 6px; border-radius: 5px; color: var(--text); }
 .db-steps a { color: var(--accent); }
+
+/* Homepage promo: Discord bot */
+.home-promo {
+  display: flex; align-items: center; gap: 14px; margin: 18px auto 6px; max-width: 760px; width: 100%;
+  padding: 13px 16px; border-radius: 14px; text-decoration: none; color: var(--text);
+  background: linear-gradient(110deg, color-mix(in srgb, #5865f2 22%, var(--bg-elev)), var(--bg-elev) 70%);
+  border: 1px solid color-mix(in srgb, #5865f2 40%, var(--border));
+  transition: border-color .15s, transform .15s;
+}
+.home-promo:hover { border-color: #5865f2; transform: translateY(-1px); }
+.home-promo-ic { width: 42px; height: 42px; border-radius: 12px; background: #5865f2; color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+.home-promo-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; text-align: left; }
+.home-promo-txt b { font-size: 15px; }
+.home-promo-txt > span:last-child { font-size: 12.5px; color: var(--text-dim); }
+.home-promo-tag {
+  align-self: flex-start; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: #fff; background: #5865f2; padding: 1px 6px; border-radius: 5px;
+}
+.home-promo-go { flex-shrink: 0; font-weight: 800; font-size: 13px; color: #8c96ff; white-space: nowrap; }
+@media (max-width: 560px) { .home-promo-go { display: none; } }
