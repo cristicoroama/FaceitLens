@@ -78,6 +78,8 @@ def player_summary(request, nickname):
         data = faceit.build_player_summary(nickname)
     except privacy.Suppressed as exc:
         return JsonResponse({"error": str(exc)}, status=404)
+    except faceit.FaceitNotFound:
+        return JsonResponse({"error": "No FACEIT player with that nickname. Nicknames are case-sensitive."}, status=404)
     except faceit.FaceitError as exc:
         return JsonResponse({"error": str(exc)}, status=502)
     except Exception as exc:

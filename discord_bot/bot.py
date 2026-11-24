@@ -11,12 +11,15 @@ Slash commands:
   /unlink                remove your link
   /leaderboard           this week's ELO race between linked members
   /pickem <code>         a FaceitLens Pick'em league table
+  /verify <code>         verified FACEIT level role (code from faceit-lens.com/settings)
+  /unverify              remove your level role
 
 Env:
   DISCORD_TOKEN          bot token
   FACEITLENS_API         https://<render-service>.onrender.com   (no trailing /api)
   FACEITLENS_API_KEY     optional, sent as X-API-Key
   DATA_PATH              optional, where links are stored (default ./links.json)
+  DISCORD_BOT_SECRET     same value as on the backend, for /verify and role refresh
 """
 import asyncio
 import json
@@ -26,10 +29,15 @@ import time
 import discord
 import requests
 from discord import app_commands
+from discord.ext import tasks
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 API = os.environ.get("FACEITLENS_API", "").rstrip("/")
 API_KEY = os.environ.get("FACEITLENS_API_KEY", "")
+BOT_SECRET = os.environ.get("DISCORD_BOT_SECRET", "")
+LEVEL_COLORS = {1: 0xEEEEEE, 2: 0x1CE400, 3: 0x1CE400, 4: 0xFFC800, 5: 0xFFC800, 6: 0xFFC800,
+                7: 0xFFC800, 8: 0xFF6309, 9: 0xFF6309, 10: 0xFE1F00}
+ROLE_PREFIX = "FACEIT Level "
 DATA_PATH = os.environ.get("DATA_PATH", os.path.join(os.path.dirname(__file__), "links.json"))
 SITE = "https://faceit-lens.com"
 INVITE = "https://discord.gg/p5GeaTEYdt"
@@ -51,6 +59,44 @@ def _get(path, timeout=25):
 
 async def fetch(path, timeout=25):
     return await asyncio.to_thread(_get, path, timeout)
+
+
+def _bot(method, path, body=None):
+    headers = {"X-Bot-Secret": BOT_SECRET}
+    if API_KEY:
+        headers["X-API-Key"] = API_KEY
+    r = requests.request(method, f"{API}{path}", json=body, headers=headers, timeout=25)
+    try:
+        data = r.json()
+    except ValueError:
+        data = {}
+    if r.status_code != 200:
+        raise RuntimeError(data.get("error") or f"API error {r.status_code}")
+    return data
+
+
+async def bot_call(method, path, body=None):
+    return await asyncio.to_thread(_bot, method, path, body)
+
+
+async def level_role(guild, level):
+    name = f"{ROLE_PREFIX}{level}"
+    role = discord.utils.get(guild.roles, name=name)
+    if role is None:
+        role = await guild.create_role(name=name, colour=discord.Colour(LEVEL_COLORS.get(level, 0x999999)),
+                                       hoist=True, reason="FaceitLens verified level roles")
+    return role
+
+
+async def apply_level(member, level):
+    if not level:
+        return
+    target = await level_role(member.guild, int(level))
+    stale = [r for r in member.roles if r.name.startswith(ROLE_PREFIX) and r != target]
+    if stale:
+        await member.remove_roles(*stale, reason="FaceitLens level update")
+    if target not in member.roles:
+        await member.add_roles(target, reason="FaceitLens level update")
 
 
 def player(nick):
@@ -310,9 +356,101 @@ async def pickem(interaction: discord.Interaction, code: str):
     await interaction.followup.send(embed=e, view=buttons(extra=join))
 
 
+@tree.command(name="verify", description="Get your verified FACEIT level role")
+@app_commands.describe(code="Code from faceit-lens.com/settings")
+async def verify(interaction: discord.Interaction, code: str):
+    await interaction.response.defer(ephemeral=True)
+    if not interaction.guild:
+        return await fail(interaction, "Use this inside a server.")
+    try:
+        info = await bot_call("POST", "/api/discord/claim/", {"code": code, "discord_id": str(interaction.user.id)})
+    except Exception as exc:
+        return await fail(interaction, str(exc))
+    data = load_links()
+    v = data.setdefault("_verified", {}).setdefault(str(interaction.guild.id), {})
+    v[str(interaction.user.id)] = {"player_id": info["player_id"], "level": info.get("level")}
+    save_links(data)
+    try:
+        await apply_level(interaction.user, info.get("level"))
+    except discord.Forbidden:
+        return await fail(interaction, "Verified, but I can't manage roles here. An admin must give me Manage Roles "
+                                       "and move my role above the level roles.")
+    await interaction.followup.send(
+        f"Verified as **{info.get('nickname')}** · Level {info.get('level')} · {info.get('elo')} ELO. "
+        "Your role updates automatically when you level up.", ephemeral=True)
+
+
+@tree.command(name="unverify", description="Remove your FACEIT level role")
+async def unverify(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    data = load_links()
+    data.get("_verified", {}).get(str(interaction.guild_id), {}).pop(str(interaction.user.id), None)
+    save_links(data)
+    try:
+        await bot_call("POST", "/api/discord/unlink/", {"discord_id": str(interaction.user.id)})
+    except Exception:
+        pass
+    if isinstance(interaction.user, discord.Member):
+        stale = [r for r in interaction.user.roles if r.name.startswith(ROLE_PREFIX)]
+        if stale:
+            try:
+                await interaction.user.remove_roles(*stale, reason="FaceitLens unverify")
+            except discord.Forbidden:
+                pass
+    await interaction.followup.send("Done. Your level role was removed.", ephemeral=True)
+
+
+@tasks.loop(hours=3)
+async def refresh_levels():
+    if not (API and BOT_SECRET):
+        return
+    data = load_links()
+    verified = data.get("_verified", {})
+    for gid, users in list(verified.items()):
+        guild = client.get_guild(int(gid))
+        if not guild or not users:
+            continue
+        ids = ",".join(sorted({u["player_id"] for u in users.values()}))
+        try:
+            players = (await bot_call("GET", f"/api/discord/levels/?ids={ids}")).get("players", {})
+        except Exception:
+            continue
+        channel = discord.utils.get(guild.text_channels, name="level-ups")
+        for uid, row in list(users.items()):
+            p = players.get(row["player_id"])
+            try:
+                member = guild.get_member(int(uid)) or await guild.fetch_member(int(uid))
+            except (discord.NotFound, discord.HTTPException):
+                users.pop(uid, None)
+                continue
+            if p is None:
+                stale = [r for r in member.roles if r.name.startswith(ROLE_PREFIX)]
+                if stale:
+                    try:
+                        await member.remove_roles(*stale, reason="FaceitLens link removed")
+                    except discord.Forbidden:
+                        pass
+                users.pop(uid, None)
+                continue
+            old, new = row.get("level"), p.get("level")
+            try:
+                await apply_level(member, new)
+            except discord.Forbidden:
+                break
+            if channel and old and new and int(new) > int(old):
+                try:
+                    await channel.send(f"🎉 {member.mention} just reached **FACEIT Level {new}** ({p.get('elo')} ELO)!")
+                except discord.Forbidden:
+                    pass
+            row["level"] = new
+    save_links(data)
+
+
 @client.event
 async def on_ready():
     await tree.sync()
+    if not refresh_levels.is_running():
+        refresh_levels.start()
     print(f"Logged in as {client.user}")
 
 

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import og, pickem, webhooks
+from . import discord_link, og, pickem, webhooks
 from . import auth, faceit_oauth, feedback, overlay, profiles, support, views
 from .apikeys import require_api_key
 
@@ -55,6 +55,10 @@ urlpatterns = [
     path("match/<str:match_id>/", require_api_key(views.match_detail), name="match-detail"),
     path("og/<str:nickname>", og.og_image, name="og-image"),
     path("webhooks/faceit/", webhooks.faceit_webhook, name="faceit-webhook"),
+    path("discord/code/", discord_link.code, name="discord-code"),
+    path("discord/claim/", discord_link.claim, name="discord-claim"),
+    path("discord/unlink/", discord_link.unlink, name="discord-unlink"),
+    path("discord/levels/", discord_link.levels, name="discord-levels"),
     path("sitemap/players/", views.sitemap_players, name="sitemap-players"),
     path("pickem/", pickem.pickem, name="pickem"),
     path("pickem/picks/", pickem.save_picks, name="pickem-picks"),

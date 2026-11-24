@@ -14,6 +14,7 @@ The bot talks to the FaceitLens backend, not to FACEIT directly, so it shares th
 | `DISCORD_TOKEN` | Bot token |
 | `FACEITLENS_API` | Backend URL, e.g. `https://faceitlens.onrender.com` (no `/api`) |
 | `FACEITLENS_API_KEY` | An API key from Django admin → Api keys (needed when API keys are enforced) |
+| `DISCORD_BOT_SECRET` | Long random string, same value as on the backend (Render env). Needed for `/verify` level roles |
 | `DATA_PATH` | Optional path for `links.json`. On Render, point it at a persistent disk or links reset on redeploy |
 
 ## Run locally
@@ -33,3 +34,11 @@ permissions `Send Messages` + `Embed Links`. Put the invite link on top.gg and d
 ## Host on Render
 New → Background Worker → Root Directory `discord_bot` → Build `pip install -r requirements.txt`
 → Start `python bot.py` → add the env vars above.
+
+## Verified level roles
+1. User signs in on faceit-lens.com, links FACEIT (Settings), presses **Get my code**.
+2. In Discord: `/verify CODE`. The bot gives `FACEIT Level N` (creates the 10 roles on first use, in FACEIT colours).
+3. Every 3 hours the bot refreshes levels and posts level-ups in a channel named `#level-ups` if it exists.
+
+The bot needs the **Manage Roles** permission and its own role must sit above the `FACEIT Level` roles.
+Invite URL permissions: Send Messages, Embed Links, Manage Roles.

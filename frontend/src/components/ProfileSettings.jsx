@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "../icons.jsx";
+import DiscordRoles from "./DiscordRoles.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -434,6 +435,8 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
           </div>
         )}
       </div>
+
+      <DiscordRoles />
 
       {/* --- Visibility ---------------------------------------------------- */}
       <div className="panel ps-card">

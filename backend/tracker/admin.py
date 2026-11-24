@@ -509,3 +509,12 @@ class PlayerSuppressionAdmin(admin.ModelAdmin):
             report = privacy.purge(obj.player_id, obj.steamid, obj.nickname_list())
             parts = [f"{k}: {v}" for k, v in report.items() if v not in (0, [], None)]
             self.message_user(request, f"{obj}: " + ("; ".join(parts) if parts else "nothing was stored"))
+
+
+from .models import DiscordLink  # noqa: E402
+
+
+@admin.register(DiscordLink)
+class DiscordLinkAdmin(admin.ModelAdmin):
+    list_display = ("user", "discord_id", "linked_at")
+    search_fields = ("discord_id", "user__username")

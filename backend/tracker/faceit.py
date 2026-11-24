@@ -22,6 +22,10 @@ class FaceitError(Exception):
     """Raised when the FACEIT API responds with a non-200 status."""
 
 
+class FaceitNotFound(FaceitError):
+    pass
+
+
 def _headers():
     if not FACEIT_API_KEY:
         raise FaceitError("FACEIT_API_KEY is not set in the environment.")
@@ -31,7 +35,7 @@ def _headers():
 def _get(path, params=None):
     resp = requests.get(f"{BASE_URL}{path}", headers=_headers(), params=params, timeout=10)
     if resp.status_code == 404:
-        raise FaceitError("Resource not found (404).")
+        raise FaceitNotFound("Resource not found (404).")
     if resp.status_code != 200:
         raise FaceitError(f"FACEIT API responded with {resp.status_code}: {resp.text[:200]}")
     return resp.json()

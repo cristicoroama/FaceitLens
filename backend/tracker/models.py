@@ -886,3 +886,18 @@ class PlayerSuppression(models.Model):
 
     def nickname_list(self):
         return [n.strip().lower() for n in (self.nicknames or "").splitlines() if n.strip()]
+
+
+class DiscordLink(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="discord_link")
+    discord_id = models.CharField(max_length=32, unique=True)
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Discord link #{self.pk}"
+
+
+class DiscordLinkCode(models.Model):
+    code = models.CharField(max_length=12, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="discord_codes")
+    expires_at = models.DateTimeField()
