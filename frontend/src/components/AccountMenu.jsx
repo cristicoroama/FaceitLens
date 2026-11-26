@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 
 import { SteamIcon, FaceitIcon } from "./BrandIcons.jsx";
 import { Icon } from "../icons.jsx";
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
+import { useFaceitLogin, FACEIT_LOGIN_URL, STEAM_LOGIN_URL } from "../lib/account-api.js";
 
 /**
  * Topbar account widget.
@@ -13,42 +12,76 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 export default function AccountMenu({ user, onLogout, onSettings, onMyProfile, onMyGameProfile }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const faceitEnabled = useFaceitLogin();
 
   useEffect(() => {
     function onDoc(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
+    function onKey(e) {
+      if (e.key === "Escape") {
+        setOpen((o) => {
+          if (o) triggerRef.current?.focus();
+          return false;
+        });
+      }
+    }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
-  // Steam only up here — one clean button. Linking a FACEIT account lives in
-  // Settings, where there's room to explain what it does.
   if (!user) {
     return (
-      <a className="tb-btn steam-login" href={`${API_BASE}/api/auth/steam/login/`}>
-        <SteamIcon />
-        <span className="steam-login-label">Sign in with Steam</span>
-      </a>
+      <div className="acc-signin">
+        <a className="tb-btn steam-login" href={STEAM_LOGIN_URL} aria-label="Sign in with Steam">
+          <SteamIcon />
+          <span className="steam-login-label">Sign in with Steam</span>
+        </a>
+        {faceitEnabled && (
+          <a
+            className="tb-btn faceit-login-sm"
+            href={FACEIT_LOGIN_URL}
+            aria-label="Sign in with FACEIT"
+            title="Sign in with FACEIT"
+          >
+            <FaceitIcon size={14} />
+            <span className="steam-login-label">FACEIT</span>
+          </a>
+        )}
+      </div>
     );
   }
 
   return (
     <div className="acc-menu" ref={ref}>
-      <button className="tb-btn acc-trigger" onClick={() => setOpen((o) => !o)} title={user.name}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="tb-btn acc-trigger"
+        onClick={() => setOpen((o) => !o)}
+        title={user.name}
+        aria-expanded={open}
+        aria-controls="acc-pop"
+        aria-label={`Account menu for ${user.name}`}
+      >
         {user.avatar ? (
           <img className="acc-avatar" src={user.avatar} alt={user.name} />
         ) : (
           <span className="acc-avatar ph">{(user.name || "?").slice(0, 2).toUpperCase()}</span>
         )}
         <span className="acc-name">{user.name}</span>
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
 
       {open && (
-        <div className="acc-pop">
+        <div className="acc-pop" id="acc-pop" aria-label="Account">
           <div className="acc-pop-head">
             {user.avatar && <img className="acc-avatar lg" src={user.avatar} alt="" />}
             <div>
@@ -90,6 +123,13 @@ export default function AccountMenu({ user, onLogout, onSettings, onMyProfile, o
                 : <SteamIcon size={14} />}
               {user.profile?.faceit_nickname ? "My FACEIT stats →" : "My CS2 profile →"}
             </button>
+          )}
+
+          {faceitEnabled && !user.profile?.faceit_verified && (
+            <a className="theme-opt" href={FACEIT_LOGIN_URL}>
+              <FaceitIcon size={14} />
+              Link FACEIT account
+            </a>
           )}
 
           {user.steamid && (

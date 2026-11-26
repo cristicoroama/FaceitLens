@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { FaceitLevel, Flag } from "./RankIcons.jsx";
+import { requestJson } from "../lib/account-api.js";
+import "../styles/account.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -8,6 +10,117 @@ function initials(name) {
 }
 
 const WEEK = 7 * 86400;
+const BATCH = 25;
+const LIVE_EVERY = 120000;
+
+function chunks(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+function activate(fn) {
+  return (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn();
+    }
+  };
+}
+
+function LiveStrip({ favs, onPick }) {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [stamp, setStamp] = useState(null);
+  const key = (favs || []).join(",");
+
+  useEffect(() => {
+    const nicks = key ? key.split(",") : [];
+    if (!nicks.length) { setRows([]); return undefined; }
+    let alive = true;
+
+    function load() {
+      setBusy(true);
+      Promise.all(
+        chunks(nicks, BATCH).map((group) =>
+          requestJson(`/api/elo/?nicks=${group.map(encodeURIComponent).join(",")}`)
+            .then((j) => j.players || []),
+        ),
+      )
+        .then((parts) => {
+          if (!alive) return;
+          setRows(parts.flat());
+          setError("");
+          setStamp(new Date());
+        })
+        .catch((e) => alive && setError(e.message))
+        .finally(() => alive && setBusy(false));
+    }
+
+    load();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, LIVE_EVERY);
+    return () => { alive = false; clearInterval(t); };
+  }, [key]);
+
+  if (!key) return null;
+
+  return (
+    <section className="acc-live" aria-labelledby="acc-live-title" aria-busy={busy}>
+      <div className="section-title" id="acc-live-title">
+        Live
+        <span className="section-count">
+          {stamp ? `updated ${stamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "loading"}
+        </span>
+      </div>
+      {error && <div className="state error" role="alert">{error}</div>}
+      {rows == null && !error && <div className="acc-live-row" aria-hidden="true"><div className="acc-live-card skeleton" /></div>}
+      {rows && rows.length > 0 && (
+        <ul className="acc-live-row">
+          {rows.map((p) => {
+            const last = (p.last || []).slice(0, 5);
+            return (
+              <li key={p.nickname}>
+                <button
+                  type="button"
+                  className={`acc-live-card ${p.found ? "" : "missing"}`}
+                  onClick={() => onPick(p.nickname)}
+                  disabled={!p.found}
+                  aria-label={p.found
+                    ? `${p.nickname}, level ${p.level ?? "unknown"}, ${p.elo ?? "unknown"} ELO, last ${last.length}: ${last.map((m) => (m.win ? "win" : "loss")).join(", ") || "no matches"}`
+                    : `${p.nickname}, not found`}
+                >
+                  <span className="acc-live-top">
+                    {p.found && <FaceitLevel level={p.level || 1} size={22} />}
+                    <span className="acc-live-nick">{p.nickname}</span>
+                  </span>
+                  <span className="acc-live-elo">{p.found ? (p.elo ?? "—") : "not found"}</span>
+                  {p.found && (
+                    <span className="acc-live-form" aria-hidden="true">
+                      {last.length
+                        ? last.map((m, i) => (
+                          <span
+                            key={m.match_id || i}
+                            className={`acc-live-dot ${m.win ? "win" : "loss"}`}
+                            title={`${m.win ? "Win" : "Loss"}${m.map ? ` · ${m.map}` : ""}${m.score ? ` · ${m.score}` : ""}`}
+                          >
+                            {m.win ? "W" : "L"}
+                          </span>
+                        ))
+                        : <span className="acc-dim">no recent matches</span>}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 function weekly(rows) {
   const since = Date.now() / 1000 - WEEK;
@@ -49,7 +162,7 @@ function WeeklyBoard({ rows, onPick }) {
         <span className="section-count">last 7 days</span>
         <div className="hub-view">
           {[["elo", "ELO"], ["matches", "Matches"], ["kd", "K/D"], ["adr", "ADR"]].map(([k, l]) => (
-            <button key={k} type="button" className={`hub-view-opt ${by === k ? "on" : ""}`} onClick={() => setBy(k)}>{l}</button>
+            <button key={k} type="button" className={`hub-view-opt ${by === k ? "on" : ""}`} aria-pressed={by === k} onClick={() => setBy(k)}>{l}</button>
           ))}
         </div>
       </div>
@@ -139,7 +252,7 @@ export default function Watchlist({ favs, user, onPick }) {
 
       {!loading && rows.length > 0 && (
         <div className="lb-controls" style={{ justifyContent: "flex-end" }}>
-          <select className="map-filter" value={sort} onChange={(e) => setSort(e.target.value)}>
+          <select className="map-filter" aria-label="Sort watchlist" value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="elo">Sort: ELO</option>
             <option value="level">Sort: Level</option>
             <option value="name">Sort: Name</option>
@@ -147,7 +260,9 @@ export default function Watchlist({ favs, user, onPick }) {
         </div>
       )}
 
-      {loading && <div className="state">Loading your watchlist…</div>}
+      <LiveStrip favs={favs} onPick={onPick} />
+
+      {loading && <div className="state" role="status">Loading your watchlist…</div>}
 
       {!loading && rows.length > 1 && <WeeklyBoard rows={rows} onPick={onPick} />}
 
@@ -163,7 +278,11 @@ export default function Watchlist({ favs, user, onPick }) {
             <div
               className="lrow wl-row"
               key={p.nickname}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${p.nickname}`}
               onClick={() => onPick(p.nickname)}
+              onKeyDown={activate(() => onPick(p.nickname))}
             >
               <span className="lrow-rank">#{i + 1}</span>
               {p.avatar ? (

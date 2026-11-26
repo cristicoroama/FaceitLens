@@ -1,5 +1,6 @@
 from django.http import JsonResponse, HttpResponse
 import json
+import logging
 import os
 import requests as _rq
 from django.core.cache import cache
@@ -17,6 +18,29 @@ from .profiles import _client_ip
 # and never spends a slot.
 AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT", "20"))
 AI_RATE_WINDOW = 60 * 60
+
+
+logger = logging.getLogger(__name__)
+
+INTERNAL_ERROR = "Something went wrong on our side. Please try again."
+
+
+def _internal_error(exc):
+    logger.exception("Unhandled error: %s", type(exc).__name__)
+    return JsonResponse({"error": INTERNAL_ERROR}, status=500)
+
+
+def _faceit_error(exc):
+    if isinstance(exc, faceit.FaceitRateLimited):
+        wait = exc.retry_after
+        return JsonResponse(
+            {"error": str(exc), "retry_after": wait},
+            status=503,
+            headers={"Retry-After": str(wait)},
+        )
+    if isinstance(exc, faceit.FaceitUnavailable):
+        return JsonResponse({"error": str(exc), "retry_after": 5}, status=503, headers={"Retry-After": "5"})
+    return JsonResponse({"error": str(exc)}, status=502)
 
 
 def _over_ai_rate_limit(request):
@@ -67,7 +91,7 @@ def _record_bans(data):
             if created:
                 notifications.notify_ban(data.get("nickname") or "", btype)
     except Exception:
-        pass
+        logger.warning("could not record bans for %s", data.get("nickname"), exc_info=True)
 
 
 @require_GET
@@ -81,10 +105,9 @@ def player_summary(request, nickname):
     except faceit.FaceitNotFound:
         return JsonResponse({"error": "No FACEIT player with that nickname. Nicknames are case-sensitive."}, status=404)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     _record_bans(data)
 
@@ -92,7 +115,7 @@ def player_summary(request, nickname):
     map_filter = request.GET.get("map")
     if map_filter and data.get("player_id"):
         try:
-            items = faceit.get_match_stats(data["player_id"], limit=50)
+            items = faceit.get_recent_match_stats(data["player_id"], total=50)
             data["recent_avg"] = faceit.build_recent_averages(items, n=30, map_filter=map_filter)
         except faceit.FaceitError:
             pass
@@ -107,7 +130,7 @@ def player_by_steam(request):
     try:
         player = faceit.get_player_by_steam(steam_input)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     cs2 = (player.get("games") or {}).get(faceit.GAME) or {}
     if privacy.is_suppressed(player.get("player_id"), cs2.get("game_player_id"), player.get("nickname")):
         return JsonResponse({"error": privacy.UNAVAILABLE}, status=404)
@@ -120,10 +143,9 @@ def match_detail(request, match_id):
     try:
         data = faceit.get_match_detail(match_id)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -184,7 +206,7 @@ def player_teams(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     pid = player.get("player_id")
     if not pid:
         return JsonResponse({"items": [], "count": 0})
@@ -198,7 +220,7 @@ def player_tournaments(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     pid = player.get("player_id")
     if not pid:
         return JsonResponse({"items": [], "count": 0})
@@ -234,14 +256,14 @@ def hub_stats(request, hub_id):
             limit=request.GET.get("limit", 20),
         )
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
 @require_GET
 def recent_bans(request):
     """GET /api/bans/ - recently observed bans among searched/tracked players."""
+    from django.db.models import Count
     from .models import BanRecord
     items = [
         {
@@ -249,11 +271,16 @@ def recent_bans(request):
             "player_id": b.player_id,
             "avatar": b.avatar or None,
             "ban_type": b.ban_type,
+            "reason": b.reason or b.ban_type or None,
             "detected_at": b.detected_at.isoformat(),
         }
         for b in BanRecord.objects.all()[:60]
     ]
-    return JsonResponse({"items": items, "count": len(items)})
+    counts = {
+        (row["ban_type"] or "ban"): row["n"]
+        for row in BanRecord.objects.values("ban_type").annotate(n=Count("id")).order_by("-n")
+    }
+    return JsonResponse({"items": items, "count": len(items), "counts": counts, "total": sum(counts.values())})
 
 
 @require_GET
@@ -278,8 +305,9 @@ def steam_status(request):
             params={"key": key}, timeout=10,
         )
         res = (r.json() or {}).get("result", {})
-    except Exception as exc:
-        return JsonResponse({"available": False, "reason": str(exc)[:80]})
+    except Exception:
+        logger.warning("steam status fetch failed", exc_info=True)
+        return JsonResponse({"available": False, "reason": "unreachable"})
 
     if not res:
         return JsonResponse({"available": False, "reason": "empty"})
@@ -393,8 +421,11 @@ def status(request):
     try:
         faceit._get("/rankings/games/cs2/regions/EU", params={"offset": 0, "limit": 1})
         services.append({"name": "FACEIT API", "ok": True, "detail": "player & match data", "core": True})
-    except Exception as exc:
-        services.append({"name": "FACEIT API", "ok": False, "detail": str(exc)[:80], "core": True})
+    except faceit.FaceitRateLimited:
+        services.append({"name": "FACEIT API", "ok": False, "detail": "rate limited", "core": True})
+    except Exception:
+        logger.warning("FACEIT status probe failed", exc_info=True)
+        services.append({"name": "FACEIT API", "ok": False, "detail": "unreachable", "core": True})
 
     # --- Steam — reachable + not on cooldown ---
     try:
@@ -445,10 +476,9 @@ def _api(fn, *a, **kw):
     try:
         return JsonResponse(fn(*a, **kw))
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -513,10 +543,9 @@ def teams_search(request):
     try:
         items = faceit.search_teams(q)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse({"items": items})
 
 
@@ -526,10 +555,9 @@ def team_detail(request, team_id):
     try:
         data = faceit.get_team(team_id)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -544,10 +572,9 @@ def hubs_search(request):
             return JsonResponse({"items": faceit.popular_hubs(), "popular": True})
         items = faceit.search_hubs(q)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse({"items": items})
 
 
@@ -557,10 +584,9 @@ def hub_detail(request, hub_id):
     try:
         data = faceit.get_hub(hub_id)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -606,10 +632,9 @@ def match_room(request):
     try:
         data = faceit.get_match_room(raw)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     # Reputation for the whole room in ONE upstream request.
     #
@@ -627,7 +652,7 @@ def match_room(request):
         ]
         data["csrep"] = csrep.annotate_roster(roster)
     except Exception:
-        import traceback; traceback.print_exc()
+        logger.warning("optional upstream failed", exc_info=True)
         data["csrep"] = {"available": False, "reason": "error"}
 
     return JsonResponse(data)
@@ -643,10 +668,9 @@ def squad_stats(request):
     try:
         data = faceit.build_squad_stats(nicknames)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -666,10 +690,14 @@ def recent(request):
     try:
         from .models import TrackedPlayer
         from . import privacy
-        qs = TrackedPlayer.objects.exclude(last_searched=None).order_by("-last_searched")[:16]
-        items = [{"nickname": p.nickname} for p in qs
-                 if not privacy.is_suppressed(p.player_id, None, p.nickname)][:8]
+        hidden = privacy.load()
+        qs = (TrackedPlayer.objects.exclude(last_searched=None)
+              .order_by("-last_searched").values_list("player_id", "nickname")[:16])
+        items = [{"nickname": nick} for pid, nick in qs
+                 if pid not in hidden["ids"]
+                 and (nick or "").strip().lower() not in hidden["names"]][:8]
     except Exception:
+        logger.warning("recent players query failed", exc_info=True)
         items = []
     return JsonResponse({"items": items})
 
@@ -690,10 +718,9 @@ def leaderboard(request):
             limit=_int_arg(request, "limit", 100),
         )
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     data["regions"] = [{"key": k, "label": v} for k, v in faceit.REGIONS.items()]
     return JsonResponse(data)
@@ -710,10 +737,9 @@ def leaderboard_countries(request):
     try:
         data = faceit.get_country_stats()
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -723,7 +749,7 @@ def analyze(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
 
     hit = ai.cached_result(summary, ai.ANALYSIS_KIND)
     if hit is not None:
@@ -746,7 +772,7 @@ def roast(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
 
     hit = ai.cached_result(summary, ai.ROAST_KIND)
     if hit is not None:
@@ -775,10 +801,9 @@ def collectibles(request, nickname):
         # page load, so this reuses it rather than re-hitting the FACEIT API.
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     steamid = summary.get("steam_id") or None
     # summary doesn't expose steam_id directly; re-derive from the player object.
@@ -798,8 +823,7 @@ def collectibles(request, nickname):
         inventory = faceit_inventory.get_inventory(summary.get("player_id"), force=force)
         trust_score = trust.build_trust(summary, level, inventory)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     # Medals come only from CSRep now: the FACEIT inventory carries weapon
     # skins, not Collectibles. Cached 6h per player in csrep, so one profile
@@ -815,7 +839,7 @@ def collectibles(request, nickname):
                 "attribution": found.get("attribution"),
             }
     except Exception:
-        import traceback; traceback.print_exc()
+        logger.warning("optional upstream failed", exc_info=True)
 
     return JsonResponse({
         "nickname": summary.get("nickname"),
@@ -869,8 +893,7 @@ def steam_profile(request):
                      else {"available": False, "reason": "no_faceit"})
         leet = leetify.get_profile(steamid)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     # The second opinion. Leetify and CSRep cover this page from opposite
     # directions — demo-derived skill versus reputation — and a Steam-first
@@ -880,7 +903,7 @@ def steam_profile(request):
     try:
         csrep_data = csrep.get_player(steamid)
     except Exception:
-        import traceback; traceback.print_exc()
+        logger.warning("optional upstream failed", exc_info=True)
         csrep_data = {"available": False, "reason": "error"}
 
     import time as _t
@@ -930,10 +953,9 @@ def leetify_stats(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     steamid = summary.get("steam_id")
     if not steamid:
@@ -943,8 +965,7 @@ def leetify_stats(request, nickname):
         from . import leetify
         data = leetify.get_profile(steamid)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     data["nickname"] = summary.get("nickname")
     return JsonResponse(data)
 
@@ -972,8 +993,7 @@ def leetify_match(request):
         from . import leetify
         return JsonResponse(leetify.get_match(source, match_id))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -985,10 +1005,9 @@ def leetify_matches(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     steamid = summary.get("steam_id")
     if not steamid:
@@ -998,8 +1017,7 @@ def leetify_matches(request, nickname):
         from . import leetify
         return JsonResponse(leetify.get_player_matches(steamid))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -1021,10 +1039,9 @@ def csrep_stats(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     steamid = summary.get("steam_id")
     if not steamid:
@@ -1034,8 +1051,7 @@ def csrep_stats(request, nickname):
         from . import csrep
         data = csrep.get_player(steamid)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     data["nickname"] = summary.get("nickname")
     return JsonResponse(data)
 
@@ -1088,10 +1104,9 @@ def csrep_refresh(request, nickname):
     try:
         summary = faceit.build_player_summary(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
     steamid = summary.get("steam_id")
     if not steamid:
@@ -1101,8 +1116,7 @@ def csrep_refresh(request, nickname):
         from . import csrep
         return JsonResponse(csrep.refresh_player(steamid))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -1131,8 +1145,7 @@ def csrep_match(request):
             return JsonResponse(csrep.get_gamersclub_match(match_id))
         return JsonResponse(csrep.get_match(match_id, request.GET.get("for", "")))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -1154,8 +1167,7 @@ def csrep_players(request):
         from . import csrep
         return JsonResponse(csrep.get_players(ids))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -1179,8 +1191,7 @@ def csrep_search(request):
         from . import csrep
         return JsonResponse(csrep.search_players(query, for_player))
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 @require_GET
@@ -1193,7 +1204,7 @@ def real_stats(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
 
     steamid = player.get("games", {}).get("cs2", {}).get("game_player_id")
     if not steamid:
@@ -1203,6 +1214,7 @@ def real_stats(request, nickname):
         from .demo_stats import aggregate
         data = aggregate(steamid)
     except Exception:
+        logger.warning("demo aggregate failed for %s", steamid, exc_info=True)
         data = None
 
     if not data:
@@ -1210,6 +1222,76 @@ def real_stats(request, nickname):
     data["available"] = True
     data["nickname"] = player.get("nickname")
     return JsonResponse(data)
+
+
+@require_GET
+def demo_matches(request, nickname):
+    from django.db.models import F
+    from . import demo_stats, privacy
+    from .models import DemoPlayerStat
+    try:
+        player = faceit.get_player_by_nickname(nickname)
+    except faceit.FaceitNotFound:
+        return JsonResponse({"error": "No FACEIT player with that nickname."}, status=404)
+    except faceit.FaceitError as exc:
+        return _faceit_error(exc)
+
+    steamid = ((player.get("games") or {}).get(faceit.GAME) or {}).get("game_player_id")
+    if privacy.is_suppressed(player.get("player_id"), steamid, player.get("nickname")):
+        return JsonResponse({"error": privacy.UNAVAILABLE}, status=404)
+    if not steamid:
+        return JsonResponse({"available": False, "nickname": player.get("nickname"), "matches": []})
+
+    limit = max(1, min(30, _int_arg(request, "limit", 30)))
+    rows = (
+        DemoPlayerStat.objects.filter(steamid=str(steamid))
+        .select_related("match")
+        .order_by(F("match__finished_at").desc(nulls_last=True), "-match__parsed_at")[:limit]
+    )
+    matches = []
+    for r in rows:
+        rounds = r.rounds or 0
+        opens = r.opening_kills + r.opening_deaths
+        item = {
+            "match_id": r.match.match_id,
+            "map": r.match.map_name or None,
+            "finished_at": r.match.finished_at.isoformat() if r.match.finished_at else None,
+            "rounds": rounds,
+            "rating": round(r.rating, 2),
+            "kills": r.kills,
+            "deaths": r.deaths,
+            "assists": r.assists,
+            "kd": round(r.kills / r.deaths, 2) if r.deaths else float(r.kills),
+            "adr": round(r.damage / rounds, 1) if rounds else None,
+            "kast": round(r.kast_rounds / rounds * 100, 1) if rounds else None,
+            "hs_pct": round(r.hs_kills / r.kills * 100) if r.kills else 0,
+            "opening_kills": r.opening_kills,
+            "opening_deaths": r.opening_deaths,
+            "opening_success": round(r.opening_wins / opens * 100) if opens else None,
+            "trade_kills": r.trade_kills,
+            "traded_deaths": r.traded_deaths,
+            "flash_assists": r.flash_assists,
+            "enemies_flashed": r.enemies_flashed,
+            "blind_time": round(r.blind_time, 1),
+            "clutch_attempts": r.clutch_attempts,
+            "clutch_won": r.clutch_won,
+        }
+        lost = rounds - r.rounds_won
+        extra = demo_stats.row_payload(r)
+        item.update({
+            "impact": extra["impact"],
+            "rounds_won": r.rounds_won,
+            "score": f"{r.rounds_won}-{lost}",
+            "result": "win" if r.rounds_won > lost else ("loss" if r.rounds_won < lost else "draw"),
+            "utility": extra["utility"],
+            "economy": extra["economy"],
+        })
+        matches.append(item)
+    return JsonResponse({
+        "available": bool(matches),
+        "nickname": player.get("nickname"),
+        "matches": matches,
+    })
 
 
 @require_GET
@@ -1222,10 +1304,9 @@ def have_we_met(request):
     try:
         data = faceit.build_have_we_met(p1, p2)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
     return JsonResponse(data)
 
 
@@ -1402,7 +1483,7 @@ def player_clips(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     steam_id = (player.get("games", {}).get(faceit.GAME, {}) or {}).get("game_player_id")
 
     clips = []
@@ -1458,8 +1539,8 @@ def allstar_webhook(request):
             row.save()
         elif clip_id or req_id:
             AllstarClip.objects.create(**updates)
-    except Exception:  # noqa - never fail the webhook (would just trigger retries)
-        pass
+    except Exception:
+        logger.warning("allstar webhook could not store clip", exc_info=True)
 
     return JsonResponse({"ok": True})
 
@@ -1476,7 +1557,7 @@ def player_clips_generate(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
 
     player_id = player["player_id"]
     steam_id = (player.get("games", {}).get(faceit.GAME, {}) or {}).get("game_player_id")
@@ -1618,7 +1699,7 @@ def csgo_stats(request, nickname):
     try:
         player = faceit.get_player_by_nickname(nickname)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
 
     data = faceit.build_csgo_stats(player.get("player_id"))
     if not data:
@@ -1658,10 +1739,9 @@ def player_analysis(request, nickname):
     except privacy.Suppressed as exc:
         return JsonResponse({"error": str(exc)}, status=404)
     except faceit.FaceitError as exc:
-        return JsonResponse({"error": str(exc)}, status=502)
+        return _faceit_error(exc)
     except Exception as exc:
-        import traceback; traceback.print_exc()
-        return JsonResponse({"error": f"Internal: {type(exc).__name__}: {exc}"}, status=500)
+        return _internal_error(exc)
 
 
 def _elo_row(nick):

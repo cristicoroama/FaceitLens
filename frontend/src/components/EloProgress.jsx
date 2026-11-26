@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useId } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, ReferenceLine,
 } from "recharts";
 
 import { Icon } from "../icons.jsx";
+import { fmtDate as fmtLocalDate } from "../stats-format.js";
+import { useReducedMotion } from "./StatsMotion.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -13,7 +15,7 @@ const RANGES = [
 ];
 
 function fmtDate(iso) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return fmtLocalDate(iso);
 }
 
 /** A signed number that colours itself, or an em dash when we don't know yet. */
@@ -44,6 +46,8 @@ export default function EloProgress({ handle, isOwner }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30");
+  const reduced = useReducedMotion();
+  const fillId = `ep-fill-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
 
   useEffect(() => {
     if (!handle) return;
@@ -104,7 +108,7 @@ export default function EloProgress({ handle, isOwner }) {
   const hi = Math.max(...elos);
   const pad = Math.max(25, Math.round((hi - lo) * 0.18));
   const rising = points[points.length - 1].elo >= points[0].elo;
-  const stroke = rising ? "var(--accent)" : "#ff6b81";
+  const stroke = rising ? "var(--accent)" : "var(--loss)";
 
   return (
     <div className="panel ep-panel">
@@ -114,7 +118,9 @@ export default function EloProgress({ handle, isOwner }) {
           {RANGES.map(([val, lbl]) => (
             <button
               key={val}
+              type="button"
               className={`ep-range ${range === val ? "on" : ""}`}
+              aria-pressed={range === val}
               onClick={() => setRange(val)}
             >
               {lbl}
@@ -151,7 +157,7 @@ export default function EloProgress({ handle, isOwner }) {
         <ResponsiveContainer width="100%" height={230}>
           <AreaChart data={points} margin={{ top: 8, right: 6, left: -18, bottom: 0 }}>
             <defs>
-              <linearGradient id="epFill" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={stroke} stopOpacity={0.35} />
                 <stop offset="100%" stopColor={stroke} stopOpacity={0} />
               </linearGradient>
@@ -184,9 +190,10 @@ export default function EloProgress({ handle, isOwner }) {
               dataKey="elo"
               stroke={stroke}
               strokeWidth={2.4}
-              fill="url(#epFill)"
+              fill={`url(#${fillId})`}
               dot={points.length <= 40 ? { r: 2.5, fill: stroke, strokeWidth: 0 } : false}
               activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--bg)" }}
+              isAnimationActive={!reduced}
             />
           </AreaChart>
         </ResponsiveContainer>

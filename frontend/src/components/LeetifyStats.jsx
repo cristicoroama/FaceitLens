@@ -3,6 +3,8 @@ import leetifyBadge from "../assets/leetify-badge.jpg";
 import PremierBadge from "./PremierBadge.jsx";
 import RingGauge from "./RingGauge.jsx";
 import { FaceitLevel, CompRank, groupName } from "./RankIcons.jsx";
+import { requestJson, fmtDay } from "../lib/account-api.js";
+import "../styles/account.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -259,8 +261,7 @@ export function LeetifyView({ data }) {
                 {b.nickname && <span className="leet-ban-nick">as {b.nickname}</span>}
                 {b.banned_since && (
                   <span className="leet-ban-date">
-                    {new Date(b.banned_since).toLocaleDateString("en-GB",
-                      { day: "2-digit", month: "short", year: "numeric" })}
+                    {fmtDay(b.banned_since)}
                   </span>
                 )}
               </div>
@@ -345,7 +346,109 @@ export function LeetifyView({ data }) {
   );
 }
 
-/** Default: fetches by FACEIT nickname (profile tab). */
+function scoreLine(m) {
+  const mine = m.me?.team;
+  const rows = Array.isArray(m.team_scores) ? m.team_scores : [];
+  const ours = rows.find((t) => t.team_number === mine);
+  const theirs = rows.find((t) => t.team_number !== mine);
+  if (ours && theirs) return { text: `${ours.score} : ${theirs.score}`, won: ours.score > theirs.score, lost: ours.score < theirs.score };
+  if (rows.length === 2) return { text: `${rows[0].score} : ${rows[1].score}`, won: false, lost: false };
+  return { text: "—", won: false, lost: false };
+}
+
+function LeetifyMatches({ nickname }) {
+  const [state, setState] = useState({ loading: true });
+
+  useEffect(() => {
+    let alive = true;
+    setState({ loading: true });
+    requestJson(`/api/player/${encodeURIComponent(nickname)}/leetify/matches/`)
+      .then((j) => alive && setState({ data: j }))
+      .catch((e) => alive && setState({ error: e.message }));
+    return () => { alive = false; };
+  }, [nickname]);
+
+  if (state.loading) {
+    return (
+      <>
+        <div className="section-title">Recent matches</div>
+        <div className="state" role="status">Loading recent Leetify matches…</div>
+      </>
+    );
+  }
+  if (state.error) {
+    return (
+      <>
+        <div className="section-title">Recent matches</div>
+        <div className="state error" role="alert">{state.error}</div>
+      </>
+    );
+  }
+  const d = state.data || {};
+  const list = (d.matches || []).filter((m) => m && m.id);
+  if (d.available === false || !list.length) return null;
+
+  return (
+    <>
+      <div className="section-title">
+        Recent matches
+        <span className="leet-form-note">{list.length} parsed by Leetify</span>
+      </div>
+      <div className="acc-table-wrap">
+        <table className="acc-leet-matches">
+          <caption className="sr-only">Recent matches parsed by Leetify</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Map</th>
+              <th scope="col">Score</th>
+              <th scope="col">K / D / A</th>
+              <th scope="col">DPR</th>
+              <th scope="col">Rating</th>
+              <th scope="col"><span className="sr-only">Link</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((m) => {
+              const me = m.me || {};
+              const sc = scoreLine(m);
+              const r = me.leetify_rating;
+              return (
+                <tr key={m.id} className={sc.won ? "win" : sc.lost ? "loss" : ""}>
+                  <td>{fmtDay(m.finished_at, { day: "numeric", month: "short" }) || "—"}</td>
+                  <th scope="row">
+                    {(m.map_name || "").replace(/^(de|cs)_/, "") || "—"}
+                    {m.has_banned_player && <span className="acc-leet-ban" title="A player in this match was later banned">banned player</span>}
+                  </th>
+                  <td className={`num ${sc.won ? "acc-win" : sc.lost ? "acc-loss" : ""}`}>{sc.text}</td>
+                  <td className="num">
+                    {me.total_kills ?? "—"} / {me.total_deaths ?? "—"} / {me.total_assists ?? "—"}
+                  </td>
+                  <td className="num">{me.dpr != null ? Math.round(me.dpr) : "—"}</td>
+                  <td className={`num ${r == null ? "" : r >= 0 ? "acc-win" : "acc-loss"}`}>
+                    {r != null ? signed(r) : "—"}
+                  </td>
+                  <td>
+                    <a
+                      href={`https://leetify.com/app/match-details/${encodeURIComponent(m.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open match on ${(m.map_name || "").replace(/^(de|cs)_/, "")} in Leetify`}
+                    >
+                      Leetify →
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <Attribution url={d.profile_url} />
+    </>
+  );
+}
+
 export default function LeetifyStats({ nickname }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -370,7 +473,12 @@ export default function LeetifyStats({ nickname }) {
     };
   }, [nickname]);
 
-  if (loading) return <div className="state">Loading Leetify stats…</div>;
-  if (error) return <div className="state error">{error}</div>;
-  return <LeetifyView data={data} />;
+  if (loading) return <div className="state" role="status">Loading Leetify stats…</div>;
+  if (error) return <div className="state error" role="alert">{error}</div>;
+  return (
+    <>
+      <LeetifyView data={data} />
+      {data?.available && <LeetifyMatches nickname={nickname} />}
+    </>
+  );
 }

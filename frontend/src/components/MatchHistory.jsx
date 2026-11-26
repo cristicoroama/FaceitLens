@@ -1,5 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { MapThumb, mapLabel } from "../map-art.jsx";
+import { tier, tone } from "../rating-scale.js";
+import { fmtDate, fmtDateTime } from "../stats-format.js";
+import StatsPlayerLink from "./StatsPlayerLink.jsx";
+import "../styles/stats.css";
+
+const DemoMatchPanel = lazy(() => import("./DemoMatchPanel.jsx"));
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -10,14 +16,12 @@ function relTime(ts) {
   if (secs < 3600) return `${Math.max(1, Math.floor(secs / 60))}m ago`;
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   if (secs < 86400 * 30) return `${Math.floor(secs / 86400)}d ago`;
-  return new Date(ts * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return fmtDate(ts);
 }
 
 function fullDate(ts) {
   if (!ts) return "";
-  return new Date(ts * 1000).toLocaleString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  return fmtDateTime(ts);
 }
 
 function minutes(secs) {
@@ -63,58 +67,152 @@ function Avatar({ src, nickname }) {
 
 /* ---------------------------------------------------------------- expanded */
 
-function TeamBoard({ team, me, onPick }) {
+const ROLE_LABEL = { awp: "AWP", entry: "Entry", support: "Support" };
+
+function multiCell(p) {
+  const counts = [["ACE", p.k5], ["4K", p.k4], ["3K", p.k3], ["2K", p.k2]];
+  const known = counts.some(([, v]) => v != null);
+  if (!known) return { text: "—", label: "No multi-kill data" };
+  const top = counts.find(([, v]) => v > 0);
+  const label = counts.map(([k, v]) => `${k} ${v ?? 0}`).reverse().join(", ");
+  if (!top) return { text: "—", label: "No multi-kills" };
+  return { text: top[1] > 1 ? `${top[0]}×${top[1]}` : top[0], label };
+}
+
+function frac(wins, count) {
+  if (count == null) return "—";
+  return `${wins ?? 0}/${count}`;
+}
+
+const BASIC_COLS = [
+  { key: "k", label: "K", full: "Kills" },
+  { key: "d", label: "D", full: "Deaths" },
+  { key: "a", label: "A", full: "Assists" },
+  { key: "kd", label: "K/D", full: "Kill/death ratio" },
+  { key: "adr", label: "ADR", full: "Average damage per round" },
+  { key: "hs", label: "HS%", full: "Headshot percentage" },
+  { key: "kast", label: "KAST*", full: "Estimated KAST: rounds with a kill, assist, survival or trade" },
+  { key: "multi", label: "Multi", full: "Best multi-kill round" },
+  { key: "rating", label: "Rating*", full: "Estimated HLTV-style rating (approximated from per-match stats)" },
+];
+
+const ADV_COLS = [
+  { key: "role", label: "Role", full: "Role read from this match's stats" },
+  { key: "entries", label: "Entry", full: "Opening duels won / taken" },
+  { key: "fk", label: "FK", full: "First kills" },
+  { key: "clutch", label: "Clutch", full: "Clutches won / attempted (1v1 and 1v2)" },
+  { key: "ck", label: "CK", full: "Clutch kills" },
+  { key: "flash", label: "Flash", full: "Enemies flashed / flashes thrown" },
+  { key: "util", label: "UD/r", full: "Utility damage per round" },
+  { key: "awp", label: "AWP", full: "Sniper kills" },
+  { key: "fp", label: "FP*", full: "Estimated firepower, 0-100" },
+  { key: "mvp", label: "MVP", full: "Round MVPs" },
+];
+
+function basicCells(p) {
+  const multi = multiCell(p);
+  return {
+    k: [p.kills ?? "—"],
+    d: [p.deaths ?? "—"],
+    a: [p.assists ?? "—"],
+    kd: [p.kd ?? "—", tier("kd", p.kd)],
+    adr: [p.adr ?? "—", tier("adr", p.adr)],
+    hs: [p.hs != null ? `${p.hs}%` : "—", "mt-dim"],
+    kast: [p.kast != null ? `${p.kast}%` : "—", "mt-dim"],
+    multi: [multi.text, multi.text === "—" ? "mt-dim" : "", multi.label],
+    rating: [p.rating != null ? p.rating.toFixed(2) : "—", tier("rating", p.rating)],
+  };
+}
+
+function advCells(p) {
+  return {
+    role: [
+      p.role ? <span className={`mt-role mt-role-${p.role}`}>{ROLE_LABEL[p.role] || p.role}</span> : "—",
+      p.role ? "" : "mt-dim",
+    ],
+    entries: [frac(p.entry_wins, p.entries)],
+    fk: [p.first_kills ?? "—"],
+    clutch: [
+      frac(p.clutch_wins, p.clutch_count),
+      "",
+      p.clutch_count != null ? `1v1 ${frac(p.v1_wins, p.v1_count)}, 1v2 ${frac(p.v2_wins, p.v2_count)}` : undefined,
+    ],
+    ck: [p.clutch_kills ?? "—", "mt-dim"],
+    flash: [frac(p.enemies_flashed, p.flashes)],
+    util: [p.util_dpr != null ? Number(p.util_dpr).toFixed(1) : "—"],
+    awp: [p.sniper_kills ?? "—", "mt-dim"],
+    fp: [p.firepower ?? "—", "mt-dim"],
+    mvp: [p.mvps ?? "—", "mt-dim"],
+  };
+}
+
+function TeamBoard({ team, me, onPick, advanced }) {
   const halves = [team.half1, team.half2, team.overtime]
     .filter((h) => h != null)
     .join(" · ");
+  const cols = advanced ? ADV_COLS : BASIC_COLS;
+  const teamName = team.name || "Team";
 
   return (
     <div className={`mt ${team.win ? "win" : "loss"}`}>
       <div className="mt-head">
         <span className="mt-result">{team.win ? "WIN" : "LOSS"}</span>
-        <span className="mt-name">{team.name || "Team"}</span>
+        <span className="mt-name">{teamName}</span>
         {halves && <span className="mt-halves" title="First half · second half · overtime">{halves}</span>}
         <span className="mt-score">{team.score}</span>
       </div>
-      <div className="mt-cols">
-        <span>Player</span>
-        <span>K</span>
-        <span>D</span>
-        <span>A</span>
-        <span>K/D</span>
-        <span>K/R</span>
-        <span>HS%</span>
-        <span>MVP</span>
-        <span>ADR</span>
-        <span className="mt-rating-h" title="Estimated HLTV-style rating (approximated from per-match stats)">Rating*</span>
-      </div>
-      {(team.players || []).map((p, i) => (
-        <div className={`mt-row ${p.nickname === me ? "me" : ""}`} key={p.player_id || i}>
-          <span
-            className={`mt-player ${onPick && p.nickname ? "mt-link" : ""}`}
-            onClick={onPick && p.nickname ? (e) => { e.stopPropagation(); onPick(p.nickname); } : undefined}
-          >
-            <Avatar src={p.avatar} nickname={p.nickname} />
-            <span className="mt-nick">{p.nickname}</span>
-          </span>
-          <span className="mt-n">{p.kills ?? "—"}</span>
-          <span className="mt-n">{p.deaths ?? "—"}</span>
-          <span className="mt-n">{p.assists ?? "—"}</span>
-          <span className={`mt-n mt-kd ${num(p.kd) >= 1 ? "good" : num(p.kd) != null ? "bad" : ""}`}>
-            {p.kd ?? "—"}
-          </span>
-          <span className="mt-n">{p.kr ?? "—"}</span>
-          <span className="mt-n">{p.hs != null ? `${p.hs}%` : "—"}</span>
-          <span className="mt-n mt-dim">{p.mvps ?? "—"}</span>
-          <span className="mt-n">{p.adr ?? "—"}</span>
-          <span
-            className={`mt-n mt-rating ${p.rating >= 1.1 ? "good" : p.rating != null && p.rating < 0.9 ? "bad" : ""}`}
-          >
-            {p.rating != null ? p.rating.toFixed(2) : "—"}
-          </span>
+      <div className="mt-scroll">
+        <div
+          className={`mt-table ${advanced ? "mt-adv" : "mt-basic"}`}
+          role="table"
+          aria-label={`${teamName} scoreboard${advanced ? ", advanced stats" : ""}`}
+        >
+          <div className="mt-cols" role="row">
+            <span role="columnheader">Player</span>
+            {cols.map((c) => (
+              <span role="columnheader" key={c.key} title={c.full}>
+                <span aria-hidden="true">{c.label}</span>
+                <span className="sr-only">{c.full}</span>
+              </span>
+            ))}
+          </div>
+          {(team.players || []).map((p, i) => {
+            const cells = advanced ? advCells(p) : basicCells(p);
+            return (
+              <div className={`mt-row ${p.nickname === me ? "me" : ""}`} role="row" key={p.player_id || i}>
+                <span className="mt-player" role="cell">
+                  {onPick && p.nickname ? (
+                    <StatsPlayerLink nickname={p.nickname} onPick={onPick} className="mt-link-a" title={`Open ${p.nickname}`}>
+                      <Avatar src={p.avatar} nickname={p.nickname} />
+                      <span className="mt-nick">{p.nickname}</span>
+                    </StatsPlayerLink>
+                  ) : (
+                    <>
+                      <Avatar src={p.avatar} nickname={p.nickname} />
+                      <span className="mt-nick">{p.nickname}</span>
+                    </>
+                  )}
+                </span>
+                {cols.map((c) => {
+                  const [value, cls, title] = cells[c.key];
+                  return (
+                    <span className={`mt-n ${cls || ""}`} role="cell" key={c.key} title={title}>
+                      {value}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
     </div>
+  );
+}
+
+function hasAdvanced(teams) {
+  return teams.some((t) =>
+    (t.players || []).some((p) => p.entries != null || p.flashes != null || p.v1_count != null || p.role)
   );
 }
 
@@ -246,10 +344,11 @@ function MetaBar({ d }) {
 
 /* --------------------------------------------------------------- collapsed */
 
-function MatchRow({ m, me, onPick }) {
+function MatchRow({ m, me, onPick, advanced, onAdvanced }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
+  const panelId = `mh-detail-${m.match_id}`;
 
   async function toggle() {
     if (!open && !detail) {
@@ -265,57 +364,105 @@ function MatchRow({ m, me, onPick }) {
     setOpen(!open);
   }
 
-  const kd = num(m.kd);
+  const result = m.won === true ? "WIN" : m.won === false ? "LOSS" : "—";
+  const mapName = m.map ? mapLabel(m.map) : "Unknown";
+  const teams = detail && !detail.error ? detail.teams || [] : [];
+  const adv = hasAdvanced(teams);
 
   return (
-    <div className="mh-block">
+    <div className="mh-block" role="rowgroup">
       <div
         className={`mh-row ${m.won === true ? "won" : m.won === false ? "lost" : ""} ${open ? "open" : ""}`}
+        role="row"
         onClick={toggle}
         title={m.competition || ""}
       >
-        <span className="mh-res">{m.won === true ? "WIN" : m.won === false ? "LOSS" : "—"}</span>
-        <span className="mh-map">
-          <MapThumb map={m.map} />
-          <span className="mh-map-name">{m.map ? mapLabel(m.map) : "Unknown"}</span>
+        <span className="mh-res" role="cell">
+          <button
+            type="button"
+            className="mh-toggle"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={(e) => { e.stopPropagation(); toggle(); }}
+          >
+            {result}
+            <span className="sr-only">{`, ${mapName}, ${open ? "hide" : "show"} scoreboard`}</span>
+          </button>
         </span>
-        <span className="mh-score">{m.score || "—"}</span>
-        <span className="mh-kda">
+        <span className="mh-map" role="cell">
+          <MapThumb map={m.map} />
+          <span className="mh-map-name">{mapName}</span>
+        </span>
+        <span className="mh-score" role="cell">{m.score || "—"}</span>
+        <span className="mh-kda" role="cell" data-label="K/D/A">
           {m.kills ?? "—"} <i>/</i> {m.deaths ?? "—"} <i>/</i> {m.assists ?? "—"}
         </span>
-        <span className={`mh-kd ${kd >= 1 ? "good" : kd != null ? "bad" : ""}`}>
+        <span className={`mh-kd ${tier("kd", m.kd)}`} role="cell" data-label="K/D">
           {m.kd ?? "—"}
         </span>
-        <span className="mh-adr" title={m.adr_estimated ? "Estimated — FACEIT recorded no ADR for this match" : undefined}>
+        <span
+          className="mh-adr"
+          role="cell"
+          data-label="ADR"
+          title={m.adr_estimated ? "Estimated — FACEIT recorded no ADR for this match" : undefined}
+        >
           {m.adr ?? "—"}{m.adr != null && m.adr_estimated ? "*" : ""}
         </span>
-        <span className="mh-hs">{m.hs != null ? `${m.hs}%` : "—"}</span>
+        <span className="mh-hs" role="cell" data-label="HS">{m.hs != null ? `${m.hs}%` : "—"}</span>
         <span
-          className={`mh-rating ${m.rating >= 1.1 ? "good" : m.rating != null && m.rating < 0.9 ? "bad" : ""}`}
+          className={`mh-rating ${tier("rating", m.rating)}`}
+          role="cell"
+          data-label="Rating*"
           title="Estimated rating (this match)"
         >
           {m.rating != null ? m.rating.toFixed(2) : "—"}
         </span>
-        <span className="mh-when" title={fullDate(m.finished_at)}>{relTime(m.finished_at)}</span>
-        <span className="mh-chev" aria-hidden="true">›</span>
+        <span className="mh-when" role="cell" title={fullDate(m.finished_at)}>{relTime(m.finished_at)}</span>
+        <span className="mh-chev" role="cell" aria-hidden="true">›</span>
       </div>
 
       {open && (
-        <div className="match-detail">
-          {loading && <div className="match-detail-loading">Loading…</div>}
-          {detail && detail.error && (
-            <div className="match-detail-loading">Could not load details.</div>
-          )}
-          {detail && !detail.error && (
-            <>
-              <MetaBar d={detail} />
-              {(detail.teams || []).map((t, ti) => (
-                <TeamBoard team={t} me={me} onPick={onPick} key={ti} />
-              ))}
-              <TeamAverages teams={detail.teams || []} />
-              <LeetifyMatch matchId={m.match_id} me={me} />
-            </>
-          )}
+        <div className="mh-detail-row" role="row">
+          <div className="match-detail" role="cell" aria-colspan={10} id={panelId}>
+            {loading && <div className="match-detail-loading">Loading…</div>}
+            {detail && detail.error && (
+              <div className="match-detail-loading">Could not load details.</div>
+            )}
+            {detail && !detail.error && (
+              <>
+                <MetaBar d={detail} />
+                {adv && (
+                  <div className="mt-view" role="group" aria-label="Scoreboard columns">
+                    <button
+                      type="button"
+                      className={`mt-view-btn ${!advanced ? "on" : ""}`}
+                      aria-pressed={!advanced}
+                      onClick={() => onAdvanced(false)}
+                    >
+                      Standard
+                    </button>
+                    <button
+                      type="button"
+                      className={`mt-view-btn ${advanced ? "on" : ""}`}
+                      aria-pressed={advanced}
+                      onClick={() => onAdvanced(true)}
+                    >
+                      Advanced
+                    </button>
+                    <span className="mt-view-note">* estimated</span>
+                  </div>
+                )}
+                {teams.map((t, ti) => (
+                  <TeamBoard team={t} me={me} onPick={onPick} advanced={advanced && adv} key={ti} />
+                ))}
+                <TeamAverages teams={teams} />
+                <Suspense fallback={<div className="match-detail-loading">Loading demo tools…</div>}>
+                  <DemoMatchPanel matchId={m.match_id} />
+                </Suspense>
+                <LeetifyMatch matchId={m.match_id} me={me} />
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -511,11 +658,7 @@ function LeetifyMatch({ matchId, me }) {
                 {cols.map((f) => (
                   <td
                     key={f.key}
-                    style={
-                      LM_RATINGS.has(f.key) && p[f.key] != null
-                        ? { color: p[f.key] >= 0 ? "#22c55e" : "#ef4444" }
-                        : undefined
-                    }
+                    className={LM_RATINGS.has(f.key) ? tone(p[f.key]) : undefined}
                   >
                     {lmFormat(f.key, p[f.key])}
                   </td>
@@ -530,6 +673,7 @@ function LeetifyMatch({ matchId, me }) {
 }
 
 export default function MatchHistory({ matches, me, onPick }) {
+  const [advanced, setAdvanced] = useState(false);
   if (!matches || matches.length === 0) {
     return <div className="state">No recent matches.</div>;
   }
@@ -541,29 +685,35 @@ export default function MatchHistory({ matches, me, onPick }) {
             <path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3.5 2" />
           </svg>
         </div>
-        <div className="panel-title">Recent Matches</div>
-        {/* The count belongs in the sentence, not in a badge of its own: it was
-            a bare "10" floating beside the title with nothing saying what it
-            counted. */}
-        <div className="panel-sub">last {matches.length} · click a row for the scoreboard</div>
+        <div className="panel-title" id="mh-title">Recent Matches</div>
+        <div className="panel-sub">last {matches.length} · open a row for the scoreboard</div>
       </div>
 
-      <div className="mh-cols" aria-hidden="true">
-        <span>Result</span>
-        <span>Map</span>
-        <span>Score</span>
-        <span>K / D / A</span>
-        <span>K/D</span>
-        <span>ADR</span>
-        <span>HS%</span>
-        <span>Rating*</span>
-        <span>When</span>
-        <span />
-      </div>
+      <div className="mh-table" role="table" aria-labelledby="mh-title">
+        <div className="mh-cols" role="row">
+          <span role="columnheader">Result</span>
+          <span role="columnheader">Map</span>
+          <span role="columnheader">Score</span>
+          <span role="columnheader">K / D / A</span>
+          <span role="columnheader">K/D</span>
+          <span role="columnheader">ADR</span>
+          <span role="columnheader">HS%</span>
+          <span role="columnheader" title="Estimated rating">Rating*</span>
+          <span role="columnheader">When</span>
+          <span role="columnheader"><span className="sr-only">Expand</span></span>
+        </div>
 
-      {matches.map((m) => (
-        <MatchRow m={m} me={me} onPick={onPick} key={m.match_id} />
-      ))}
+        {matches.map((m) => (
+          <MatchRow
+            m={m}
+            me={me}
+            onPick={onPick}
+            advanced={advanced}
+            onAdvanced={setAdvanced}
+            key={m.match_id}
+          />
+        ))}
+      </div>
     </div>
   );
 }

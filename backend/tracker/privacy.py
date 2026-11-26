@@ -183,9 +183,9 @@ def purge(player_id=None, steamid=None, nicknames=()):
 
     keys = []
     for n in names:
-        keys += [f"summary:{n}", f"og:{n}", f"teamsearch:{n}:10"]
+        keys += [f"summary:{n}", f"og:{n}", f"teamsearch:{n}:10", f"pnick:{n}"]
     if player_id:
-        keys += [f"finv:{player_id}", f"live2:{player_id}", f"live:{player_id}", f"phubids:{player_id}"]
+        keys += [f"rms:{player_id}", f"finv:{player_id}", f"live2:{player_id}", f"live:{player_id}", f"phubids:{player_id}"]
     keys += ["sitemap:players", "challengers"]
     cache.delete_many(keys)
     out["nicknames"] = sorted(names)

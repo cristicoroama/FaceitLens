@@ -1,3 +1,4 @@
+import { fmtDate } from "../stats-format.js";
 /**
  * Recent results as a row of chips — the shape a CS2 player already reads at a
  * glance, because it's the one FACEIT itself uses on a profile.
@@ -11,10 +12,7 @@
 
 function shortDate(ts) {
   if (!ts) return null;
-  return new Date(ts * 1000).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-  });
+  return fmtDate(ts);
 }
 
 export function ResultChip({ won, size, title }) {

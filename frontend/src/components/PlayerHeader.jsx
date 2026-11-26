@@ -3,7 +3,7 @@ import LevelProgress from "./LevelProgress.jsx";
 import LiveMatch from "./LiveMatch.jsx";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
-import { ResultChip } from "./FormStrip.jsx";
+import { DATE_LOCALE, DEFAULT_LOCALE, makeT } from "../i18n.js";
 import { useState } from "react";
 
 /* FACEIT's Challenger badge goes to the top 1,000 of a region's level-10
@@ -21,7 +21,7 @@ const CHALLENGER_CUTOFF = 1000;
  * comes from an undocumented endpoint that may simply stop answering, and an
  * empty slot is better than a dash pretending to be data.
  */
-function accountAge(iso) {
+function accountAge(iso, lang) {
   if (!iso) return null;
   const d = new Date(iso);
   if (isNaN(d)) return null;
@@ -36,8 +36,9 @@ function accountAge(iso) {
   // Under a year, months are the meaningful unit; a brand-new account would
   // otherwise read "0y", which says less than nothing.
   const age = years >= 1 ? `${years}y` : `${Math.max(0, months)}mo`;
-  const when = d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  return { when, age, full: d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) };
+  const loc = DATE_LOCALE[lang] || undefined;
+  const when = d.toLocaleDateString(loc, { month: "short", year: "numeric" });
+  return { when, age, full: d.toLocaleDateString(loc, { day: "2-digit", month: "long", year: "numeric" }) };
 }
 
 /** "2m ago" — how stale the numbers on this page are.
@@ -47,13 +48,13 @@ function accountAge(iso) {
  * legitimately return the same data; saying when it was fetched is what makes
  * that legible instead of looking broken.
  */
-function sinceText(ts) {
+function sinceText(ts, t) {
   if (!ts) return null;
   const secs = Math.max(0, Math.floor(Date.now() / 1000 - ts));
-  if (secs < 60) return "just now";
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
+  if (secs < 60) return t("ph.justNow");
+  if (secs < 3600) return t("ph.mAgo", { n: Math.floor(secs / 60) });
+  if (secs < 86400) return t("ph.hAgo", { n: Math.floor(secs / 3600) });
+  return t("ph.dAgo", { n: Math.floor(secs / 86400) });
 }
 
 /** Past names, in a dropdown beside the current one.
@@ -61,7 +62,7 @@ function sinceText(ts) {
  * Collapsed by default: on most accounts there is nothing to show, and on the
  * ones where there is, the old names are context rather than headline. The
  * caret only renders when there is actually something behind it. */
-function NicknameMenu({ history }) {
+function NicknameMenu({ history, t, lang }) {
   const [open, setOpen] = useState(false);
   const past = (history || []).filter((h) => !h.is_current);
   if (!past.length) return null;
@@ -73,23 +74,23 @@ function NicknameMenu({ history }) {
         className={`ph-nickcaret ${open ? "open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label={`${past.length} previous nickname${past.length === 1 ? "" : "s"}`}
-        title={`${past.length} previous nickname${past.length === 1 ? "" : "s"}`}
+        aria-label={t("ph.prevNicks", { n: past.length })}
+        title={t("ph.prevNicks", { n: past.length })}
       >
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none"
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true"
              stroke="currentColor" strokeWidth="3" strokeLinecap="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
       {open && (
         <span className="ph-nicklist" role="list">
-          <span className="ph-nicklist-head">Previously known as</span>
+          <span className="ph-nicklist-head">{t("ph.prevKnown")}</span>
           {past.map((h) => (
             <span className="ph-nickrow" role="listitem" key={h.nickname}>
               <b>{h.nickname}</b>
               <i>
-                {h.matches} match{h.matches === 1 ? "" : "es"}
-                {h.date_to ? ` · last ${new Date(h.date_to * 1000).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}` : ""}
+                {t("ph.matchesN", { n: h.matches })}
+                {h.date_to ? ` · ${t("ph.last", { date: new Date(h.date_to * 1000).toLocaleDateString(DATE_LOCALE[lang], { month: "short", year: "numeric" }) })}` : ""}
               </i>
             </span>
           ))}
@@ -109,7 +110,8 @@ function PS({ label, value, tone, title }) {
   );
 }
 
-export default function PlayerHeader({ player, children, onRefresh, refreshing }) {
+export default function PlayerHeader({ player, children, onRefresh, refreshing, lang = DEFAULT_LOCALE }) {
+  const t = makeT(lang);
   const s = player.stats || {};
   // The API's faceit_url is the reliable one (it survives odd nicknames);
   // fall back to building it so older cached payloads still get a link.
@@ -132,12 +134,9 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
     : s.current_win_streak != null
     ? `${s.current_win_streak}W`
     : null;
-  const age = accountAge(player.created_at);
-  // Newest first, five of them — the ticker in the reference reads left to
-  // right as most-recent to oldest, which is the order recent_matches is
-  // already sorted in.
-  const form = (player.recent_matches || []).slice(0, 5);
-  const fetched = sinceText(player.fetched_at);
+  const age = accountAge(player.created_at, lang);
+  const fetched = sinceText(player.fetched_at, t);
+  const where = player.region || t("ph.region");
   const streakTone = player.streak
     ? player.streak.type === "W"
       ? "pos"
@@ -167,9 +166,6 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
           ) : (
             <div className="ph-avatar-empty" />
           )}
-          <div className="ph-lvl">
-            <FaceitLevel level={player.skill_level} size={36} />
-          </div>
         </div>
 
         <div className="ph-info">
@@ -184,7 +180,7 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 <Flag country={player.country} size={22} />
               </span>
             )}
-            {player.nickname}
+            <h1 className="sh-ph-nick">{player.nickname}</h1>
             {/* Icon-only, the way every FACEIT tracker shows these: three small
                 marks in a row, no text and no pill. A word-sized "PREMIUM"
                 chip next to a nickname reads as a headline; the mark reads as
@@ -198,16 +194,16 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
               <img
                 className="acct-badge"
                 src="/badges/verified.svg"
-                alt="Verified"
-                title="Verified FACEIT account"
+                alt={t("ph.verified")}
+                title={t("ph.verified")}
               />
             )}
             {player.memberships && player.memberships.some((m) => /premium/i.test(m)) && (
               <img
                 className="acct-badge"
                 src="/badges/premium.svg"
-                alt="Premium"
-                title="FACEIT Premium member"
+                alt={t("ph.premium")}
+                title={t("ph.premium")}
               />
             )}
             {/* ESEA rides in the same `memberships` array as Premium — no
@@ -219,8 +215,8 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
               <img
                 className="acct-badge"
                 src="/badges/esea.png"
-                alt="ESEA"
-                title="ESEA subscriber"
+                alt={t("ph.esea")}
+                title={t("ph.esea")}
               />
             )}
             {/* No team crest here, deliberately.
@@ -231,7 +227,7 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 marks that mean something exact, and would be read as "plays
                 for NAVI". It does not say that, so it is not shown.
                 The Overview section lists them for what they are. */}
-            <NicknameMenu history={player.nickname_history} />
+            <NicknameMenu history={player.nickname_history} t={t} lang={lang} />
           </div>
           <div className="ph-meta">
             {/* Region rank.
@@ -246,7 +242,7 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 carries the exact position. The country rank has no such
                 duplicate, so that one always shows. */}
             {rank && !isChallenger ? (
-              <span className="ph-rank" title={`#${rank.toLocaleString()} in ${player.region || "region"}`}>
+              <span className="ph-rank" title={t("ph.rankIn", { n: rank.toLocaleString(lang), where })}>
                 {player.region === "EU" && (
                   <img className="ph-rank-flag" src="/flags/eu.svg" alt="" loading="lazy" />
                 )}
@@ -262,15 +258,15 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
             {pct && (
               <span
                 className="ph-pct"
-                title={`#${pct.position.toLocaleString()} of ${pct.population.toLocaleString()} ranked players in ${player.region || "the region"}`}
+                title={t("ph.pctTitle", { pos: pct.position.toLocaleString(lang), pop: pct.population.toLocaleString(lang), where })}
               >
-                Top {pct.top_percent < 1 ? pct.top_percent : Math.round(pct.top_percent)}%
+                {t("ph.top", { n: pct.top_percent < 1 ? pct.top_percent : Math.round(pct.top_percent) })}
               </span>
             )}
             {countryRank ? (
               <span
                 className="ph-rank ph-rank-country"
-                title={`#${countryRank.toLocaleString()} in ${(player.country || "").toUpperCase()}`}
+                title={t("ph.rankIn", { n: countryRank.toLocaleString(lang), where: (player.country || "").toUpperCase() })}
               >
                 <Flag country={player.country} size={14} />
                 #{countryRank.toLocaleString()}
@@ -280,8 +276,8 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 1.35 K/D over eleven years is a different claim than the same
                 number over eleven months. */}
             {age && (
-              <span className="ph-age" title={`FACEIT account created ${age.full}`}>
-                Since {age.when}
+              <span className="ph-age" title={t("ph.created", { date: age.full })}>
+                {t("ph.since", { when: age.when })}
                 <i>{age.age}</i>
               </span>
             )}
@@ -296,8 +292,8 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 href={faceitUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="FACEIT profile"
-                aria-label="FACEIT profile"
+                title={t("ph.faceitProfile")}
+                aria-label={t("ph.faceitProfile")}
               >
                 <FaceitIcon />
               </a>
@@ -308,8 +304,8 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 href={`https://steamcommunity.com/profiles/${player.steam_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Steam profile"
-                aria-label="Steam profile"
+                title={t("ph.steamProfile")}
+                aria-label={t("ph.steamProfile")}
               >
                 <SteamIcon />
               </a>
@@ -325,7 +321,7 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Twitch — ${player.platforms.twitch}`}
-                aria-label="Twitch channel"
+                aria-label={t("ph.twitch")}
               >
                 <TwitchIcon />
               </a>
@@ -334,12 +330,15 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
         </div>
 
         <div className="ph-elo">
+          {children && (
+            <div className="sh-ph-quick" role="group" aria-label={t("ph.actions")}>{children}</div>
+          )}
           {isChallenger && (
-            <div className="ph-challenger" title={`Challenger — #${rank} in ${player.region || "region"}`}>
+            <div className="ph-challenger" title={t("ph.challenger", { n: rank, where })}>
               <ChallengerBadge position={rank} size={22} />
             </div>
           )}
-          <div className="ph-elo-label">Faceit ELO</div>
+          <div className="ph-elo-label">{t("ph.faceitElo")}</div>
           <div className="ph-elo-row">
             <FaceitLevel level={player.skill_level} size={46} />
             <div className="ph-elo-value"><CountUp value={player.elo} /></div>
@@ -355,34 +354,20 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
       {/* Last five results and how fresh the page is, on one line above the
           career strip. Both answer "is this worth reading right now" — one
           about the player, one about the data. */}
-      {(form.length > 0 || onRefresh) && (
+      {onRefresh && (
         <div className="ph-bar">
-          {form.length > 0 && (
-            <div className="ph-form" title="Last 5 matches, newest first">
-              <span className="ph-form-label">Last 5</span>
-              {form.map((m, i) => (
-                <ResultChip
-                  key={m.match_id || i}
-                  won={m.won}
-                  title={m.finished_at
-                    ? new Date(m.finished_at * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-                    : undefined}
-                />
-              ))}
-            </div>
-          )}
-          {onRefresh && (
+          {(
             <div className="ph-sync">
-              {fetched && <span className="ph-sync-when">Updated {fetched}</span>}
+              {fetched && <span className="ph-sync-when">{t("ph.updated", { when: fetched })}</span>}
               <button
                 type="button"
                 className={`ph-refresh ${refreshing ? "spinning" : ""}`}
                 onClick={onRefresh}
                 disabled={refreshing}
-                title="Fetch fresh data"
-                aria-label="Refresh player data"
+                title={t("ph.fetchFresh")}
+                aria-label={t("ph.refresh")}
               >
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true"
                      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                   <path d="M21 3v6h-6" />
@@ -394,34 +379,34 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
       )}
 
       <div className="ph-strip">
-        <div className="ph-strip-tag">All time</div>
+        <div className="ph-strip-tag">{t("ph.allTime")}</div>
         {/* Every match on the account, both Counter-Strikes. The rest of this
             strip is CS2 — the Game history panel in the sidebar splits the
             total back out per title, and the tabs below are CS2 throughout. */}
         <PS
-          label="Matches"
+          label={t("ph.matches")}
           value={player.total_matches ?? s.matches}
           title={
             player.total_matches && (player.game_history || []).length > 1
               ? (player.game_history || [])
                   .filter((g) => g.matches)
-                  .map((g) => `${g.label} ${g.matches.toLocaleString()}`)
+                  .map((g) => `${g.label} ${g.matches.toLocaleString(lang)}`)
                   .join(" · ")
               : undefined
           }
         />
         <PS
-          label="Win Rate"
+          label={t("ph.winRate")}
           value={wr != null ? `${wr}%` : null}
           tone={wr != null ? (wr >= 50 ? "pos" : "neg") : undefined}
         />
         <PS
-          label="K/D"
+          label={t("ph.kd")}
           value={kd}
           tone={kd != null ? (kd >= 1 ? "pos" : "neg") : undefined}
         />
-        <PS label="HS%" value={s.avg_hs != null ? `${s.avg_hs}%` : null} />
-        <PS label="Streak" value={streak} tone={streakTone} />
+        <PS label={t("ph.hs")} value={s.avg_hs != null ? `${s.avg_hs}%` : null} />
+        <PS label={t("ph.streak")} value={streak} tone={streakTone} />
       </div>
 
       {/* Above the level bar, below the identity block: the one thing on this
@@ -454,7 +439,6 @@ export default function PlayerHeader({ player, children, onRefresh, refreshing }
         />
       </div>
 
-      {children && <div className="ph-actions">{children}</div>}
     </div>
   );
 }

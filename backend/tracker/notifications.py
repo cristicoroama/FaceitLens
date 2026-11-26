@@ -82,3 +82,84 @@ def notify_ban(nickname: str, ban_type: str) -> int:
     except Exception:
         log.exception("notify_ban failed for %s", nickname)
         return 0
+
+
+def _followers(nicknames) -> list[int]:
+    from django.db.models import Q
+
+    from .models import Favorite
+
+    names = [n for n in {(n or "").strip() for n in nicknames} if n]
+    if not names:
+        return []
+    q = Q()
+    for n in names:
+        q |= Q(nickname__iexact=n)
+    return list(Favorite.objects.filter(q).values_list("user_id", flat=True).distinct())
+
+
+def deliver(user_ids, kind: str, title: str, body: str, link: str, key: str) -> int:
+    try:
+        from .models import Notification
+
+        user_ids = list(dict.fromkeys(user_ids))
+        if not user_ids:
+            return 0
+        key = key[:140]
+        already = set(
+            Notification.objects.filter(dedupe=key, user_id__in=user_ids)
+            .values_list("user_id", flat=True)
+        )
+        fresh = [uid for uid in user_ids if uid not in already]
+        if not fresh:
+            return 0
+        Notification.objects.bulk_create(
+            [
+                Notification(
+                    user_id=uid,
+                    kind=kind[:20],
+                    title=title[:140],
+                    body=(body or "")[:240],
+                    link=(link or "")[:200],
+                    dedupe=key,
+                )
+                for uid in fresh
+            ],
+            ignore_conflicts=True,
+        )
+        return len(fresh)
+    except Exception:
+        log.exception("deliver failed for %s", key)
+        return 0
+
+
+def notify_followers(nicknames, kind: str, title: str, body: str, link: str, key: str) -> int:
+    try:
+        return deliver(_followers(nicknames), kind, title, body, link, key)
+    except Exception:
+        log.exception("notify_followers failed for %s", key)
+        return 0
+
+
+def notify_levelup(player_id: str, nickname: str, old_level: int, new_level: int, elo: int, day, aliases=()) -> int:
+    return notify_followers(
+        [nickname, *aliases],
+        "levelup",
+        f"{nickname} reached level {new_level}",
+        f"Up from level {old_level}, now on {elo} ELO.",
+        f"/player/{nickname}",
+        f"levelup:{player_id}:{new_level}:{day}",
+    )
+
+
+def notify_elo_swing(player_id: str, nickname: str, delta: int, elo: int, day, aliases=()) -> int:
+    sign = "+" if delta > 0 else ""
+    verb = "gained" if delta > 0 else "lost"
+    return notify_followers(
+        [nickname, *aliases],
+        "elo_swing",
+        f"{nickname} {verb} {abs(delta)} ELO in a day",
+        f"{sign}{delta} since the last snapshot, now on {elo} ELO.",
+        f"/player/{nickname}",
+        f"elo_swing:{player_id}:{day}",
+    )

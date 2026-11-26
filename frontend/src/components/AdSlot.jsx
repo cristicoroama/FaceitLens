@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import "../styles/account.css";
 
 /**
  * Sponsor placements. Two different units:
@@ -70,36 +71,53 @@ function Banner() {
 
 function Slot({ className }) {
   const [failed, setFailed] = useState(false);
+  const [seen, setSeen] = useState(false);
+  const boxRef = useRef(null);
   const frameRef = useRef(null);
 
-  // Only reacts to what actually happened: if the frame hasn't fired onLoad in
-  // a few seconds, show the static banner instead. That covers a blocker
-  // stopping the request, the advertiser being down and a flaky connection,
-  // without guessing about anyone's browser the way the old bait detector did.
   useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setSeen(true);
+      return undefined;
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setSeen(true);
+        io.disconnect();
+      }
+    }, { rootMargin: "0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!seen || failed) return undefined;
     const t = setTimeout(() => {
       if (!frameRef.current?.dataset.loaded) setFailed(true);
     }, 3500);
     return () => clearTimeout(t);
-  }, []);
+  }, [seen, failed]);
 
   return (
     <div className={`partner ${className || ""}`}>
       <Tag />
-      {failed ? (
-        <Banner />
-      ) : (
-        <iframe
-          ref={frameRef}
-          className="partner-frame"
-          title="hunt.gg"
-          src={FRAME_SRC}
-          loading="lazy"
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
-          referrerPolicy="no-referrer-when-downgrade"
-          onLoad={(e) => { e.currentTarget.dataset.loaded = "1"; }}
-        />
-      )}
+      <div className="partner-box" ref={boxRef}>
+        {failed ? (
+          <Banner />
+        ) : (
+          <iframe
+            ref={frameRef}
+            className="partner-frame"
+            title="hunt.gg"
+            src={FRAME_SRC}
+            loading="lazy"
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
+            referrerPolicy="no-referrer-when-downgrade"
+            onLoad={(e) => { e.currentTarget.dataset.loaded = "1"; }}
+          />
+        )}
+      </div>
     </div>
   );
 }

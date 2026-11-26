@@ -55,7 +55,7 @@ export default function ProfileTools({
       key: "card",
       icon: Icon.cardImage,
       label: "Share card",
-      hint: "A image of this profile, for posting",
+      hint: "An image of this profile, for posting",
       run: onShareCard,
     },
     {

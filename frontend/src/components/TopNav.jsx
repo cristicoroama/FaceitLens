@@ -1,18 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 
-import { DISCORD_INVITE } from "../links.js";
 import { Icon } from "../icons.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE, LOCALE_NAMES, localePath, makeT } from "../i18n.js";
+import useFocusTrap from "../hooks/useFocusTrap.js";
+import { isPlainClick, stripLocalePath } from "../shell-utils.js";
 
-/* Short codes for the bar — the full names would push the nav off a laptop
-   screen, and every one of these is recognisable to the people who need it.
-
-   The flag is the country whose flag people actually associate with the
-   language, which is not always the language code: Ukrainian is `uk` but flies
-   `ua`, and English gets the Union Jack. */
 const LOCALE_SHORT = { en: "EN", ru: "RU", pl: "PL", uk: "UA" };
 const LOCALE_FLAG = { en: "gb", ru: "ru", pl: "pl", uk: "ua" };
-
 
 function LangFlag({ code, size = 18 }) {
   return (
@@ -27,69 +21,62 @@ function LangFlag({ code, size = 18 }) {
   );
 }
 
-/** The current path with any locale prefix removed, so switching language
-    keeps you on the page you were reading instead of dumping you home. */
-function stripLocale(pathname) {
-  return pathname.replace(/^\/(ru|pl|uk)(?=\/|$)/, "") || "/";
+function sectionsOf(g) {
+  return g.sections || [{ label: null, items: g.items || [] }];
 }
 
-/**
- * Top navigation bar. Replaces the old left sidebar, which had outgrown
- * itself: sixteen entries plus a contact block needed ~850px of column on a
- * viewport that offered ~600px, so half the nav sat below a scrollbar where
- * nobody found it. Dropdowns give that space back on demand.
- *
- * Menus open on click, never on hover — hover menus fire by accident when the
- * pointer crosses them, and they're unusable on touch.
- */
+function allItems(g) {
+  return sectionsOf(g).flatMap((s) => s.items);
+}
+
+function Caret() {
+  return (
+    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" aria-hidden="true"
+         stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export default function TopNav({
-  groups, mode, onNav, brandHref, onBrand, search, actions, extras,
+  groups, mode, onNav, brandHref, onBrand, search, actions,
   lang = DEFAULT_LOCALE,
 }) {
-  const [open, setOpen] = useState(null);      // id of the open dropdown
-  const [drawer, setDrawer] = useState(false); // mobile
+  const [open, setOpen] = useState(null);
+  const [drawer, setDrawer] = useState(false);
   const navRef = useRef(null);
   const langRef = useRef(null);
+  const drawerRef = useRef(null);
+  const triggers = useRef({});
+  const menus = useRef({});
+  const focusFirst = useRef(false);
   const t = makeT(lang);
 
-  /* Real <a href> links rather than a JS-driven select. Two reasons: a crawler
-     walks them, which is how the translated pages get discovered from each
-     other; and switching language reloads the document, which is what makes
-     the server hand back the prerendered page in the new language instead of
-     re-rendering the old one client-side. */
+  useFocusTrap(drawerRef, drawer, { onEscape: () => setDrawer(false) });
+
   const langLinks = ALL_LOCALES.map((l) => ({
     code: l,
-    href: localePath(l, stripLocale(
-      typeof window === "undefined" ? "/" : window.location.pathname,
-    )),
+    href: localePath(l, stripLocalePath(typeof window === "undefined" ? "/" : window.location.pathname)),
   }));
 
-  /* Close on outside click and on Escape.
-   *
-   * Both containers have to be consulted. The language picker lives outside
-   * <nav> — it sits after the search box — so a handler that only knew about
-   * navRef treated every click inside the language menu as an outside click.
-   * It closed the menu on mousedown, the <a> unmounted before mouseup, and the
-   * link never fired: the picker looked completely dead. */
   useEffect(() => {
-    if (open === null) return;
+    if (open === null) return undefined;
     const onDoc = (e) => {
       const inNav = navRef.current?.contains(e.target);
       const inLang = langRef.current?.contains(e.target);
       if (!inNav && !inLang) setOpen(null);
     };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(null);
-    };
     document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  // Lock body scroll while the mobile drawer is up.
+  useEffect(() => {
+    if (open === null || !focusFirst.current) return;
+    focusFirst.current = false;
+    const first = menus.current[open]?.querySelector(".tn-menu-item");
+    first?.focus();
+  }, [open]);
+
   useEffect(() => {
     document.body.style.overflow = drawer ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -101,19 +88,81 @@ export default function TopNav({
     onNav(id);
   }
 
-  /* Plain left-click is ours; anything else is the browser's, so ctrl-click
-     and middle-click still open a real tab. */
   const linkProps = (id, href) => ({
     href,
     onClick: (e) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      if (!isPlainClick(e)) return;
       e.preventDefault();
       pick(id);
     },
   });
 
-  const isActive = (g) =>
-    g.items ? g.items.some((it) => it.id === mode) : g.id === mode;
+  const isActive = (g) => (g.items || g.sections ? allItems(g).some((it) => it.id === mode) : g.id === mode);
+
+  function toggle(key) {
+    setOpen((o) => (o === key ? null : key));
+  }
+
+  function onTriggerKey(key, e) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (open === key) {
+        menus.current[key]?.querySelector(".tn-menu-item")?.focus();
+      } else {
+        focusFirst.current = true;
+        setOpen(key);
+      }
+    } else if (e.key === "Escape" && open === key) {
+      e.preventDefault();
+      setOpen(null);
+    }
+  }
+
+  function onMenuKey(key, e) {
+    const items = [...(menus.current[key]?.querySelectorAll(".tn-menu-item") || [])];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      items[(i + 1) % items.length]?.focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(i - 1 + items.length) % items.length]?.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      items[0]?.focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(null);
+      triggers.current[key]?.focus();
+    } else if (e.key === "Tab") {
+      setOpen(null);
+    }
+  }
+
+  function renderTail(g, drawerMode) {
+    if (!g.tail) return null;
+    return (
+      <>
+        {!drawerMode && <div className="tn-menu-sep" role="separator" />}
+        {g.tail.map((tl) => (
+          <a
+            key={tl.label}
+            className={`${drawerMode ? "tn-drawer-item" : "tn-menu-item"} ${tl.cls || ""}`}
+            href={tl.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => { setOpen(null); setDrawer(false); }}
+          >
+            <span className="tn-menu-ic">{tl.icon}</span>
+            <span className="tn-menu-text">{tl.label}</span>
+          </a>
+        ))}
+      </>
+    );
+  }
 
   return (
     <>
@@ -122,7 +171,7 @@ export default function TopNav({
           className="tn-brand"
           href={brandHref}
           onClick={(e) => {
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+            if (!isPlainClick(e)) return;
             e.preventDefault();
             setOpen(null);
             setDrawer(false);
@@ -130,75 +179,55 @@ export default function TopNav({
           }}
         >
           <img src="/logo.png" alt="" width="30" height="30" />
-          {/* One flex child, or the brand's gap opens up inside the wordmark */}
           <span className="tn-word">Faceit-<span>Lens</span></span>
         </a>
 
-        <nav className="tn-nav" ref={navRef}>
+        <nav className="tn-nav" ref={navRef} aria-label={t("chrome.menu")}>
           {groups.map((g) =>
-            g.items ? (
+            g.items || g.sections ? (
               <div className="tn-item" key={g.label}>
                 <button
+                  ref={(el) => { triggers.current[g.label] = el; }}
                   className={`tn-trigger ${isActive(g) ? "active" : ""} ${open === g.label ? "open" : ""}`}
                   aria-expanded={open === g.label}
                   aria-haspopup="true"
-                  onClick={() => setOpen((o) => (o === g.label ? null : g.label))}
+                  onClick={() => toggle(g.label)}
+                  onKeyDown={(e) => onTriggerKey(g.label, e)}
                 >
                   {g.label}
-                  {/* Derived from the items rather than set on the group, so
-                      the dot disappears by itself when the badge comes off the
-                      last new entry. */}
-                  {g.items.some((it) => it.badge) && <span className="tn-new-dot" aria-hidden="true" />}
-                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
-                       stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
+                  {allItems(g).some((it) => it.badge) && <span className="tn-new-dot" aria-hidden="true" />}
+                  <Caret />
                 </button>
 
                 {open === g.label && (
-                  <div className="tn-menu">
-                    {g.items.map((it) => (
-                      <a
-                        key={it.id}
-                        className={`tn-menu-item ${mode === it.id ? "active" : ""}`}
-                        aria-current={mode === it.id ? "page" : undefined}
-                        {...linkProps(it.id, it.href)}
-                      >
-                        <span className="tn-menu-ic">{it.icon}</span>
-                        <span className="tn-menu-text">
-                          {/* Label and badge share a row of their own. Dropping
-                              the badge straight into .tn-menu-text made it a
-                              flex-column child, which stretches — it rendered as
-                              a full-width orange bar under the label. */}
-                          <span className="tn-menu-label">
-                            {it.label}
-                            {it.badge && <span className="badge rounded-pill">{it.badge}</span>}
-                          </span>
-                          {it.hint && <small>{it.hint}</small>}
-                        </span>
-                      </a>
-                    ))}
-
-                    {/* Discord and Buy-me-a-coffee are actions, not reference
-                        links — the footer would bury them. */}
-                    {g.tail && (
-                      <>
-                        <div className="tn-menu-sep" />
-                        {g.tail.map((t) => (
+                  <div
+                    className={`tn-menu ${g.sections ? "tn-menu-sections" : ""}`}
+                    ref={(el) => { menus.current[g.label] = el; }}
+                    onKeyDown={(e) => onMenuKey(g.label, e)}
+                  >
+                    {sectionsOf(g).map((sec, si) => (
+                      <div className="sh-menu-sec" key={sec.label || si} role="group" aria-label={sec.label || undefined}>
+                        {sec.label && <div className="sh-menu-sec-label" aria-hidden="true">{sec.label}</div>}
+                        {sec.items.map((it) => (
                           <a
-                            key={t.label}
-                            className={`tn-menu-item ${t.cls || ""}`}
-                            href={t.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => setOpen(null)}
+                            key={it.id}
+                            className={`tn-menu-item ${mode === it.id ? "active" : ""}`}
+                            aria-current={mode === it.id ? "page" : undefined}
+                            {...linkProps(it.id, it.href)}
                           >
-                            <span className="tn-menu-ic">{t.icon}</span>
-                            <span className="tn-menu-text">{t.label}</span>
+                            <span className="tn-menu-ic">{it.icon}</span>
+                            <span className="tn-menu-text">
+                              <span className="tn-menu-label">
+                                {it.label}
+                                {it.badge && <span className="badge rounded-pill">{it.badge}</span>}
+                              </span>
+                              {it.hint && <small>{it.hint}</small>}
+                            </span>
                           </a>
                         ))}
-                      </>
-                    )}
+                      </div>
+                    ))}
+                    {renderTail(g, false)}
                   </div>
                 )}
               </div>
@@ -215,26 +244,29 @@ export default function TopNav({
           )}
         </nav>
 
-        <div className="tn-search">{search}</div>
+        {search ? <div className="tn-search">{search}</div> : <div className="tn-search sh-search-empty" />}
 
         <div className="tn-item tn-lang" ref={langRef}>
           <button
+            ref={(el) => { triggers.current.__lang = el; }}
             className={`tn-trigger ${open === "__lang" ? "open" : ""}`}
             aria-expanded={open === "__lang"}
             aria-haspopup="true"
             aria-label={t("chrome.language")}
-            onClick={() => setOpen((o) => (o === "__lang" ? null : "__lang"))}
+            onClick={() => toggle("__lang")}
+            onKeyDown={(e) => onTriggerKey("__lang", e)}
           >
             <LangFlag code={lang} size={17} />
             <span className="tn-lang-code">{LOCALE_SHORT[lang] || lang.toUpperCase()}</span>
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
-                 stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <Caret />
           </button>
 
           {open === "__lang" && (
-            <div className="tn-menu tn-menu-right">
+            <div
+              className="tn-menu tn-menu-right"
+              ref={(el) => { menus.current.__lang = el; }}
+              onKeyDown={(e) => onMenuKey("__lang", e)}
+            >
               {langLinks.map((l) => (
                 <a
                   key={l.code}
@@ -258,19 +290,20 @@ export default function TopNav({
           className="tn-burger"
           onClick={() => setDrawer(true)}
           aria-label={t("chrome.openMenu")}
+          aria-expanded={drawer}
+          aria-haspopup="dialog"
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"
                stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
         </button>
       </header>
 
-      {/* ---- mobile drawer: the same groups, expanded, no dropdowns ---- */}
       {drawer && (
         <>
           <div className="tn-scrim" onClick={() => setDrawer(false)} />
-          <div className="tn-drawer" role="dialog" aria-label="Menu">
+          <div className="tn-drawer" role="dialog" aria-modal="true" aria-label={t("chrome.menu")} ref={drawerRef}>
             <div className="tn-drawer-head">
               <span>{t("chrome.menu")}</span>
               <button onClick={() => setDrawer(false)} aria-label={t("chrome.closeMenu")}>{Icon.xLg}</button>
@@ -278,19 +311,27 @@ export default function TopNav({
 
             {groups.map((g) => (
               <div key={g.label || g.id}>
-                {g.items ? (
+                {g.items || g.sections ? (
                   <>
                     <div className="tn-drawer-group">{g.label}</div>
-                    {g.items.map((it) => (
-                      <a
-                        key={it.id}
-                        className={`tn-drawer-item ${mode === it.id ? "active" : ""}`}
-                        {...linkProps(it.id, it.href)}
-                      >
-                        <span className="tn-menu-ic">{it.icon}</span>
-                        {it.label}
-                      </a>
+                    {sectionsOf(g).map((sec, si) => (
+                      <div key={sec.label || si} role="group" aria-label={sec.label || undefined}>
+                        {sec.label && <div className="sh-drawer-sub">{sec.label}</div>}
+                        {sec.items.map((it) => (
+                          <a
+                            key={it.id}
+                            className={`tn-drawer-item ${mode === it.id ? "active" : ""}`}
+                            aria-current={mode === it.id ? "page" : undefined}
+                            {...linkProps(it.id, it.href)}
+                          >
+                            <span className="tn-menu-ic">{it.icon}</span>
+                            {it.label}
+                            {it.badge && <span className="badge rounded-pill">{it.badge}</span>}
+                          </a>
+                        ))}
+                      </div>
                     ))}
+                    {renderTail(g, true)}
                   </>
                 ) : (
                   <a
@@ -319,11 +360,6 @@ export default function TopNav({
                 </a>
               ))}
             </div>
-
-            <div className="tn-drawer-group">{t("chrome.community")}</div>
-            <a className="tn-drawer-item tn-discord" href={DISCORD_INVITE}
-               target="_blank" rel="noopener noreferrer">{t("chrome.joinDiscord")}</a>
-            {extras}
           </div>
         </>
       )}

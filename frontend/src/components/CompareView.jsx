@@ -1,4 +1,6 @@
 import { FaceitLevel } from "./RankIcons.jsx";
+import StatsPlayerLink from "./StatsPlayerLink.jsx";
+import "../styles/stats.css";
 
 const ROWS = [
   { key: "elo", label: "ELO", better: "high" },
@@ -46,39 +48,48 @@ export default function CompareView({ players, onPick }) {
 
   return (
     <div className="cmp">
-      <div className="cmp-grid" style={{ "--cols": list.length }}>
-        {/* header row: player cards */}
-        <div className="cmp-cell cmp-corner" />
-        {list.map((p, i) => (
-          <div className="cmp-head" key={p.nickname} style={{ "--i": i }}>
-            <div
-              className="cmp-head-inner"
-              onClick={() => onPick && onPick(p.nickname)}
-              title={`Open ${p.nickname}`}
-            >
-              {p.avatar ? (
-                <img className="cmp-ava" src={p.avatar} alt={p.nickname} />
-              ) : (
-                <span className="cmp-ava ph">{initials(p.nickname)}</span>
-              )}
-              <div className="cmp-head-name">{p.nickname}</div>
-              <FaceitLevel level={p.skill_level || 1} size={22} />
-            </div>
+      <div className="cmp-grid" style={{ "--cols": list.length }} role="table" aria-label="Player comparison">
+        <div className="cmp-line" role="row" style={{ display: "contents" }}>
+          <div className="cmp-cell cmp-corner" role="columnheader">
+            <span className="sr-only">Stat</span>
           </div>
-        ))}
+          {list.map((p, i) => (
+            <div className="cmp-head" key={p.nickname} style={{ "--i": i }} role="columnheader">
+              <StatsPlayerLink
+                nickname={p.nickname}
+                onPick={onPick}
+                className="cmp-head-inner"
+                title={`Open ${p.nickname}`}
+              >
+                {p.avatar ? (
+                  <img className="cmp-ava" src={p.avatar} alt="" />
+                ) : (
+                  <span className="cmp-ava ph" aria-hidden="true">{initials(p.nickname)}</span>
+                )}
+                <span className="cmp-head-name">{p.nickname}</span>
+                <FaceitLevel level={p.skill_level || 1} size={22} />
+              </StatsPlayerLink>
+            </div>
+          ))}
+        </div>
 
         {/* metric rows */}
         {ROWS.map((row) => {
           const best = bestIndexes(list, row);
           return (
-            <div className="cmp-line" key={row.key} style={{ display: "contents" }}>
-              <div className="cmp-cell cmp-label">{row.label}</div>
+            <div className="cmp-line" key={row.key} style={{ display: "contents" }} role="row">
+              <div className="cmp-cell cmp-label" role="rowheader">{row.label}</div>
               {list.map((p, i) => {
                 const v = raw(p, row);
                 return (
-                  <div className={`cmp-cell cmp-val ${best.has(i) ? "best" : ""}`} key={p.nickname}>
+                  <div className={`cmp-cell cmp-val ${best.has(i) ? "best" : ""}`} key={p.nickname} role="cell">
                     {v ?? "—"}{v != null && row.suffix ? row.suffix : ""}
-                    {best.has(i) && <span className="cmp-crown">▲</span>}
+                    {best.has(i) && (
+                      <>
+                        <span className="cmp-crown" aria-hidden="true">▲</span>
+                        <span className="sr-only">best</span>
+                      </>
+                    )}
                   </div>
                 );
               })}

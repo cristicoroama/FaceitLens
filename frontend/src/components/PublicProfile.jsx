@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import EloProgress from "./EloProgress.jsx";
 import { Icon } from "../icons.jsx";
+import { fmtDay } from "../lib/account-api.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -25,6 +26,12 @@ function ReportDialog({ handle, onClose }) {
   const [detail, setDetail] = useState("");
   const [sent, setSent] = useState(false);
 
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   async function submit(e) {
     e.preventDefault();
     try {
@@ -40,16 +47,22 @@ function ReportDialog({ handle, onClose }) {
 
   return (
     <div className="pp-modal-back" onClick={onClose}>
-      <div className="panel pp-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="panel pp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pp-report-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         {sent ? (
-          <div className="pp-report-done">
+          <div className="pp-report-done" role="status">
             <div className="empty-ico">{Icon.patchCheckFill}</div>
             <h3>Thanks — we'll take a look.</h3>
           </div>
         ) : (
           <form onSubmit={submit}>
-            <div className="panel-head"><h2 className="panel-title">Report this profile</h2></div>
-            <div className="pp-report-opts">
+            <div className="panel-head"><h2 className="panel-title" id="pp-report-title">Report this profile</h2></div>
+            <div className="pp-report-opts" role="radiogroup" aria-label="Reason">
               {[
                 ["avatar", "Inappropriate picture"],
                 ["name", "Inappropriate name or bio"],
@@ -70,6 +83,8 @@ function ReportDialog({ handle, onClose }) {
             </div>
             <input
               className="ps-input"
+              aria-label="Details (optional)"
+              autoFocus
               placeholder="Anything else we should know? (optional)"
               maxLength={300}
               value={detail}
@@ -132,7 +147,7 @@ export default function PublicProfile({ handle, onPick, onEdit, currentUser }) {
       <div className="panel">
         <div className="empty-state">
           <div className="empty-ico">{Icon.exclamationTriangle}</div>
-          <h3>{error}</h3>
+          <h3 role="alert">{error}</h3>
           <p>This profile doesn't exist, or its owner has made it private.</p>
         </div>
       </div>
@@ -168,7 +183,7 @@ export default function PublicProfile({ handle, onPick, onEdit, currentUser }) {
             </div>
             <div className="pp-handle">@{profile.handle}</div>
             {profile.bio && <p className="pp-bio">{profile.bio}</p>}
-            <div className="pp-joined">Joined {profile.joined}</div>
+            <div className="pp-joined">Joined {fmtDay(/^\d{4}-\d{2}-\d{2}$/.test(profile.joined || "") ? `${profile.joined}T12:00:00` : profile.joined, { day: "numeric", month: "long", year: "numeric" }) || profile.joined}</div>
           </div>
 
           <div className="pp-hero-actions">

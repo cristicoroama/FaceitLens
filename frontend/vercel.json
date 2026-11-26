@@ -1,4 +1,65 @@
 {
+  "functions": {
+    "api/render.js": {
+      "includeFiles": "dist/spa.html",
+      "maxDuration": 10
+    }
+  },
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/:dir(stickers|teams|flags|maps|map-icons|ranks|badges|weapons|games|img)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/:file(og\\.png|hero\\.webp|hero-sm\\.webp|logo\\.png|logo512\\.png|icon-192\\.png|favicon\\.png|favicon32\\.png|apple-touch-icon\\.png)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/site.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/og/:nick",
@@ -7,6 +68,10 @@
     {
       "source": "/sitemap-players.xml",
       "destination": "/api/sitemap-players"
+    },
+    {
+      "source": "/sitemap-players-:page(\\d+)\\.xml",
+      "destination": "/api/sitemap-players?page=:page"
     },
     {
       "source": "/p/:nick",
@@ -21,7 +86,7 @@
           "value": "1"
         }
       ],
-      "destination": "/index.html"
+      "destination": "/spa.html"
     },
     {
       "source": "/player/:nick",
@@ -32,7 +97,7 @@
           "value": "1"
         }
       ],
-      "destination": "/index.html"
+      "destination": "/spa.html"
     },
     {
       "source": "/:lang(ru|pl|uk)/player/:nick",
@@ -43,8 +108,16 @@
       "destination": "/api/render?nick=:nick"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "source": "/overlay/:token",
+      "destination": "/spa.html"
+    },
+    {
+      "source": "/((?:(?:ru|pl|uk)/)?(?:steam|u|leaderboard)/[^/]+/?)",
+      "destination": "/spa.html"
+    },
+    {
+      "source": "/((?:(?:ru|pl|uk)/)?[^/.]+/?)",
+      "destination": "/spa.html"
     }
   ]
 }

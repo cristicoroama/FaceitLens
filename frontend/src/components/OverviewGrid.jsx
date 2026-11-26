@@ -2,6 +2,9 @@ import { useState } from "react";
 import CountUp from "./CountUp.jsx";
 import FormStrip from "./FormStrip.jsx";
 import { Icon } from "../icons.jsx";
+import { tier } from "../rating-scale.js";
+import { daysAgoLabel, fmtDate, snapshotStats } from "../stats-format.js";
+import "../styles/stats.css";
 
 /* Card icons — Solar, Linear weight.
  *
@@ -44,7 +47,7 @@ const IC = {
  * wrong because the two numbers are not about the same games.
  *
  * The period belongs on the card, not in a footnote nobody reaches. */
-function Card({ label, approx, period, value, color, trend, subs, ic }) {
+function Card({ label, approx, period, value, color, valueClass, trend, subs, ic, note }) {
   return (
     <div className="ov-card">
       {ic && <div className="ov-ic">{ic}</div>}
@@ -53,11 +56,12 @@ function Card({ label, approx, period, value, color, trend, subs, ic }) {
         {approx && <span className="ov-approx">*</span>}
         {period && <span className="ov-window">{period}</span>}
       </div>
-      <div className="ov-card-value" style={color ? { color } : undefined}>
+      <div className={`ov-card-value ${valueClass || ""}`} style={color ? { color } : undefined}>
         {value}
         {trend && trend !== "flat" && (
           <span className={`trend ${trend === "up" ? "up" : "down"}`}>
-            {trend === "up" ? "▲" : "▼"}
+            <span aria-hidden="true">{trend === "up" ? "▲" : "▼"}</span>
+            <span className="sr-only">{trend === "up" ? "trending up" : "trending down"}</span>
           </span>
         )}
       </div>
@@ -71,6 +75,7 @@ function Card({ label, approx, period, value, color, trend, subs, ic }) {
           ))}
         </div>
       )}
+      {note && <div className="ov-card-note">{note}</div>}
     </div>
   );
 }
@@ -113,12 +118,30 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
   const winRate = recent ? ra.win_rate : s.win_rate;
   const matches = recent ? ra.matches : s.matches;
 
-  function ratingColor(r) {
-    if (r == null) return undefined;
-    if (r >= 1.15) return "var(--win)";
-    if (r < 0.95) return "var(--loss)";
-    return "var(--accent)";
-  }
+  const real = snapshotStats(data.elo_snapshots);
+  const signed = (v) => (v > 0 ? `+${v}` : `${v}`);
+  const eloSubs = real
+    ? [
+        { label: "Peak", value: `${real.peak.elo} · ${fmtDate(real.peak.date)}` },
+        { label: "Low", value: `${real.low.elo} · ${fmtDate(real.low.date)}` },
+        { label: "Best day", value: real.best_day ? `${signed(real.best_day.delta)} · ${fmtDate(real.best_day.date)}` : null },
+        { label: "Worst day", value: real.worst_day ? `${signed(real.worst_day.delta)} · ${fmtDate(real.worst_day.date)}` : null },
+        { label: "Days not dropping", value: real.streak },
+      ]
+    : [
+        { label: "Highest (est.)", value: ex.high },
+        { label: "Lowest (est.)", value: ex.low },
+        { label: "Average (est.)", value: ex.avg },
+      ];
+
+  const newest = (data.recent_matches || []).reduce(
+    (acc, m) => (m.finished_at && m.finished_at > acc ? m.finished_at : acc),
+    0,
+  );
+  const sessWhen = daysAgoLabel(newest) || "latest";
+  const mkTotal = mk
+    ? [mk.triple_total, mk.quadro_total, mk.penta_total].reduce((a, v) => a + (Number(v) || 0), 0)
+    : null;
 
   return (
     <>
@@ -128,7 +151,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
 
       <div className="ov-head">
         <div className="section-title" style={{ margin: 0 }}>
-          Overview {mapFilter ? `· ${mapFilter.replace("de_", "")}` : ""}
+          Overview {recent && mapFilter ? `· ${mapFilter.replace("de_", "")}` : ""}
         </div>
         {/* Both filters in one group, hard right. `.ov-head` is a
             space-between flex, so a third child lands stranded in the middle
@@ -144,10 +167,21 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
             <option value="all">All time</option>
           </select>
           {maps && maps.length > 0 && (
-            <select className="map-filter" value={mapFilter || ""} onChange={(e) => onMapFilter(e.target.value || null)}>
+            <select
+              className="map-filter"
+              value={mapFilter || ""}
+              onChange={(e) => onMapFilter(e.target.value || null)}
+              aria-label="Filter by map"
+              aria-describedby={recent ? undefined : "ov-map-hint"}
+              disabled={!recent}
+              title={recent ? undefined : "The map filter only applies to the last 30 matches"}
+            >
               <option value="">All maps</option>
               {maps.map((m) => <option key={m} value={m}>{m.replace("de_", "")}</option>)}
             </select>
+          )}
+          {maps && maps.length > 0 && !recent && (
+            <span className="ov-filter-hint" id="ov-map-hint">Map filter works on last 30 only</span>
           )}
         </div>
       </div>
@@ -160,7 +194,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
       <div className="ov-grid">
         <Card
           ic={IC.rating}
-          label="Rating 2.0" approx period="last 30" value={h.rating ?? "—"} color={ratingColor(h.rating)}
+          label="Rating 2.0" approx period="last 30" value={h.rating ?? "—"} valueClass={tier("rating", h.rating)}
           subs={[
             { label: "KPR", value: h.kpr },
             { label: "DPR", value: h.dpr },
@@ -216,20 +250,21 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         />
         <Card
           ic={IC.elo}
-          label="ELO" period="current" value={<CountUp value={data.elo} />} color="var(--accent)"
-          subs={[
-            { label: "Highest", value: ex.high },
-            { label: "Lowest", value: ex.low },
-            { label: "Average", value: ex.avg },
-          ]}
+          label="ELO" period={real ? "real · daily" : "estimated"} value={<CountUp value={data.elo} />} color="var(--accent)"
+          subs={eloSubs}
+          note={
+            real
+              ? `Real daily readings over ${real.days_tracked} days since ${fmtDate(real.since)}.`
+              : "Estimated from recent results at about ±25 a match; real daily tracking starts once the profile is snapshotted."
+          }
         />
         {sess && (
           <Card
             ic={IC.session}
-            label="Last Session" period="today" value={`${sess.wins}-${sess.losses}`}
-            color={sess.elo_change >= 0 ? "var(--win)" : "var(--loss)"}
+            label="Last Session" period={sessWhen} value={`${sess.wins}-${sess.losses}`}
+            valueClass={sess.wins > sess.losses ? "tone-up" : sess.wins < sess.losses ? "tone-down" : ""}
             subs={[
-              { label: "ELO", value: `${sess.elo_change >= 0 ? "+" : ""}${sess.elo_change}` },
+              { label: "ELO (est.)", value: `${sess.elo_change >= 0 ? "+" : ""}${sess.elo_change}` },
               { label: "Streak", value: data.streak ? `${data.streak.count}${data.streak.type}` : "—" },
               { label: "Last 10", value: data.form },
             ]}
@@ -238,7 +273,7 @@ export default function OverviewGrid({ data, maps, mapFilter, onMapFilter }) {
         {mk && (
           <Card
             ic={IC.mk}
-            label="Multi-Kills" period="last 50" value={mk.triple_total}
+            label="3K+ rounds" period="last 50" value={mkTotal}
             subs={[
               { label: "Triple", value: mk.triple_total },
               { label: "Quad", value: mk.quadro_total },

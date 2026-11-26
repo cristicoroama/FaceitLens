@@ -16,24 +16,28 @@ export default function MapStats({ maps }) {
       </div>
       {top.map((m) => {
         const wr = parseFloat(m.win_rate);
-        const pct = isNaN(wr) ? 0 : Math.max(0, Math.min(100, wr));
-        const color = pct >= 50 ? "var(--win)" : "var(--loss)";
+        const known = !isNaN(wr);
+        const pct = known ? Math.max(0, Math.min(100, wr)) : 0;
+        const color = !known ? "var(--text-dim)" : pct >= 50 ? "var(--win)" : "var(--loss)";
+        const count = Number(m.matches);
         return (
           <div className="map-row2" key={m.map}>
             <MapThumb map={m.map} />
             <div className="map-row2-main">
               <div className="map-row2-top">
                 <span className="map-name">{mapLabel(m.map)}</span>
-                <span className="map-wr" style={{ color }}>{m.win_rate ?? "—"}%</span>
+                <span className="map-wr" style={{ color }}>{known ? `${m.win_rate}%` : "—"}</span>
               </div>
               <div className="map-bar-track">
                 <div
                   className="map-bar-fill"
-                  style={{ width: `${pct}%`, background: color, boxShadow: `0 0 10px ${color}` }}
+                  style={{ width: `${pct}%`, background: color }}
                 />
               </div>
             </div>
-            <span className="map-count">{m.matches}m</span>
+            <span className="map-count">
+              {Number.isFinite(count) ? `${count.toLocaleString()} ${count === 1 ? "match" : "matches"}` : "—"}
+            </span>
           </div>
         );
       })}

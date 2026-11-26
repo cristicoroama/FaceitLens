@@ -1,131 +1,118 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { PAGE_META, DEFAULT_TITLE, DEFAULT_DESC, SITE_URL, TOOL_PAGES } from "./page-meta.js";
-import { DEFAULT_LOCALE, HERO, localePath, makeT, metaFor } from "./i18n.js";
+import { leaderboardRegionMeta } from "../lib/leaderboard-meta.js";
+import { ALL_LOCALES, DEFAULT_LOCALE, HERO, localePath, makeT, metaFor } from "./i18n.js";
+import { getJson, isAbort, primeCache, API_BASE } from "./api.js";
 import PlayerHeader from "./components/PlayerHeader.jsx";
-import MatchHistory from "./components/MatchHistory.jsx";
+import OverviewGrid from "./components/OverviewGrid.jsx";
 import SkillRatings from "./components/SkillRatings.jsx";
 import StatPanels from "./components/StatPanels.jsx";
-import MapHighlights from "./components/MapHighlights.jsx";
-import Highlights from "./components/Highlights.jsx";
-import PlayerHubs from "./components/PlayerHubs.jsx";
-import AllMatches from "./components/AllMatches.jsx";
-import ProfileTools from "./components/ProfileTools.jsx";
-import EloChart from "./components/EloChart.jsx";
-import CompareView from "./components/CompareView.jsx";
-import ProfileCompare from "./components/ProfileCompare.jsx";
-import MapStats from "./components/MapStats.jsx";
-import Squad from "./components/Squad.jsx";
-import Skeleton from "./components/Skeleton.jsx";
-import BanBanner from "./components/BanBanner.jsx";
-import BanStatus from "./components/BanStatus.jsx";
-import ProfileSidebar from "./components/ProfileSidebar.jsx";
-import SearchInput from "./components/SearchInput.jsx";
-import BestTeammates from "./components/BestTeammates.jsx";
-import HltvStats from "./components/HltvStats.jsx";
-import Clips from "./components/Clips.jsx";
-import AccountView from "./components/AccountView.jsx";
-import LeetifyStats from "./components/LeetifyStats.jsx";
-import CsrepStats from "./components/CsrepStats.jsx";
-import AiReport from "./components/AiReport.jsx";
-import Activity from "./components/Activity.jsx";
-import TeammatesFull from "./components/TeammatesFull.jsx";
-import SteamInfo from "./components/SteamInfo.jsx";
-import Nicknames from "./components/Nicknames.jsx";
-import HaveWeMet from "./components/HaveWeMet.jsx";
-import OverviewGrid from "./components/OverviewGrid.jsx";
+import EloProjector from "./components/EloProjector.jsx";
 import PlayerTeams from "./components/PlayerTeams.jsx";
-import CsgoOverview from "./components/CsgoOverview.jsx";
-import Games from "./components/Games.jsx";
-import ProGuesser from "./components/ProGuesser.jsx";
-import ApiDocs from "./components/ApiDocs.jsx";
-import NewsPage from "./components/NewsPage.jsx";
-import Hubs from "./components/Hubs.jsx";
-import Teams from "./components/Teams.jsx";
-import Competitions from "./components/Competitions.jsx";
-import Pickem from "./components/Pickem.jsx";
-import DiscordBot from "./components/DiscordBot.jsx";
-import { SmurfChecker, EloChecker, FaceitLevels } from "./components/SeoTools.jsx";
-import CommandPalette from "./components/CommandPalette.jsx";
+import Insights, { InsightsTeaser } from "./components/Insights.jsx";
+import Activity from "./components/Activity.jsx";
+import BanStatus from "./components/BanStatus.jsx";
+import ProfileTools from "./components/ProfileTools.jsx";
+import AiReport from "./components/AiReport.jsx";
+import Skeleton, { ProfileSkeleton } from "./components/Skeleton.jsx";
+import BanBanner from "./components/BanBanner.jsx";
+import ProfileSidebar from "./components/ProfileSidebar.jsx";
+import ProfileTabs from "./components/ProfileTabs.jsx";
+import SearchInput from "./components/SearchInput.jsx";
 import MiniHeader from "./components/MiniHeader.jsx";
 import ToolAbout from "./components/ToolAbout.jsx";
-import Insights, { InsightsTeaser } from "./components/Insights.jsx";
-import Analysis from "./components/Analysis.jsx";
-import FaceitStatus from "./components/FaceitStatus.jsx";
-import ProSettings from "./components/ProSettings.jsx";
-import FaceitBans from "./components/FaceitBans.jsx";
-import SteamStatus from "./components/SteamStatus.jsx";
-import Leaderboard from "./components/Leaderboard.jsx";
-import WorldMap from "./components/WorldMap.jsx";
-import SteamProfileView from "./components/SteamProfileView.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
-import MatchRoom from "./components/MatchRoom.jsx";
-import Watchlist from "./components/Watchlist.jsx";
-import EloProjector from "./components/EloProjector.jsx";
-import Nemeses from "./components/Nemeses.jsx";
-import ShareCard from "./components/ShareCard.jsx";
-import Wrapped from "./components/Wrapped.jsx";
-import ProfileSettings from "./components/ProfileSettings.jsx";
-import PublicProfile from "./components/PublicProfile.jsx";
-import Feedback from "./components/Feedback.jsx";
-import OverlaySettings from "./components/OverlaySettings.jsx";
 import { AdBanner, AdInline } from "./components/AdSlot.jsx";
 import WhatsNew, { useChangelog, WhatsNewPopup } from "./components/WhatsNew.jsx";
 import TopNav from "./components/TopNav.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
-import SocialDock from "./components/SocialDock.jsx";
-import { PrivacyPolicy, Terms } from "./components/Legal.jsx";
-import Faq from "./components/Faq.jsx";
-import Support from "./components/Support.jsx";
-import NotFound from "./components/NotFound.jsx";
+import SocialDock, { CoffeeIcon } from "./components/SocialDock.jsx";
+import NotFound, { PlayerNotFound } from "./components/NotFound.jsx";
 import { getFavorites, toggleFavorite } from "./favorites.js";
-import { DISCORD_INVITE } from "./links.js";
+import { DISCORD_INVITE, COFFEE_URL } from "./links.js";
 import { DiscordIcon } from "./components/BrandIcons.jsx";
 import { Icon } from "./icons.jsx";
+import { isPlainClick, stripLocalePath, SHORTCUT_LABEL, IS_MAC } from "./shell-utils.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
 
-// Re-exported for existing importers; the canonical copy lives in links.js.
-export { DISCORD_INVITE };
+const MatchHistory = lazy(() => import("./components/MatchHistory.jsx"));
+const AllMatches = lazy(() => import("./components/AllMatches.jsx"));
+const MapHighlights = lazy(() => import("./components/MapHighlights.jsx"));
+const MapStats = lazy(() => import("./components/MapStats.jsx"));
+const Highlights = lazy(() => import("./components/Highlights.jsx"));
+const PlayerHubs = lazy(() => import("./components/PlayerHubs.jsx"));
+const EloChart = lazy(() => import("./components/EloChart.jsx"));
+const CompareView = lazy(() => import("./components/CompareView.jsx"));
+const ProfileCompare = lazy(() => import("./components/ProfileCompare.jsx"));
+const Squad = lazy(() => import("./components/Squad.jsx"));
+const BestTeammates = lazy(() => import("./components/BestTeammates.jsx"));
+const HltvStats = lazy(() => import("./components/HltvStats.jsx"));
+const Clips = lazy(() => import("./components/Clips.jsx"));
+const AccountView = lazy(() => import("./components/AccountView.jsx"));
+const LeetifyStats = lazy(() => import("./components/LeetifyStats.jsx"));
+const CsrepStats = lazy(() => import("./components/CsrepStats.jsx"));
+const TeammatesFull = lazy(() => import("./components/TeammatesFull.jsx"));
+const SteamInfo = lazy(() => import("./components/SteamInfo.jsx"));
+const Nicknames = lazy(() => import("./components/Nicknames.jsx"));
+const HaveWeMet = lazy(() => import("./components/HaveWeMet.jsx"));
+const CsgoOverview = lazy(() => import("./components/CsgoOverview.jsx"));
+const Nemeses = lazy(() => import("./components/Nemeses.jsx"));
+const Analysis = lazy(() => import("./components/Analysis.jsx"));
+const Games = lazy(() => import("./components/Games.jsx"));
+const ProGuesser = lazy(() => import("./components/ProGuesser.jsx"));
+const ApiDocs = lazy(() => import("./components/ApiDocs.jsx"));
+const NewsPage = lazy(() => import("./components/NewsPage.jsx"));
+const Hubs = lazy(() => import("./components/Hubs.jsx"));
+const Teams = lazy(() => import("./components/Teams.jsx"));
+const Competitions = lazy(() => import("./components/Competitions.jsx"));
+const Pickem = lazy(() => import("./components/Pickem.jsx"));
+const DiscordBot = lazy(() => import("./components/DiscordBot.jsx"));
+const SmurfChecker = named(() => import("./components/SeoTools.jsx"), "SmurfChecker");
+const EloChecker = named(() => import("./components/SeoTools.jsx"), "EloChecker");
+const FaceitLevels = named(() => import("./components/SeoTools.jsx"), "FaceitLevels");
+const CommandPalette = lazy(() => import("./components/CommandPalette.jsx"));
+const FaceitStatus = lazy(() => import("./components/FaceitStatus.jsx"));
+const ProSettings = lazy(() => import("./components/ProSettings.jsx"));
+const FaceitBans = lazy(() => import("./components/FaceitBans.jsx"));
+const SteamStatus = lazy(() => import("./components/SteamStatus.jsx"));
+const Leaderboard = lazy(() => import("./components/Leaderboard.jsx"));
+const WorldMap = lazy(() => import("./components/WorldMap.jsx"));
+const SteamProfileView = lazy(() => import("./components/SteamProfileView.jsx"));
+const MatchRoom = lazy(() => import("./components/MatchRoom.jsx"));
+const Watchlist = lazy(() => import("./components/Watchlist.jsx"));
+const ShareCard = lazy(() => import("./components/ShareCard.jsx"));
+const Wrapped = lazy(() => import("./components/Wrapped.jsx"));
+const ProfileSettings = lazy(() => import("./components/ProfileSettings.jsx"));
+const PublicProfile = lazy(() => import("./components/PublicProfile.jsx"));
+const Feedback = lazy(() => import("./components/Feedback.jsx"));
+const OverlaySettings = lazy(() => import("./components/OverlaySettings.jsx"));
+const PrivacyPolicy = named(() => import("./components/Legal.jsx"), "PrivacyPolicy");
+const Terms = named(() => import("./components/Legal.jsx"), "Terms");
+const Faq = lazy(() => import("./components/Faq.jsx"));
+const Support = lazy(() => import("./components/Support.jsx"));
 
-/** Parse a JSON response; a non-JSON (HTML error page) becomes a clean error
-    instead of "Unexpected token '<' ... is not valid JSON". */
-async function readJson(resp, notFoundMsg = "Not found.") {
-  let json;
-  try {
-    json = await resp.json();
-  } catch {
-    throw new Error(resp.ok ? "Unexpected server response." : notFoundMsg);
-  }
-  if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
-  return json;
-}
+const lobbyModules = import.meta.glob("./components/LobbyCheck.jsx");
+const lobbyLoader = lobbyModules["./components/LobbyCheck.jsx"];
+const LobbyCheck = lobbyLoader ? lazy(lobbyLoader) : null;
+const LOBBY_PAGE = "lobby-check";
+const Community = lazy(() => import("./components/Community.jsx"));
+const ProHigherLower = lazy(() => import("./components/ProHigherLower.jsx"));
+const DemoCoach = lazy(() => import("./components/DemoCoach.jsx"));
+const DemoTrends = lazy(() => import("./components/DemoTrends.jsx"));
+const BannedOpponents = lazy(() => import("./components/BannedOpponents.jsx"));
+const Goals = lazy(() => import("./components/Goals.jsx"));
 
-async function fetchPlayer(nick) {
-  const resp = await fetch(`${API_BASE}/api/player/${encodeURIComponent(nick)}/`);
-  return readJson(resp, "Player not found.");
-}
+const PLAYER_NOT_FOUND = "Player not found.";
 
-async function fetchSquad(nicks) {
-  const resp = await fetch(`${API_BASE}/api/squad/?players=${encodeURIComponent(nicks)}`);
-  return readJson(resp);
-}
-
-async function resolveSteam(steamInput) {
-  const resp = await fetch(`${API_BASE}/api/steam/?id=${encodeURIComponent(steamInput)}`);
-  const json = await readJson(resp);
-  return json.nickname;
-}
-
-async function fetchSteamProfileByInput(raw) {
-  const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(raw)}`);
-  return readJson(resp, "Steam profile not found.");
-}
-
-/** Does this search input look like a Steam account rather than a nickname? */
 function looksLikeSteam(input) {
   return /7656\d{13}/.test(input) || /steamcommunity\.com/i.test(input);
+}
+
+function playerPath(nick) {
+  return `/api/player/${encodeURIComponent(nick)}/`;
 }
 
 function eloData(player) {
@@ -138,175 +125,128 @@ function eloData(player) {
   return player.elo_history || [];
 }
 
+function isNotFound(err) {
+  return err?.status === 404 || /not found/i.test(err?.message || "");
+}
 
-/* Top-bar navigation. An entry with `items` is a dropdown; one without is a
-   flat link. "Player Search" isn't here on purpose — it IS the home page, and
-   the brand already goes there.
+function takeHydratedPlayer(nick) {
+  const el = typeof document !== "undefined" ? document.getElementById("__PLAYER__") : null;
+  if (!el) return null;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(el.textContent || "null");
+  } catch {
+    parsed = null;
+  }
+  el.remove();
+  if (!parsed || typeof parsed.nickname !== "string") return null;
+  return parsed.nickname.toLowerCase() === String(nick).toLowerCase() ? parsed : null;
+}
 
-   Six sidebar groups collapse to four menus: Developers and About held one
-   and two entries, which never justified their own heading. */
-/* `flags` carries the two live signals that used to be their own topbar
-   buttons. Moved into More, they would otherwise go silent — an unread
-   changelog and an active incident are exactly the things a visitor should
-   still notice. As item badges they light the group's dot instead. */
-function buildNav(t, lang, flags = {}) { return [
-  // Flat link in the bar (no icon needed next to the dropdown triggers), but
-  // the mobile drawer lists it beside iconed entries, so it carries one.
-  { label: t("nav.leaderboards"), items: [
-    { id: "leaderboard", label: t("nav.europe"), href: localePath(lang, "/leaderboard/EU"), icon: Icon.trophy,
-      hint: t("hint.europe") },
-    { id: "leaderboard:NA", label: t("nav.northAmerica"), href: localePath(lang, "/leaderboard/NA"), icon: Icon.trophy },
-    { id: "leaderboard:SA", label: t("nav.southAmerica"), href: localePath(lang, "/leaderboard/SA"), icon: Icon.trophy },
-    { id: "leaderboard:SEA", label: t("nav.southeastAsia"), href: localePath(lang, "/leaderboard/SEA"), icon: Icon.trophy },
-    { id: "leaderboard:OCE", label: t("nav.oceania"), href: localePath(lang, "/leaderboard/OCE"), icon: Icon.trophy },
-    { id: "leaderboard:map", label: t("nav.worldMap"), href: localePath(lang, "/leaderboard/map"), icon: Icon.globe,
-      hint: t("hint.worldMap") },
-  ]},
-  { label: t("nav.tools"), items: [
-    { id: "overlay", label: t("nav.overlay"), href: localePath(lang, "/overlay"), icon: Icon.broadcastPin,
-      hint: t("hint.overlay"), badge: t("nav.new") },
-    { id: "matchroom", label: t("nav.matchRoom"), href: localePath(lang, "/matchroom"), icon: Icon.binoculars,
-      hint: t("hint.matchRoom") },
-    { id: "smurf-checker", label: t("nav.smurf"), href: localePath(lang, "/smurf-checker"), icon: Icon.shieldCheck,
-      hint: t("hint.smurf") },
-    { id: "faceit-elo-checker", label: t("nav.elocheck"), href: localePath(lang, "/faceit-elo-checker"), icon: Icon.search,
-      hint: t("hint.elocheck") },
-    { id: "faceit-levels", label: t("nav.levels"), href: localePath(lang, "/faceit-levels"), icon: Icon.trophy,
-      hint: t("hint.levels") },
-    { id: "compare", label: t("nav.compare"), href: localePath(lang, "/compare"), icon: Icon.arrowLeftRight,
-      hint: t("hint.compare") },
-    { id: "squad", label: t("nav.squad"), href: localePath(lang, "/squad"), icon: Icon.people,
-      hint: t("hint.squad") },
-    { id: "hubs", label: t("nav.hubs"), href: localePath(lang, "/hubs"), icon: Icon.diagram3,
-      hint: t("hint.hubs") },
-    { id: "teams", label: t("nav.teams"), href: localePath(lang, "/teams"), icon: Icon.people,
-      hint: t("hint.teams") },
-    { id: "competitions", label: t("nav.competitions"), href: localePath(lang, "/competitions"), icon: Icon.trophy,
-      hint: t("hint.competitions") },
-    { id: "pickem", label: t("nav.pickem"), href: localePath(lang, "/pickem"), icon: Icon.trophy,
-      hint: t("hint.pickem"), badge: t("nav.new") },
-    { id: "watchlist", label: t("nav.watchlist"), href: localePath(lang, "/watchlist"), icon: Icon.star,
-      hint: t("hint.watchlist") },
-    { id: "discordbot", label: t("nav.discordbot"), href: localePath(lang, "/discordbot"), icon: <DiscordIcon size={16} />,
-      hint: t("hint.discordbot"), badge: t("nav.new") },
-  ]},
-  { label: t("nav.live"), items: [
-    { id: "faceitstatus", label: t("nav.faceitStatus"), href: localePath(lang, "/faceitstatus"), icon: Icon.activity,
-      hint: t("hint.faceitStatus") },
-    { id: "steamstatus", label: t("nav.steamStatus"), href: localePath(lang, "/steamstatus"), icon: Icon.activity,
-      hint: t("hint.steamStatus") },
-    { id: "bans", label: t("nav.recentBans"), href: localePath(lang, "/bans"), icon: Icon.slashCircle,
-      hint: t("hint.recentBans") },
-  ]},
-  { label: t("nav.pros"), items: [
-    { id: "prosettings", label: t("nav.proSettings"), href: localePath(lang, "/prosettings"), icon: Icon.crosshair,
-      hint: t("hint.proSettings") },
-    { id: "proguesser", label: t("nav.proGuesser"), href: localePath(lang, "/proguesser"), icon: Icon.star,
-      hint: t("hint.proGuesser") },
-    { id: "games", label: t("nav.minigames"), href: localePath(lang, "/games"), icon: Icon.controller,
-      hint: t("hint.minigames") },
-  ]},
-  { label: t("nav.more"), items: [
-    { id: "docs", label: t("nav.apiDocs"), href: localePath(lang, "/docs"), icon: Icon.codeSlash,
-      hint: t("hint.apiDocs") },
-    { id: "whatsnew", label: t("nav.whatsNew"), href: localePath(lang, "/whatsnew"), icon: Icon.star,
-      hint: t("hint.whatsNew"), badge: flags.changelogUnread ? t("nav.new") : undefined },
-    { id: "news", label: t("chrome.status"), href: localePath(lang, "/news"), icon: Icon.activity,
-      badge: flags.incidentActive ? t("nav.new") : undefined },
-    { id: "faq", label: t("nav.faq"), href: localePath(lang, "/faq"), icon: Icon.patchCheckFill,
-      hint: t("hint.faq") },
-    { id: "feedback", label: t("nav.feedback"), href: localePath(lang, "/feedback"), icon: Icon.chatDots,
-      hint: t("hint.feedback") },
-    { id: "support", label: t("nav.support"), href: localePath(lang, "/support"), icon: Icon.shieldCheck,
-      hint: t("hint.support") },
-  ],
-    /* Actions, not reference links — in the footer nobody would press them. */
-    tail: [
-      { label: t("chrome.joinDiscord"), href: DISCORD_INVITE, cls: "tn-discord",
-        icon: <DiscordIcon size={16} /> },
-      { label: "Buy me a coffee", href: "https://buymeacoffee.com/lordukiki", cls: "tn-coffee",
-        icon: (
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M17 8h1a3 3 0 0 1 0 6h-1M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8ZM6 2v2M10 2v2M14 2v2" />
-          </svg>
-        ) },
+function buildNav(t, lang, flags = {}) {
+  const item = (id, path, label, icon, hint, badge) => ({
+    id, label, href: localePath(lang, path), icon, hint, badge,
+  });
+  const matchTools = [
+    item("matchroom", "/matchroom", t("nav.matchRoom"), Icon.binoculars, t("hint.matchRoom")),
+    ...(LobbyCheck ? [item(LOBBY_PAGE, `/${LOBBY_PAGE}`, t("nav.lobbyCheck"), Icon.personCheck, t("hint.lobbyCheck"), t("nav.new"))] : []),
+    item("overlay", "/overlay", t("nav.overlay"), Icon.broadcastPin, t("hint.overlay"), t("nav.new")),
+    item("discordbot", "/discordbot", t("nav.discordbot"), <DiscordIcon size={16} />, t("hint.discordbot"), t("nav.new")),
+  ];
+  return [
+    { label: t("nav.leaderboards"), items: [
+      item("leaderboard", "/leaderboard/EU", t("nav.europe"), Icon.trophy, t("hint.europe")),
+      item("leaderboard:NA", "/leaderboard/NA", t("nav.northAmerica"), Icon.award),
+      item("leaderboard:SA", "/leaderboard/SA", t("nav.southAmerica"), Icon.barChartLine),
+      item("leaderboard:SEA", "/leaderboard/SEA", t("nav.southeastAsia"), Icon.graphUpArrow),
+      item("leaderboard:OCE", "/leaderboard/OCE", t("nav.oceania"), Icon.tags),
+      item("leaderboard:map", "/leaderboard/map", t("nav.worldMap"), Icon.globe, t("hint.worldMap")),
+    ]},
+    { label: t("nav.tools"), sections: [
+      { label: t("navsec.player"), items: [
+        item("smurf-checker", "/smurf-checker", t("nav.smurf"), Icon.incognito, t("hint.smurf")),
+        item("faceit-elo-checker", "/faceit-elo-checker", t("nav.elocheck"), Icon.search, t("hint.elocheck")),
+        item("faceit-levels", "/faceit-levels", t("nav.levels"), Icon.sliders, t("hint.levels")),
+        item("compare", "/compare", t("nav.compare"), Icon.arrowLeftRight, t("hint.compare")),
+        item("squad", "/squad", t("nav.squad"), Icon.people, t("hint.squad")),
+        item("watchlist", "/watchlist", t("nav.watchlist"), Icon.star, t("hint.watchlist")),
+      ]},
+      { label: t("navsec.match"), items: matchTools },
+      { label: t("navsec.community"), items: [
+        item("community", "/community", t("nav.community"), Icon.people, t("hint.community"), t("nav.new")),
+        item("hubs", "/hubs", t("nav.hubs"), Icon.diagram3, t("hint.hubs")),
+        item("teams", "/teams", t("nav.teams"), Icon.grid1x2, t("hint.teams")),
+      ]},
+      { label: t("navsec.esports"), items: [
+        item("competitions", "/competitions", t("nav.competitions"), Icon.cashCoin, t("hint.competitions")),
+        item("pickem", "/pickem", t("nav.pickem"), Icon.checkLg, t("hint.pickem"), t("nav.new")),
+      ]},
+    ]},
+    { label: t("nav.live"), items: [
+      item("faceitstatus", "/faceitstatus", t("nav.faceitStatus"), Icon.activity, t("hint.faceitStatus")),
+      item("steamstatus", "/steamstatus", t("nav.steamStatus"), Icon.steam, t("hint.steamStatus")),
+      item("bans", "/bans", t("nav.recentBans"), Icon.slashCircle, t("hint.recentBans")),
+    ]},
+    { label: t("nav.pros"), items: [
+      item("prosettings", "/prosettings", t("nav.proSettings"), Icon.crosshair, t("hint.proSettings")),
+      item("proguesser", "/proguesser", t("nav.proGuesser"), Icon.lightbulb, t("hint.proGuesser")),
+      item("games", "/games", t("nav.minigames"), Icon.controller, t("hint.minigames")),
+      item("higherlower", "/higherlower", t("nav.higherLower"), Icon.graphUpArrow, t("hint.higherLower"), t("nav.new")),
+    ]},
+    { label: t("nav.more"), items: [
+      item("docs", "/docs", t("nav.apiDocs"), Icon.codeSlash, t("hint.apiDocs")),
+      item("whatsnew", "/whatsnew", t("nav.whatsNew"), Icon.stars, t("hint.whatsNew"), flags.changelogUnread ? t("nav.new") : undefined),
+      item("news", "/news", t("chrome.statusNews"), Icon.exclamationTriangle, undefined, flags.incidentActive ? t("nav.new") : undefined),
+      item("faq", "/faq", t("nav.faq"), Icon.patchCheckFill, t("hint.faq")),
+      item("feedback", "/feedback", t("nav.feedback"), Icon.chatDots, t("hint.feedback")),
+      item("support", "/support", t("nav.support"), Icon.shieldCheck, t("hint.support")),
     ],
-  },
-]; }
-
-
-/* popular pros shown on the home page when there's no search history */
-
-
-
-/* flagship features showcased on the home page. nav = tool page id (clickable),
-   no nav = feature lives inside a player profile → focus the search box. */
-const HOME_FEATURES = [
-  { icon: Icon.shieldCheck, title: "Account Trust Score", nav: null,
-    desc: "Steam age, hours, level, bans and inventory in one legit-o-meter. Spot throwaways instantly." },
-  { icon: Icon.people, title: "Match Room Analyzer", nav: "matchroom",
-    desc: "Paste a FACEIT room link and scout all 10 players + an ELO win prediction." },
-  { icon: Icon.sliders, title: "Pro Settings", nav: "prosettings",
-    desc: "Sensitivity, DPI, eDPI, resolution and full gear for 180+ CS2 pros." },
-  { icon: Icon.controller, title: "ProGuesser", nav: "proguesser",
-    desc: "Guess the mystery CS pro of the day — a daily Wordle for Counter-Strike." },
-  { icon: Icon.broadcastPin, title: "Live Status", nav: "faceitstatus",
-    desc: "Is FACEIT or CS2 matchmaking down? Live platform status and recent bans." },
-];
-
-/** The URL a nav id points at, so nav entries can be real <a href> links —
-    crawlable by Google and ctrl/middle-clickable into a new tab. */
-function navHref(id) {
-  if (id === "single") return "/";
-  return TOOL_PAGES.has(id) ? `/${id}` : "/";
+      tail: [
+        { label: t("chrome.joinDiscord"), href: DISCORD_INVITE, cls: "tn-discord", icon: <DiscordIcon size={16} /> },
+        { label: t("chrome.coffee"), href: COFFEE_URL, cls: "tn-coffee", icon: <CoffeeIcon size={16} /> },
+      ],
+    },
+  ];
 }
 
-/** Let the browser handle new-tab/new-window clicks natively; only intercept
-    a plain left click so the SPA router takes over. */
-function isPlainClick(e) {
-  return !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0;
+function buildHomeFeatures() {
+  return [
+    { key: "trust", icon: Icon.shieldCheck, nav: null },
+    { key: "matchroom", icon: Icon.binoculars, nav: "matchroom" },
+    ...(LobbyCheck ? [{ key: "lobby", icon: Icon.personCheck, nav: LOBBY_PAGE }] : []),
+    { key: "leaderboards", icon: Icon.trophy, nav: "leaderboard" },
+    { key: "compare", icon: Icon.arrowLeftRight, nav: "compare" },
+    { key: "prosettings", icon: Icon.sliders, nav: "prosettings" },
+    { key: "proguesser", icon: Icon.controller, nav: "proguesser" },
+    { key: "status", icon: Icon.broadcastPin, nav: "faceitstatus" },
+  ];
 }
 
+const OG_LOCALE = { en: "en_US", ru: "ru_RU", pl: "pl_PL", uk: "uk_UA" };
 
-/** Swap the document title, meta description and canonical for the current view. */
-function applyMeta(title, desc, robots = "index, follow") {
+function upsertMeta(attr, key, content) {
+  let tag = document.querySelector(`meta[${attr}="${key}"]`);
+  if (content == null) {
+    if (tag) tag.remove();
+    return;
+  }
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute(attr, key);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
+}
+
+function applyMeta(title, desc, { robots = "index, follow", lang = DEFAULT_LOCALE, image } = {}) {
   document.title = title;
-  const set = (name, content) => {
-    let tag = document.querySelector(`meta[name="${name}"]`);
-    if (!tag) {
-      tag = document.createElement("meta");
-      tag.setAttribute("name", name);
-      document.head.appendChild(tag);
-    }
-    tag.setAttribute("content", content);
-  };
-  const setProp = (property, content) => {
-    let tag = document.querySelector(`meta[property="${property}"]`);
-    if (!tag) {
-      tag = document.createElement("meta");
-      tag.setAttribute("property", property);
-      document.head.appendChild(tag);
-    }
-    tag.setAttribute("content", content);
-  };
+  upsertMeta("name", "description", desc);
+  upsertMeta("name", "robots", robots);
 
-  set("description", desc);
-  // A static SPA always answers 200, so an unknown path would otherwise be
-  // indexed as a real page. This is what keeps soft 404s out of search.
-  set("robots", robots);
-
-  // The canonical has to move with the route. It used to be hardcoded to the
-  // homepage in index.html, which told Google every single page here — every
-  // player profile, every tool page — was really just "/". Google obliged and
-  // indexed none of them.
-  //
-  // A page we've asked not to be indexed gets no canonical: pointing at itself
-  // while saying "noindex" is a contradiction, and pointing anywhere else
-  // would hand its signals to a page that didn't earn them.
-  const canonical = robots.includes("noindex")
-    ? null
-    : SITE_URL + window.location.pathname.replace(/\/+$/, "").replace(/^$/, "/");
+  const indexable = !robots.includes("noindex");
+  const canonical = indexable
+    ? SITE_URL + window.location.pathname.replace(/\/+$/, "").replace(/^$/, "/")
+    : null;
 
   let link = document.querySelector('link[rel="canonical"]');
   if (canonical) {
@@ -316,48 +256,80 @@ function applyMeta(title, desc, robots = "index, follow") {
       document.head.appendChild(link);
     }
     link.setAttribute("href", canonical);
-    setProp("og:url", canonical);
   } else if (link) {
     link.remove();
   }
+  upsertMeta("property", "og:url", canonical);
 
-  // Link previews (Discord, WhatsApp, Twitter) read og:*, not the plain meta
-  // tags — without this they showed the homepage blurb for every page.
-  setProp("og:title", title);
-  setProp("og:description", desc);
+  document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((el) => el.remove());
+  if (indexable) {
+    const base = stripLocalePath(window.location.pathname).replace(/\/+$/, "") || "/";
+    const add = (hreflang, href) => {
+      const el = document.createElement("link");
+      el.setAttribute("rel", "alternate");
+      el.setAttribute("hreflang", hreflang);
+      el.setAttribute("href", href);
+      document.head.appendChild(el);
+    };
+    for (const l of ALL_LOCALES) add(l, SITE_URL + localePath(l, base));
+    add("x-default", SITE_URL + base);
+  }
+  upsertMeta("property", "og:locale", indexable ? OG_LOCALE[lang] || "en_US" : null);
+
+  const img = image || `${SITE_URL}/og.png`;
+  upsertMeta("property", "og:title", title);
+  upsertMeta("property", "og:description", desc);
+  upsertMeta("property", "og:image", img);
+  upsertMeta("property", "og:image:width", "1200");
+  upsertMeta("property", "og:image:height", "630");
+  upsertMeta("name", "twitter:card", "summary_large_image");
+  upsertMeta("name", "twitter:title", title);
+  upsertMeta("name", "twitter:description", desc);
+  upsertMeta("name", "twitter:image", img);
 }
 
-/* Label and key only — no icons.
-   Nine glyphs across a strip of nine words is nine things competing with the
-   words for attention, and none of them says anything the word doesn't. The
-   active tab is marked by an underline instead, which is one signal in one
-   place rather than a filled pill plus a brightened icon. */
-/* Ordered the way the page is actually read: the summary, then the four views
-   that answer "show me the detail behind it", then the side pages.
+const PRIMARY_TABS = ["overview", "matches", "maps", "teammates", "season", "analysis"];
+const MORE_TABS = ["demos", "hubs", "highlights", "activity", "compare", "bans", "leetify", "csrep", "clips", "hltv", "steam", "met", "nicknames"];
+const TAB_ALIASES = { account: "bans", trust: "bans" };
 
-   The Season tab is built from the player's own match dates against FACEIT's
-   published season windows, since the API has no per-player season history. */
-function buildProfileTabs(t) { return [
-  ["overview", t("tab.overview")],
-  ["season", t("tab.season")],
-  ["analysis", t("tab.analysis")],
-  ["matches", t("tab.matches")],
-  ["maps", t("tab.maps")],
-  ["hubs", t("tab.hubs")],
-  ["highlights", t("tab.highlights")],
-  ["teammates", t("tab.teammates")],
-  ["activity", t("tab.activity")],
-  ["compare", t("tab.compare")],
-  ["bans", t("tab.bans")],
-  ["account", t("tab.trust")],
-  ["leetify", t("tab.leetify")],
-  ["csrep", t("tab.csrep")],
-  ["clips", t("tab.clips")],
-  ["hltv", t("tab.hltv")],
-  ["steam", t("tab.steam")],
-  ["met", t("tab.met")],
-  ["nicknames", t("tab.nicknames")],
-]; }
+function tabLabels(t) {
+  return {
+    overview: t("tab.overview"), matches: t("tab.matches"), maps: t("tab.maps"),
+    teammates: t("tab.teammates"), season: t("tab.season"), analysis: t("tab.analysis"),
+    hubs: t("tab.hubs"), highlights: t("tab.highlights"), activity: t("tab.activity"),
+    compare: t("tab.compare"), bans: t("tab.bansTrust"), leetify: t("tab.leetify"),
+    csrep: t("tab.csrep"), clips: t("tab.clips"), hltv: t("tab.hltv"), steam: t("tab.steam"),
+    met: t("tab.met"), nicknames: t("tab.nicknames"), demos: t("tab.demos"),
+  };
+}
+
+function normalizeTab(id) {
+  const v = TAB_ALIASES[id] || id;
+  return PRIMARY_TABS.includes(v) || MORE_TABS.includes(v) ? v : "overview";
+}
+
+function readTabFromUrl() {
+  if (typeof window === "undefined") return "overview";
+  return normalizeTab(new URLSearchParams(window.location.search).get("tab") || "overview");
+}
+
+function writeTabToUrl(tab) {
+  const url = new URL(window.location.href);
+  if (tab === "overview") url.searchParams.delete("tab");
+  else url.searchParams.set("tab", tab);
+  const next = url.pathname + (url.search ? url.search : "") + url.hash;
+  if (next !== window.location.pathname + window.location.search + window.location.hash) {
+    window.history.replaceState(window.history.state, "", next);
+  }
+}
+
+function Lazy({ children, tall }) {
+  return (
+    <Suspense fallback={<div className={`sh-lazy ${tall ? "tall" : ""}`} aria-busy="true" />}>
+      {children}
+    </Suspense>
+  );
+}
 
 export default function App({ lang = DEFAULT_LOCALE }) {
   const {
@@ -367,10 +339,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  /* Every in-app navigation keeps the visitor in the language they arrived in.
-     Without this a Russian visitor clicking any link lands back on the English
-     tree and never returns — which would waste the translations entirely.
-     English is unprefixed, so for it this is the identity function. */
   const nav = (to, opts) =>
     navigate(typeof to === "string" ? localePath(lang, to) : to, opts);
 
@@ -379,24 +347,24 @@ export default function App({ lang = DEFAULT_LOCALE }) {
 
   const [nickname, setNickname] = useState(routeNick || "");
   const [mode, setMode] = useState("single");
-  const [nickname2, setNickname2] = useState("");
   const [compareInputs, setCompareInputs] = useState(["", ""]);
   const [squadInput, setSquadInput] = useState("");
 
   const [data, setData] = useState(null);
-  const [data2, setData2] = useState(null);
   const [comparePlayers, setComparePlayers] = useState(null);
   const [squad, setSquad] = useState(null);
   const [steamProfile, setSteamProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errorStatus, setErrorStatus] = useState(0);
+  const [notice, setNotice] = useState(null);
   const [recent, setRecent] = useState([]);
   const [favs, setFavs] = useState(getFavorites());
   const [user, setUser] = useState(null);
   const [incidentStatus, setIncidentStatus] = useState(null);
   const [copied, setCopied] = useState(false);
   const [mapFilter, setMapFilter] = useState(null);
-  const [profileTab, setProfileTab] = useState("overview");
+  const [profileTab, setProfileTab] = useState(readTabFromUrl);
   const [gameView, setGameView] = useState("cs2");
   const [refreshing, setRefreshing] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -409,21 +377,29 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   const [showCard, setShowCard] = useState(false);
   const [showWrapped, setShowWrapped] = useState(false);
   const [cs2Online, setCs2Online] = useState(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteLoaded, setPaletteLoaded] = useState(false);
   const changelog = useChangelog();
 
-  // The site is dark-only, so there is no theme state and no [data-theme]
-  // attribute — index.css :root is the theme. This clears the key left behind
-  // by the old switcher so a stale "light" can't linger in anyone's browser.
+  const currentNick = useRef(routeNick || "");
+  const playerCtrl = useRef(null);
+  const hydrated = useRef(false);
+  const steamFetched = useRef(false);
+  const aiRef = useRef(null);
+  const roastRef = useRef(null);
+
+  currentNick.current = routeNick || "";
+
   useEffect(() => {
     try {
       localStorage.removeItem("faceitlens_theme");
-    } catch { /* private mode — nothing to clean up */ }
+    } catch {
+      return;
+    }
   }, []);
 
-  // Who's signed in? (Sign in with Steam — session cookie)
   useEffect(() => {
-    fetch(`${API_BASE}/api/auth/me/`, { credentials: "include" })
-      .then((r) => r.json())
+    getJson("/api/auth/me/", { credentials: "include", ttl: 0 })
       .then((j) => {
         if (j.authenticated) {
           setUser(j);
@@ -433,11 +409,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       .catch(() => {});
   }, []);
 
-  // Live status / incident feed (managed from the Django admin). Drives the
-  // header indicator (blink on active incident) and the /news status page.
   useEffect(() => {
-    fetch(`${API_BASE}/api/incidents/`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    getJson("/api/incidents/")
       .then((j) => setIncidentStatus(j))
       .catch(() => setIncidentStatus({ system: { state: "operational", active: false }, incidents: [] }));
   }, []);
@@ -445,61 +418,87 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   async function logout() {
     try {
       await fetch(`${API_BASE}/api/auth/logout/`, { method: "POST", credentials: "include" });
-    } catch { /* ignore */ }
+    } catch {
+      setUser(null);
+    }
     setUser(null);
     setFavs(getFavorites());
   }
 
-  // Live CS2 online count for the homepage (social proof)
   useEffect(() => {
-    fetch(`${API_BASE}/api/steamstatus/`)
-      .then((r) => r.json())
-      .then((j) => {
-        const n = j?.matchmaking?.online_players;
-        if (n) setCs2Online(n);
-      })
-      .catch(() => {});
+    function onKey(e) {
+      const el = document.activeElement;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName || "") || el?.isContentEditable;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteLoaded(true);
+        setPaletteOpen((o) => !o);
+      } else if (e.key === "/" && !typing) {
+        e.preventDefault();
+        setPaletteLoaded(true);
+        setPaletteOpen(true);
+      }
+    }
+    function onOpen() {
+      setPaletteLoaded(true);
+      setPaletteOpen(true);
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("fl:palette", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("fl:palette", onOpen);
+    };
   }, []);
 
-  // reset AI + roast panels when the player changes
   useEffect(() => {
     setAiText("");
     setAiError("");
     setRoastText("");
     setRoastError("");
     setRoastCopied(false);
+    setNotice(null);
   }, [routeNick, data?.nickname]);
+
+  function scrollToRef(ref) {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   async function runAnalysis() {
     if (!data) return;
+    const nick = data.nickname;
     setAiLoading(true);
     setAiError("");
+    scrollToRef(aiRef);
     try {
-      const resp = await fetch(`${API_BASE}/api/analyze/${encodeURIComponent(data.nickname)}/`);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      const json = await getJson(`/api/analyze/${encodeURIComponent(nick)}/`, { ttl: 0, retry: 0 });
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
       setAiText(json.analysis);
     } catch (e) {
       setAiError(e.message);
     } finally {
       setAiLoading(false);
+      scrollToRef(aiRef);
     }
   }
 
   async function runRoast() {
     if (!data) return;
+    const nick = data.nickname;
     setRoastLoading(true);
     setRoastError("");
     setRoastCopied(false);
     try {
-      const resp = await fetch(`${API_BASE}/api/roast/${encodeURIComponent(data.nickname)}/`);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      const json = await getJson(`/api/roast/${encodeURIComponent(nick)}/`, { ttl: 0, retry: 0 });
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
       setRoastText(json.roast);
     } catch (e) {
       setRoastError(e.message);
     } finally {
       setRoastLoading(false);
+      scrollToRef(roastRef);
     }
   }
 
@@ -512,42 +511,31 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     });
   }
 
-  // Backward-compat: old ?player= links -> /player/<nick>
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get("player");
     if (p && !routeNick) nav(`/player/${encodeURIComponent(p)}`, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tool pages have their own URLs (/docs, /proguesser, /whatsnew…) so they're
-  // directly shareable. Map the path segment to the internal mode.
   useEffect(() => {
     if (!routePage) return;
-    // Unknown segment: show a 404 rather than silently rendering the home
-    // page at someone else's URL.
+    if (routePage === LOBBY_PAGE && LobbyCheck) {
+      setMode(LOBBY_PAGE);
+      return;
+    }
     setMode(TOOL_PAGES.has(routePage) ? routePage : "notfound");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePage]);
 
-  // /leaderboard/<region> is a real, shareable URL per ladder, and
-  // /leaderboard/map is the world map over the same data.
   useEffect(() => {
     if (routeRegion) {
       setMode(routeRegion.toLowerCase() === "map" ? "worldmap" : "leaderboard");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeRegion]);
 
-  // /u/<handle> -> someone's public profile page.
   useEffect(() => {
     if (routeHandle) setMode("publicprofile");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeHandle]);
 
-  // Keep <title> and the meta description in step with what's on screen.
-  // A player's own page wins over the tool-page title, since that's the view
-  // people actually share links to.
   useEffect(() => {
     if (data && mode === "single") {
       const lvl = data.skill_level ? ` Level ${data.skill_level},` : "";
@@ -555,13 +543,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       applyMeta(
         `${data.nickname} — FACEIT CS2 Stats, ELO & Trust Score | Faceit-Lens`,
         `FACEIT CS2 stats for ${data.nickname}:${lvl}${elo}, win rate, K/D, map performance, match history and an account trust score to spot smurfing.`,
+        { lang, image: `${SITE_URL}/og/${encodeURIComponent(data.nickname)}.png` },
       );
       return;
     }
     if (routeNick && mode === "single" && !data) {
       if (error) {
-        applyMeta(`Player not found | Faceit-Lens`,
-          "No FACEIT player with that nickname. Search for a CS2 player instead.", "noindex, follow");
+        applyMeta("Player not found | Faceit-Lens",
+          "No FACEIT player with that nickname. Search for a CS2 player instead.", { robots: "noindex, follow", lang });
       }
       return;
     }
@@ -570,32 +559,31 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       applyMeta(
         `${name} — Steam & CS2 Account Check | Faceit-Lens`,
         `Steam account overview for ${name}: CS2 hours, inventory value, bans, profile age and account trust signals.`,
+        { lang },
       );
       return;
     }
     if (mode === "notfound") {
       applyMeta("Page not found | Faceit-Lens",
-        "That page doesn't exist. Search for a CS2 player instead.", "noindex, follow");
+        "That page doesn't exist. Search for a CS2 player instead.", { robots: "noindex, follow", lang });
       return;
     }
-    // The prerendered HTML already carries the right tags for the language the
-    // visitor landed on; this keeps them right through in-app navigation,
-    // where no new document is fetched.
+    const regionMeta = mode === "leaderboard" && routeRegion ? leaderboardRegionMeta(lang, routeRegion) : null;
+    if (regionMeta) {
+      applyMeta(`${regionMeta[0]} | Faceit-Lens`, regionMeta[1], { lang });
+      return;
+    }
     const isPage = Boolean(PAGE_META[mode]);
     const [title, desc] = metaFor(
       lang, isPage ? mode : null, PAGE_META[mode], [DEFAULT_TITLE, DEFAULT_DESC],
     );
-    applyMeta(isPage && !/faceit-lens/i.test(title) ? `${title} | Faceit-Lens` : title, desc);
-  }, [mode, data, steamProfile, lang, routeNick, error]);
+    applyMeta(isPage && !/faceit-lens/i.test(title) ? `${title} | Faceit-Lens` : title, desc, { lang });
+  }, [mode, data, steamProfile, lang, routeNick, routeRegion, error]);
 
-  // Screen readers pick their voice off this, and Google reads it as a signal
-  // of which language the page answers for.
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  // Coming back from Steam: "nolink" means we signed them in but couldn't find
-  // a FACEIT account for their Steam ID, so send them to settings to set it.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const login = params.get("login");
@@ -605,81 +593,110 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       setMode("settings");
       nav("/settings");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // React to the URL: /player/<nick> or /steam/<id64> loads that profile.
   useEffect(() => {
     if (routeNick) {
       setNickname(routeNick);
       setMode("single");
       setSteamProfile(null);
+      setGameView("cs2");
+      setMapFilter(null);
+      setProfileTab(readTabFromUrl());
       loadPlayer(routeNick);
     } else if (routeSteam) {
       setMode("single");
       loadSteamProfile(routeSteam);
     } else {
+      playerCtrl.current?.abort();
       setData(null);
       setSquad(null);
       setSteamProfile(null);
-      fetch(`${API_BASE}/api/recent/`)
-        .then((r) => r.json())
+      getJson("/api/recent/", { ttl: 15000 })
         .then((j) => setRecent(j.items || []))
         .catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => playerCtrl.current?.abort();
   }, [routeNick, routeSteam]);
 
-  async function loadSteamProfile(id) {
-    setLoading(true);
+  function newPlayerSignal() {
+    playerCtrl.current?.abort();
+    const ctrl = new AbortController();
+    playerCtrl.current = ctrl;
+    return ctrl.signal;
+  }
+
+  function resetResults() {
     setError("");
+    setErrorStatus(0);
+    setNotice(null);
     setData(null);
-    setData2(null);
     setComparePlayers(null);
     setSquad(null);
+  }
+
+  async function loadSteamProfile(id) {
+    const signal = newPlayerSignal();
+    setLoading(true);
+    resetResults();
     setSteamProfile(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/steamprofile/?id=${encodeURIComponent(id)}`);
-      const json = await resp.json();
-      if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
+      const json = await getJson(`/api/steamprofile/?id=${encodeURIComponent(id)}`, { signal });
+      if (signal.aborted) return;
       setSteamProfile(json);
     } catch (e) {
+      if (isAbort(e) || signal.aborted) return;
       setError(e.message);
+      setErrorStatus(e.status || 0);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }
 
-  /* Re-fetch in place: no setData(null), so the page does not blank out and
-     bounce back. The refresh button spins instead, and the numbers change
-     under it if anything actually changed. */
   async function refreshPlayer() {
     const nick = data?.nickname;
     if (!nick || refreshing) return;
     setRefreshing(true);
+    setNotice(null);
     try {
-      setData(await fetchPlayer(nick));
-    } catch {
-      /* Keep what is on screen. A failed refresh should not destroy a page
-         that was rendering fine a second ago. */
+      const fresh = await getJson(playerPath(nick), { force: true, notFoundMessage: PLAYER_NOT_FOUND });
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
+      setData(fresh);
+      setMapFilter(null);
+    } catch (e) {
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
+      setNotice({ message: `${t("err.refresh")} ${e.message}`, retry: refreshPlayer });
     } finally {
       setRefreshing(false);
     }
   }
 
   async function loadPlayer(nick) {
+    const signal = newPlayerSignal();
+    resetResults();
+
+    if (!hydrated.current) {
+      hydrated.current = true;
+      const pre = takeHydratedPlayer(nick);
+      if (pre) {
+        primeCache(playerPath(nick), pre);
+        setData(pre);
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
-    setError("");
-    setData(null);
-    setData2(null);
-    setComparePlayers(null);
-    setSquad(null);
     try {
-      setData(await fetchPlayer(nick));
+      const json = await getJson(playerPath(nick), { signal, notFoundMessage: PLAYER_NOT_FOUND });
+      if (signal.aborted || currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
+      setData(json);
     } catch (e) {
+      if (isAbort(e) || signal.aborted) return;
       setError(e.message);
+      setErrorStatus(e.status || 0);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }
 
@@ -690,13 +707,9 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       return;
     }
     setLoading(true);
-    setError("");
-    setData(null);
-    setData2(null);
-    setComparePlayers(null);
-    setSquad(null);
+    resetResults();
     try {
-      const results = await Promise.all(names.map((n) => fetchPlayer(n)));
+      const results = await Promise.all(names.map((n) => getJson(playerPath(n), { notFoundMessage: `${PLAYER_NOT_FOUND} (${n})` })));
       setComparePlayers(results);
     } catch (e) {
       setError(e.message);
@@ -717,13 +730,9 @@ export default function App({ lang = DEFAULT_LOCALE }) {
 
   async function runSquad() {
     setLoading(true);
-    setError("");
-    setData(null);
-    setData2(null);
-    setComparePlayers(null);
-    setSquad(null);
+    resetResults();
     try {
-      setSquad(await fetchSquad(squadInput));
+      setSquad(await getJson(`/api/squad/?players=${encodeURIComponent(squadInput)}`));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -731,12 +740,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     }
   }
 
-  /**
-   * One smart entry point for every search box: FACEIT nicknames go to the
-   * player page; anything Steam-shaped (profile URL, SteamID64, vanity via
-   * the Steam toggle) resolves to the linked FACEIT profile when there is
-   * one, else to the Steam-first profile page.
-   */
   async function smartSearch(raw, { steamOnly = false } = {}) {
     const input = (raw || "").trim();
     if (!input) return;
@@ -749,14 +752,11 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     setLoading(true);
     setError("");
     try {
-      // Prefer the FACEIT profile when the account is linked...
-      const nick = await resolveSteam(input);
-      nav(`/player/${encodeURIComponent(nick)}`);
+      const json = await getJson(`/api/steam/?id=${encodeURIComponent(input)}`);
+      nav(`/player/${encodeURIComponent(json.nickname)}`);
     } catch {
-      // ...otherwise fall back to the Steam-first profile page (also handles
-      // vanity names via the backend resolver).
       try {
-        const json = await fetchSteamProfileByInput(input);
+        const json = await getJson(`/api/steamprofile/?id=${encodeURIComponent(input)}`, { notFoundMessage: "Steam profile not found." });
         if (json.faceit_nickname) {
           nav(`/player/${encodeURIComponent(json.faceit_nickname)}`);
         } else {
@@ -775,15 +775,20 @@ export default function App({ lang = DEFAULT_LOCALE }) {
   }
 
   async function applyMapFilter(map) {
+    const prev = mapFilter;
     setMapFilter(map);
     if (!data) return;
+    const nick = data.nickname;
+    setNotice(null);
     try {
       const qs = map ? `?map=${encodeURIComponent(map)}` : "";
-      const resp = await fetch(`${API_BASE}/api/player/${encodeURIComponent(data.nickname)}/${qs}`);
-      const json = await resp.json();
-      if (resp.ok) setData((d) => ({ ...d, recent_avg: json.recent_avg }));
-    } catch {
-      // ignore
+      const json = await getJson(`${playerPath(nick)}${qs}`);
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
+      setData((d) => (d && d.nickname === nick ? { ...d, recent_avg: json.recent_avg } : d));
+    } catch (e) {
+      if (currentNick.current.toLowerCase() !== nick.toLowerCase()) return;
+      setMapFilter(prev);
+      setNotice({ message: `${t("err.mapFilter")} ${e.message}`, retry: () => applyMapFilter(map) });
     }
   }
 
@@ -800,8 +805,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       nav("/");
       return;
     }
-    // "leaderboard:NA" — one nav entry per ladder, all rendering the same page
-    // at its own URL so each region can be linked and indexed separately.
     const [page, arg] = id.split(":");
     if (page === "leaderboard") {
       const seg = arg || "EU";
@@ -810,18 +813,29 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       return;
     }
     setMode(id);
-    // give tool pages a real, shareable URL (/docs, /proguesser…)
-    if (TOOL_PAGES.has(id)) nav(`/${id}`);
+    if (TOOL_PAGES.has(id) || (id === LOBBY_PAGE && LobbyCheck)) nav(`/${id}`);
+  }
+
+  const selectTab = useCallback((id) => {
+    const tab = normalizeTab(id);
+    setProfileTab(tab);
+    writeTabToUrl(tab);
+  }, []);
+
+  function goToTab(id) {
+    selectTab(id);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".sh-ptabs-wrap");
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 90, behavior: "smooth" });
+    });
   }
 
   async function onToggleFav() {
     if (!data) return;
     if (!user) {
-      // anonymous: localStorage as before
       setFavs(toggleFavorite(data.nickname));
       return;
     }
-    // signed in: favorites live in the account (synced across devices)
     const has = favs.some((n) => n.toLowerCase() === data.nickname.toLowerCase());
     try {
       const resp = await fetch(`${API_BASE}/api/auth/favorites/`, {
@@ -832,18 +846,32 @@ export default function App({ lang = DEFAULT_LOCALE }) {
       });
       const j = await resp.json();
       if (j.favorites) setFavs(j.favorites);
-    } catch { /* keep old state */ }
+    } catch {
+      setFavs((f) => f);
+    }
   }
 
   const isFav = data ? favs.some((n) => n.toLowerCase() === data.nickname.toLowerCase()) : false;
 
-  function share() {
+  async function share() {
     if (!data) return;
     const link = `${window.location.origin}/p/${encodeURIComponent(data.nickname)}`;
-    navigator.clipboard.writeText(link).then(() => {
+    const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    if (navigator.share && coarse) {
+      try {
+        await navigator.share({ title: `${data.nickname} — Faceit-Lens`, url: link });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    } catch {
+      window.prompt(t("ph.share"), link);
+    }
   }
 
   const eloSeries = [];
@@ -851,38 +879,145 @@ export default function App({ lang = DEFAULT_LOCALE }) {
     const d = eloData(data);
     if (d.length) eloSeries.push({ name: data.nickname, color: "var(--accent)", data: d });
   }
-  if (data2) {
-    const d = eloData(data2);
-    if (d.length) eloSeries.push({ name: data2.nickname, color: "var(--accent-2)", data: d });
-  }
 
-  const showProfile = mode === "single" && !loading && data && !data2;
+  const showProfile = mode === "single" && !loading && data;
   const showHome =
     mode === "single" && !routeNick && !routeSteam &&
     !loading && !data && !squad && !steamProfile;
+  const playerMissing = mode === "single" && routeNick && !loading && !data && error &&
+    isNotFound({ status: errorStatus, message: error });
+
+  useEffect(() => {
+    if (!showHome || steamFetched.current) return;
+    steamFetched.current = true;
+    getJson("/api/steamstatus/")
+      .then((j) => {
+        const n = j?.matchmaking?.online_players;
+        if (n) setCs2Online(n);
+      })
+      .catch(() => {});
+  }, [showHome]);
+
+  const labels = tabLabels(t);
+  const availableMore = MORE_TABS.filter((k) => k !== "clips" || data?.allstar_enabled);
+  const primaryTabs = PRIMARY_TABS.map((k) => [k, labels[k]]);
+  const moreTabs = availableMore.map((k) => [k, labels[k]]);
+  const activeTab = profileTab === "clips" && !data?.allstar_enabled ? "overview" : profileTab;
+  const navGroups = buildNav(t, lang, {
+    changelogUnread: !!changelog.unread,
+    incidentActive: !!incidentStatus?.system?.active,
+  });
+  const homeFeatures = buildHomeFeatures();
+
+  function renderTab() {
+    if (!data) return null;
+    switch (activeTab) {
+      case "season":
+        return <Insights insights={data.insights} player={data} onPick={go} />;
+      case "analysis":
+        return <Analysis nickname={data.nickname} />;
+      case "matches":
+        return (
+          <>
+            <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
+            <AllMatches matches={data.all_matches} />
+          </>
+        );
+      case "maps":
+        return (
+          <>
+            <MapHighlights maps={data.map_stats} />
+            <MapStats maps={data.map_stats} />
+          </>
+        );
+      case "hubs":
+        return <PlayerHubs competitions={data.competitions} />;
+      case "highlights":
+        return <Highlights highlights={data.highlights} />;
+      case "activity":
+        return <Activity activity={data.activity} />;
+      case "compare":
+        return <ProfileCompare player={data} onPick={go} />;
+      case "bans":
+        return (
+          <>
+            <BanStatus bans={data.bans} steam={data.steam} />
+            <AccountView nickname={data.nickname} />
+          </>
+        );
+      case "leetify":
+        return <LeetifyStats nickname={data.nickname} />;
+      case "csrep":
+        return <CsrepStats nickname={data.nickname} matches={data.recent_matches} />;
+      case "clips":
+        return <Clips nickname={data.nickname} />;
+      case "hltv":
+        return <HltvStats hltv={data.hltv} />;
+      case "teammates":
+        return (
+          <>
+            <TeammatesFull mates={data.teammates_full} onPick={go} nickname={data.nickname} />
+            <div className="duo">
+              <div><BestTeammates mates={data.best_teammates} onPick={go} nickname={data.nickname} /></div>
+              <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
+            </div>
+            <BannedOpponents nickname={data.nickname} onPick={go} hideWhenEmpty />
+          </>
+        );
+      case "demos":
+        return (
+          <>
+            <DemoCoach nickname={data.nickname} />
+            <DemoTrends nickname={data.nickname} />
+          </>
+        );
+      case "met":
+        return <HaveWeMet player={data.nickname} />;
+      case "steam":
+        return <SteamInfo steam={data.steam} />;
+      case "nicknames":
+        return <Nicknames nicknames={data.nicknames} history={data.nickname_history} player={data.nickname} />;
+      default:
+        return (
+          <>
+            <OverviewGrid
+              data={data}
+              maps={data.maps_played}
+              mapFilter={mapFilter}
+              onMapFilter={applyMapFilter}
+            />
+            <InsightsTeaser insights={data.insights} onOpen={() => goToTab("season")} />
+            <SkillRatings skills={data.skills} />
+            <StatPanels stats={data.stats} recent={data.recent_roles} />
+            {eloSeries.length > 0 && <Lazy tall><EloChart series={eloSeries} /></Lazy>}
+            <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
+            <PlayerTeams nickname={data.nickname} />
+          </>
+        );
+    }
+  }
 
   return (
     <div className="shell">
       <TopNav
         lang={lang}
-        groups={buildNav(t, lang, {
-          changelogUnread: !!changelog.unread,
-          incidentActive: !!incidentStatus?.system?.active,
-        })}
+        groups={navGroups}
         mode={mode}
         onNav={pickNav}
         brandHref={localePath(lang, "/")}
         onBrand={() => { setMode("single"); nav("/"); }}
-        search={
+        search={showHome ? null : (
           <>
-            <span className="tn-search-ic">{Icon.search}</span>
+            <span className="tn-search-ic" aria-hidden="true">{Icon.search}</span>
             <button
               type="button"
               className="tn-kbd"
-              title="Quick search (Ctrl+K)"
-              onClick={() => window.dispatchEvent(new Event("fl:palette"))}
+              title={`${t("chrome.quickSearch")} (${IS_MAC ? "⌘K" : "Ctrl+K"})`}
+              aria-label={t("chrome.quickSearch")}
+              aria-keyshortcuts={IS_MAC ? "Meta+K" : "Control+K"}
+              onClick={() => { setPaletteLoaded(true); setPaletteOpen(true); }}
             >
-              Ctrl K
+              {SHORTCUT_LABEL}
             </button>
             <SearchInput
               value={nickname}
@@ -892,36 +1027,14 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               placeholder={t("chrome.searchPlayer")}
             />
           </>
-        }
-        /* Hidden from the bar under 860px — the drawer carries them there. */
-        extras={
-          <>
-            <a className="tn-drawer-item" href="/news"
-               onClick={(e) => { e.preventDefault(); pickNav("news"); }}>
-              Status &amp; News
-            </a>
-            <a className="tn-drawer-item" href="/whatsnew"
-               onClick={(e) => { e.preventDefault(); pickNav("whatsnew"); }}>
-              What&apos;s New{changelog.unread ? " •" : ""}
-            </a>
-          </>
-        }
+        )}
         actions={
           <>
-            {/* News and Status live in the More menu now — see buildNav. */}
-            <NotificationBell
-              user={user}
-              /* Links are in-site paths, so they go through the router rather
-                 than a full page load. */
-              onOpen={(link) => nav(link)}
-            />
+            <NotificationBell user={user} onOpen={(link) => nav(link)} />
             <AccountMenu
               user={user}
               onLogout={logout}
               onSettings={() => { setMode("settings"); nav("/settings"); }}
-              /* Your own tracked profile, whichever kind you have. The Steam
-                 branch only navigates — the route effect above reacts to
-                 :steamid and loads the profile, same as arriving by link. */
               onMyGameProfile={() => {
                 if (user?.profile?.faceit_nickname) {
                   go(user.profile.faceit_nickname);
@@ -942,14 +1055,8 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         }
       />
 
-      {/* ============ MAIN ============ */}
-      {/* The hero art is painted by .main, not by .home-hero — see index.css.
-          It needs a full-width block to size against, and .home-hero sits
-          inside the 1120px content column. */}
       <div className={`main ${showHome ? "is-home" : ""}`}>
-
         <div className="content">
-          {/* ---------- HOME HERO ---------- */}
           {showHome && (
             <div className="home-hero">
               <h1 className="home-title">
@@ -959,14 +1066,11 @@ export default function App({ lang = DEFAULT_LOCALE }) {
 
               {cs2Online && (
                 <div className="home-live">
-                  <span className="home-live-dot" />
-                  <b>{cs2Online.toLocaleString()}</b> {hero.live}
+                  <span className="home-live-dot" aria-hidden="true" />
+                  <b>{cs2Online.toLocaleString(lang)}</b> {hero.live}
                 </div>
               )}
 
-              {/* One field. smartSearch() already recognises a Steam ID64 or a
-                  steamcommunity.com link, so the old "search by Steam" checkbox
-                  was asking the user to declare something we can just detect. */}
               <div className="home-search">
                 <div className="search">
                   <SearchInput
@@ -975,6 +1079,7 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                     onPick={go}
                     onEnter={searchHome}
                     placeholder={hero.placeholder}
+                    label={hero.placeholder}
                   />
                   <button onClick={searchHome} disabled={loading}>
                     {loading ? "..." : hero.search}
@@ -982,9 +1087,11 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               </div>
 
+              {error && <div className="state error" role="alert">{error}</div>}
+
               {favs.length > 0 && (
                 <div className="recent">
-                  <div className="recent-label">{Icon.star} Favorites</div>
+                  <div className="recent-label">{Icon.star} {t("home.favorites")}</div>
                   <div className="recent-chips">
                     {favs.map((n) => (
                       <button key={n} className="recent-chip" onClick={() => go(n)}>{n}</button>
@@ -993,11 +1100,9 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
-              {/* Only the visitor's own recent searches. The "Try a pro"
-                  fallback that filled this space on a first visit is gone. */}
               {recent.length > 0 && (
                 <div className="recent">
-                  <div className="recent-label">Recently searched</div>
+                  <div className="recent-label">{t("home.recent")}</div>
                   <div className="recent-chips">
                     {recent.map((r) => (
                       <button key={r.nickname} className="recent-chip" onClick={() => go(r.nickname)}>
@@ -1008,133 +1113,178 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
+              <h2 className="home-section-label">{t("home.features")}</h2>
+              <div className="home-features sh-home-features">
+                {homeFeatures.map((f) => {
+                  const body = (
+                    <>
+                      <div className="hf-ic" aria-hidden="true">{f.icon}</div>
+                      <div className="hf-title">{t(`hf.${f.key}`)}</div>
+                      <div className="hf-desc">{t(`hf.${f.key}D`)}</div>
+                      <div className="hf-go" aria-hidden="true">{f.nav ? t("home.open") : t("home.searchPlayer")}</div>
+                    </>
+                  );
+                  if (!f.nav) {
+                    return (
+                      <button
+                        key={f.key}
+                        type="button"
+                        className="hf-card hf-clickable"
+                        onClick={() => document.querySelector(".home-search input")?.focus()}
+                      >
+                        {body}
+                      </button>
+                    );
+                  }
+                  const href = f.nav === "leaderboard" ? "/leaderboard/EU" : `/${f.nav}`;
+                  return (
+                    <a
+                      key={f.key}
+                      className="hf-card hf-clickable sh-hf-link"
+                      href={localePath(lang, href)}
+                      onClick={(e) => { if (isPlainClick(e)) { e.preventDefault(); pickNav(f.nav); } }}
+                    >
+                      {body}
+                    </a>
+                  );
+                })}
+              </div>
+
               <a
-                className="home-promo"
+                className="home-promo sh-home-promo"
                 href={localePath(lang, "/discordbot")}
                 onClick={(e) => { if (isPlainClick(e)) { e.preventDefault(); pickNav("discordbot"); } }}
               >
-                <span className="home-promo-ic"><DiscordIcon size={22} /></span>
+                <span className="home-promo-ic" aria-hidden="true"><DiscordIcon size={22} /></span>
                 <span className="home-promo-txt">
-                  <span className="home-promo-tag">New</span>
-                  <b>Try our new Discord bot</b>
-                  <span>ELO and stats on demand, a live ELO table of your friends and match results in your channel. Free.</span>
+                  <span className="home-promo-tag">{t("home.new")}</span>
+                  <b>{t("home.discordTitle")}</b>
+                  <span>{t("home.discordDesc")}</span>
                 </span>
-                <span className="home-promo-go">Add to Discord →</span>
+                <span className="home-promo-go">{t("home.discordGo")}</span>
               </a>
 
               <AdBanner />
-
-              <div className="home-section-label">Everything you can do</div>
-              <div className="home-features">
-                {HOME_FEATURES.map((f) => (
-                  <button
-                    key={f.title}
-                    className="hf-card hf-clickable"
-                    onClick={() => (f.nav ? pickNav(f.nav) : document.querySelector(".home-search input")?.focus())}
-                  >
-                    <div className="hf-ic">{f.icon}</div>
-                    <div className="hf-title">{f.title}</div>
-                    <div className="hf-desc">{f.desc}</div>
-                    <div className="hf-go">{f.nav ? "Open →" : "Search a player →"}</div>
-                  </button>
-                ))}
-              </div>
-
             </div>
           )}
 
-          {/* ---------- TOOL PAGES ---------- */}
-          {mode === "compare" && (
-            <>
-              <div className="section-title">Compare players <span className="section-count">up to 5</span></div>
-              <div className="cmp-inputs">
-                {compareInputs.map((v, i) => (
-                  <div className="cmp-input-row" key={i}>
-                    <input
-                      type="text"
-                      className="compare-input"
-                      placeholder={`Player ${i + 1}`}
-                      value={v}
-                      onChange={(e) => setCompareAt(i, e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && runCompare()}
-                    />
-                    {compareInputs.length > 2 && (
-                      <button className="cmp-x" onClick={() => removeCompareSlot(i)} title="Remove">✕</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="cmp-actions">
-                {compareInputs.length < 5 && (
-                  <button className="act-btn" onClick={addCompareSlot}>+ Add player</button>
-                )}
-                <button className="btn-primary" onClick={runCompare} disabled={loading}>
-                  {loading ? "..." : "Compare"}
-                </button>
-              </div>
-            </>
-          )}
+          <Suspense fallback={<Skeleton label={t("state.loading")} />}>
+            {mode === "compare" && (
+              <>
+                <div className="section-title">Compare players <span className="section-count">up to 5</span></div>
+                <div className="cmp-inputs">
+                  {compareInputs.map((v, i) => (
+                    <div className="cmp-input-row" key={i}>
+                      <input
+                        type="text"
+                        className="compare-input"
+                        placeholder={`Player ${i + 1}`}
+                        aria-label={`Player ${i + 1} nickname`}
+                        aria-label={`Player ${i + 1}`}
+                        value={v}
+                        onChange={(e) => setCompareAt(i, e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && runCompare()}
+                      />
+                      {compareInputs.length > 2 && (
+                        <button className="cmp-x" onClick={() => removeCompareSlot(i)} title="Remove" aria-label={`Remove player ${i + 1}`}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="cmp-actions">
+                  {compareInputs.length < 5 && (
+                    <button className="act-btn" onClick={addCompareSlot}>+ Add player</button>
+                  )}
+                  <button className="btn-primary" onClick={runCompare} disabled={loading}>
+                    {loading ? "..." : "Compare"}
+                  </button>
+                </div>
+              </>
+            )}
 
-          {mode === "squad" && (
-            <>
-              <div className="section-title">Squad</div>
-              <div className="search">
-                <input
-                  type="text"
-                  placeholder="Nicknames separated by commas (e.g. s1mple, ZywOo, NiKo)"
-                  value={squadInput}
-                  onChange={(e) => setSquadInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && runSquad()}
-                />
-                <button onClick={runSquad} disabled={loading}>
-                  {loading ? "..." : "Search"}
-                </button>
-              </div>
-            </>
-          )}
+            {mode === "squad" && (
+              <>
+                <div className="section-title">Squad</div>
+                <div className="search">
+                  <input
+                    type="text"
+                    placeholder="Nicknames separated by commas (e.g. s1mple, ZywOo, NiKo)"
+                    aria-label="Nicknames separated by commas"
+                    value={squadInput}
+                    onChange={(e) => setSquadInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && runSquad()}
+                  />
+                  <button onClick={runSquad} disabled={loading}>
+                    {loading ? "..." : "Search"}
+                  </button>
+                </div>
+              </>
+            )}
 
-          {mode === "leaderboard" && (
-            <Leaderboard
-              onPick={go}
-              initialRegion={routeRegion}
-              initialCountry={searchParams.get("country") || ""}
-            />
-          )}
-          {mode === "worldmap" && (
-            <WorldMap
-              onPick={go}
-              // Clicking a country drops into the ladder it was counted in,
-              // already filtered — the map answers "who", the list answers
-              // "which players".
-              onCountry={(c) => nav(`/leaderboard/${c.region}?country=${c.country}`)}
-            />
-          )}
-          {mode === "faceitstatus" && <FaceitStatus />}
-          {mode === "steamstatus" && <SteamStatus />}
-          {mode === "bans" && <FaceitBans onPick={go} />}
-          {mode === "prosettings" && <ProSettings />}
-          {mode === "matchroom" && <MatchRoom onPick={go} />}
-          {mode === "hubs" && <Hubs onPick={go} user={user} />}
-          {mode === "teams" && <Teams onPick={go} />}
-          {mode === "competitions" && <Competitions onPick={go} />}
-          {mode === "pickem" && <Pickem />}
-          {mode === "discordbot" && <DiscordBot />}
-          {mode === "smurf-checker" && (
-            <SmurfChecker
-              onPick={go}
-              onPath={(p) => { if (p.startsWith("/matchroom")) setMode("matchroom"); nav(p); }}
-            />
-          )}
-          {mode === "faceit-elo-checker" && <EloChecker onPick={go} />}
-          {mode === "faceit-levels" && <FaceitLevels />}
-          {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
-          {mode === "games" && <Games />}
-          {mode === "proguesser" && <ProGuesser />}
-          {mode === "docs" && <ApiDocs />}
-          {mode === "news" && <NewsPage data={incidentStatus} />}
-          {mode === "whatsnew" && <WhatsNew />}
-          {mode === "feedback" && <Feedback user={user} />}
-          {mode === "overlay" && <OverlaySettings user={user} />}
+            {mode === "leaderboard" && (
+              <Leaderboard
+                onPick={go}
+                initialRegion={routeRegion}
+                initialCountry={searchParams.get("country") || ""}
+              />
+            )}
+            {mode === "worldmap" && (
+              <WorldMap
+                onPick={go}
+                onCountry={(c) => nav(`/leaderboard/${c.region}?country=${c.country}`)}
+              />
+            )}
+            {mode === "faceitstatus" && <FaceitStatus />}
+            {mode === "steamstatus" && <SteamStatus />}
+            {mode === "bans" && <FaceitBans onPick={go} />}
+            {mode === "prosettings" && <ProSettings />}
+            {mode === "matchroom" && <MatchRoom onPick={go} />}
+            {mode === LOBBY_PAGE && LobbyCheck && <LobbyCheck onPick={go} />}
+            {mode === "hubs" && <Hubs onPick={go} user={user} />}
+            {mode === "teams" && <Teams onPick={go} />}
+            {mode === "competitions" && <Competitions onPick={go} />}
+            {mode === "pickem" && <Pickem />}
+            {mode === "discordbot" && <DiscordBot />}
+            {mode === "smurf-checker" && (
+              <SmurfChecker
+                onPick={go}
+                onPath={(p) => { if (p.startsWith("/matchroom")) setMode("matchroom"); nav(p); }}
+              />
+            )}
+            {mode === "faceit-elo-checker" && <EloChecker onPick={go} />}
+            {mode === "faceit-levels" && <FaceitLevels />}
+            {mode === "watchlist" && <Watchlist favs={favs} user={user} onPick={go} />}
+            {mode === "games" && <Games />}
+            {mode === "higherlower" && <ProHigherLower />}
+            {mode === "community" && <Community onPick={go} onOpen={(p) => nav(p)} />}
+            {mode === "proguesser" && <ProGuesser />}
+            {mode === "docs" && <ApiDocs />}
+            {mode === "news" && <NewsPage data={incidentStatus} />}
+            {mode === "whatsnew" && <WhatsNew />}
+            {mode === "feedback" && <Feedback user={user} />}
+            {mode === "overlay" && <OverlaySettings user={user} />}
+            {mode === "faq" && <Faq />}
+            {mode === "support" && <Support initialCategory={searchParams.get("category") || undefined} />}
+            {mode === "privacy" && <PrivacyPolicy />}
+            {mode === "terms" && <Terms />}
+            {mode === "settings" && (
+              <ProfileSettings
+                user={user}
+                onSaved={(p) => setUser((u) => (u ? { ...u, profile: p, name: p.name, avatar: p.avatar ? `${API_BASE}${p.avatar}` : u.steam_avatar } : u))}
+                onOpenProfile={go}
+              />
+            )}
+            {mode === "settings" && user && <Goals user={user} />}
+            {mode === "publicprofile" && (
+              <PublicProfile
+                handle={routeHandle}
+                currentUser={user}
+                onPick={go}
+                onEdit={() => { setMode("settings"); nav("/settings"); }}
+              />
+            )}
+          </Suspense>
+
           {mode === "notfound" && (
             <NotFound
               nickname={nickname}
@@ -1142,250 +1292,170 @@ export default function App({ lang = DEFAULT_LOCALE }) {
               onSearch={searchHome}
               onPick={go}
               onNav={pickNav}
+              lang={lang}
             />
           )}
-          {mode === "faq" && <Faq />}
-          {mode === "support" && <Support initialCategory={searchParams.get("category") || undefined} />}
-          {mode === "privacy" && <PrivacyPolicy />}
-          {mode === "terms" && <Terms />}
-          {mode === "settings" && (
-            <ProfileSettings
-              user={user}
-              onSaved={(p) => setUser((u) => (u ? { ...u, profile: p, name: p.name, avatar: p.avatar ? `${API_BASE}${p.avatar}` : u.steam_avatar } : u))}
-              onOpenProfile={go}
-            />
-          )}
-          {mode === "publicprofile" && (
-            <PublicProfile
-              handle={routeHandle}
-              currentUser={user}
+
+          {playerMissing ? (
+            <PlayerNotFound
+              query={routeNick}
+              message={error}
+              nickname={nickname}
+              setNickname={setNickname}
+              onSearch={searchHome}
               onPick={go}
-              onEdit={() => { setMode("settings"); nav("/settings"); }}
+              lang={lang}
             />
-          )}
+          ) : error && !showHome ? (
+            <div className="state error sh-error" role="alert">
+              {error}
+              {routeNick && mode === "single" && (
+                <button type="button" className="act-btn sh-retry" onClick={() => loadPlayer(routeNick)}>
+                  {t("err.retry")}
+                </button>
+              )}
+            </div>
+          ) : null}
 
-          {/* ---------- STATES ---------- */}
-          {error && <div className="state error">{error}</div>}
-          {loading && <Skeleton />}
+          {loading && (routeNick && mode === "single"
+            ? <ProfileSkeleton label={t("state.loading")} />
+            : <Skeleton label={t("state.loading")} />)}
 
-          {/* ---------- RESULTS ---------- */}
-          {!loading && squad && <Squad data={squad} />}
+          <Suspense fallback={<Skeleton label={t("state.loading")} />}>
+            {!loading && squad && <Squad data={squad} />}
 
-          {mode === "single" && !loading && steamProfile && (
-            <SteamProfileView profile={steamProfile} />
-          )}
+            {mode === "single" && !loading && steamProfile && (
+              <SteamProfileView profile={steamProfile} />
+            )}
 
-          {!loading && comparePlayers && comparePlayers.length >= 2 && (
-            <>
-              <CompareView players={comparePlayers} onPick={go} />
-              {(() => {
-                const cs = comparePlayers
-                  .map((p, i) => {
-                    const d = eloData(p);
-                    return d.length ? { name: p.nickname, color: i === 0 ? "var(--accent)" : i === 1 ? "var(--accent-2)" : ["#f59e0b", "#ef4444", "#a855f7"][i - 2], data: d } : null;
-                  })
-                  .filter(Boolean);
-                return cs.length > 0 ? <EloChart series={cs} /> : null;
-              })()}
-            </>
-          )}
+            {!loading && comparePlayers && comparePlayers.length >= 2 && (
+              <>
+                <CompareView players={comparePlayers} onPick={go} />
+                {(() => {
+                  const cs = comparePlayers
+                    .map((p, i) => {
+                      const d = eloData(p);
+                      return d.length ? { name: p.nickname, color: i === 0 ? "var(--accent)" : i === 1 ? "var(--accent-2)" : ["#f59e0b", "#ef4444", "#a855f7"][i - 2], data: d } : null;
+                    })
+                    .filter(Boolean);
+                  return cs.length > 0 ? <EloChart series={cs} /> : null;
+                })()}
+              </>
+            )}
+          </Suspense>
 
           {showProfile && (
             <>
               <BanBanner bans={data.bans} />
               <MiniHeader
                 player={data}
-                tabs={gameView !== "csgo" ? buildProfileTabs(t).filter(([k]) => ["overview", "season", "matches", "maps", "teammates"].includes(k)) : []}
-                active={profileTab}
-                onTab={setProfileTab}
+                tabs={gameView !== "csgo" ? primaryTabs : []}
+                active={activeTab}
+                activeLabel={labels[activeTab]}
+                onTab={selectTab}
+                lang={lang}
               />
-              <PlayerHeader player={data} onRefresh={refreshPlayer} refreshing={refreshing}>
-                <button className={`act-btn ${isFav ? "on" : ""}`} onClick={onToggleFav}>
+              <PlayerHeader player={data} onRefresh={refreshPlayer} refreshing={refreshing} lang={lang}>
+                <button
+                  type="button"
+                  className={`act-btn ${isFav ? "on" : ""}`}
+                  onClick={onToggleFav}
+                  aria-pressed={isFav}
+                >
                   {isFav ? Icon.starFill : Icon.star}
-                  {isFav ? "Favorited" : "Favorite"}
+                  {isFav ? t("ph.favorited") : t("ph.favorite")}
                 </button>
-                <button className="act-btn" onClick={share}>
+                <button type="button" className="act-btn" onClick={share}>
                   {copied ? Icon.checkLg : Icon.link45deg}
-                  {copied ? "Copied" : "Share"}
+                  {copied ? t("ph.copied") : t("ph.share")}
                 </button>
-                <ProfileTools
-                  onAnalyze={runAnalysis}
-                  aiLoading={aiLoading}
-                  onRoast={runRoast}
-                  roastLoading={roastLoading}
-                  onShareCard={() => setShowCard(true)}
-                  onWrapped={() => setShowWrapped(true)}
-                />
-                {data.form && <span className="form-badge">Last 10: {data.form}</span>}
+                <span className={`sh-tools ${aiLoading || roastLoading ? "busy" : ""}`}>
+                  <ProfileTools
+                    onAnalyze={runAnalysis}
+                    aiLoading={aiLoading}
+                    onRoast={runRoast}
+                    roastLoading={roastLoading}
+                    onShareCard={() => setShowCard(true)}
+                    onWrapped={() => setShowWrapped(true)}
+                  />
+                  {(aiLoading || roastLoading) && (
+                    <span className="sh-spinner" role="status" aria-label={t("ph.generating")} />
+                  )}
+                </span>
               </PlayerHeader>
 
-              {showCard && <ShareCard player={data} onClose={() => setShowCard(false)} />}
-              {showWrapped && <Wrapped player={data} onClose={() => setShowWrapped(false)} />}
+              <Suspense fallback={null}>
+                {showCard && <ShareCard player={data} onClose={() => setShowCard(false)} />}
+                {showWrapped && <Wrapped player={data} onClose={() => setShowWrapped(false)} />}
+              </Suspense>
 
-              {aiError && <div className="state error">{aiError}</div>}
-              <AiReport text={aiText} loading={aiLoading} />
+              <div ref={aiRef} className="sh-anchor">
+                {aiError && <div className="state error" role="alert">{aiError}</div>}
+                <AiReport text={aiText} loading={aiLoading} />
+              </div>
 
-              {roastError && <div className="state error">{roastError}</div>}
-              {roastText && (
-                <div className="roast-panel">
-                  <div className="roast-panel-head">
-                    <span>{Icon.fire} Roasted</span>
-                    <button className="roast-copy" onClick={copyRoast}>
-                      {roastCopied ? "✓ Copied" : "Copy & share"}
-                    </button>
+              <div ref={roastRef} className="sh-anchor">
+                {roastError && <div className="state error" role="alert">{roastError}</div>}
+                {roastText && (
+                  <div className="roast-panel">
+                    <div className="roast-panel-head">
+                      <span>{Icon.fire} Roasted</span>
+                      <button className="roast-copy" onClick={copyRoast}>
+                        {roastCopied ? "✓ Copied" : "Copy & share"}
+                      </button>
+                    </div>
+                    <div className="roast-panel-body">{roastText}</div>
                   </div>
-                  <div className="roast-panel-body">{roastText}</div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Between the profile card and the tab rail, full width.
-
-                  It used to sit under the tabs, which put it between a control
-                  and the thing that control operates — you clicked a tab and
-                  an advert was the first thing that answered. Here it is a
-                  band between two sections instead of an interruption inside
-                  one. */}
               <AdInline />
 
-              {/* Sidebar + tabs, side by side. The sidebar is outside the tab
-                  switch on purpose: none of what it holds belongs to one tab,
-                  and re-mounting the activity heatmap on every tab change
-                  would replay its entrance animation each time. */}
               <div className="prof-layout">
                 <ProfileSidebar
                   player={data}
                   onPick={go}
+                  onTab={gameView !== "csgo" ? goToTab : undefined}
                   gameView={gameView}
-                  onGameView={(g) => { setGameView(g); setProfileTab("overview"); }}
+                  onGameView={(g) => { setGameView(g); selectTab("overview"); }}
+                  lang={lang}
                 />
                 <div className="prof-main">
-              {/* Hidden entirely in CS:GO mode. Every one of those tabs reads
-                  from the CS2 payload — a Matches tab that lists CS2 games
-                  while the header says CS:GO is worse than no tab at all. The
-                  frozen record is one page, so it gets one page. */}
-              {gameView !== "csgo" && (
-                <div className="ptabs">
-                  {buildProfileTabs(t).filter(([k]) => k !== "clips" || data.allstar_enabled).map(([key, label]) => (
-                    <button
-                      key={key}
-                      className={`ptab ${profileTab === key ? "active" : ""}`}
-                      onClick={() => setProfileTab(key)}
-                      aria-current={profileTab === key ? "page" : undefined}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {gameView !== "csgo" && (
+                    <ProfileTabs
+                      primary={primaryTabs}
+                      more={moreTabs}
+                      active={activeTab}
+                      onTab={selectTab}
+                      moreLabel={t("tab.more")}
+                      menuLabel={t("tab.moreTabs")}
+                    />
+                  )}
 
-              {/* Above the tab content, so it sits in one fixed place on every
-                  tab instead of appearing at a different scroll depth per tab. */}
-              {/* CS:GO short-circuits the whole tab chain, not just its last
-                  branch: the rail is hidden in that mode, so a profileTab left
-                  pointing elsewhere would render CS2 content with no control
-                  on screen to get back. */}
-              {gameView === "csgo" ? (
-                <CsgoOverview
-                  nickname={data.nickname}
-                  matches={(data.game_history || []).find((g) => g.game === "csgo")?.matches}
-                />
-              ) : profileTab === "season" ? (
-                <Insights insights={data.insights} player={data} onPick={go} />
-              ) : profileTab === "analysis" ? (
-                <Analysis nickname={data.nickname} />
-              ) : profileTab === "matches" ? (
-                <>
-                  {/* The detailed ten first — expandable, with full scoreboards
-                      — then the long filterable list for whoever wants to scan
-                      a few hundred rows. Two tools for two different questions,
-                      which is why both live here rather than one replacing the
-                      other. */}
-                  <MatchHistory matches={data.recent_matches} me={data.nickname} onPick={go} />
-                  <AllMatches matches={data.all_matches} />
-                </>
-              ) : profileTab === "maps" ? (
-                <>
-                  {/* Best and weakest first: "which map should I pick" is the
-                      question people open this tab with, and the cards answer
-                      it without needing the table underneath explained. */}
-                  <MapHighlights maps={data.map_stats} />
-                  <MapStats maps={data.map_stats} />
-                </>
-              ) : profileTab === "hubs" ? (
-                <PlayerHubs competitions={data.competitions} />
-              ) : profileTab === "highlights" ? (
-                <Highlights highlights={data.highlights} />
-              ) : profileTab === "activity" ? (
-                <Activity activity={data.activity} />
-              ) : profileTab === "compare" ? (
-                <ProfileCompare player={data} onPick={go} />
-              ) : profileTab === "bans" ? (
-                <BanStatus bans={data.bans} steam={data.steam} />
-              ) : profileTab === "account" ? (
-                <AccountView nickname={data.nickname} />
-              ) : profileTab === "leetify" ? (
-                <LeetifyStats nickname={data.nickname} />
-              ) : profileTab === "csrep" ? (
-                <CsrepStats nickname={data.nickname} />
-              ) : profileTab === "clips" ? (
-                <Clips nickname={data.nickname} />
-              ) : profileTab === "hltv" ? (
-                <HltvStats hltv={data.hltv} />
-              ) : profileTab === "teammates" ? (
-                <>
-                  <TeammatesFull mates={data.teammates_full} onPick={go} />
-                  {/* Who they win with and who beats them, on the same page as
-                      the full list — all three are the same question asked
-                      about different people. */}
-                  <div className="duo">
-                    <div><BestTeammates mates={data.best_teammates} onPick={go} /></div>
-                    <div><Nemeses nemeses={data.nemeses} onPick={go} /></div>
-                  </div>
-                </>
-              ) : profileTab === "met" ? (
-                <HaveWeMet player={data.nickname} />
-              ) : profileTab === "steam" ? (
-                <SteamInfo steam={data.steam} />
-              ) : profileTab === "nicknames" ? (
-                <Nicknames
-                  nicknames={data.nicknames}
-                  history={data.nickname_history}
-                  player={data.nickname}
-                />
-              ) : (
-                /* Overview is now a summary, not the whole profile. Everything
-                   that answers "show me the detail behind this number" moved to
-                   its own tab; what is left is the shape of the account and how
-                   it is trending. Fourteen sections in one scroll meant the
-                   match list — the thing most people came for — was six
-                   screens down. */
-                <>
-                  <OverviewGrid
-                    data={data}
-                    maps={data.maps_played}
-                    mapFilter={mapFilter}
-                    onMapFilter={applyMapFilter}
-                  />
-                  <InsightsTeaser insights={data.insights} onOpen={() => setProfileTab("season")} />
-                  <SkillRatings skills={data.skills} />
-                  {/* Directly under the ratings: these are the numbers those
-                      bars were scored from, so a rating you disagree with can
-                      be checked rather than just disbelieved. */}
-                  <StatPanels stats={data.stats} />
-                  {eloSeries.length > 0 && <EloChart series={eloSeries} />}
-                  {/* No activity heatmap here. The sidebar shows it on every
-                      tab, and its own tab shows it full width — a third copy
-                      inside Overview was the same picture three times. */}
-                  <EloProjector elo={data.elo} winRate={data.stats?.win_rate} />
-                  {/* What this player does outside solo queue. Renders nothing
-                      at all for the majority who have neither, so it costs an
-                      ordinary profile no space. */}
-                  <PlayerTeams nickname={data.nickname} />
-                </>
-              )}
+                  {notice && (
+                    <div className="sh-notice" role="alert">
+                      <span>{notice.message}</span>
+                      {notice.retry && (
+                        <button type="button" className="act-btn" onClick={() => { const r = notice.retry; setNotice(null); r(); }}>
+                          {t("err.retry")}
+                        </button>
+                      )}
+                      <button type="button" className="sh-notice-x" onClick={() => setNotice(null)} aria-label={t("err.dismiss")}>
+                        {Icon.xLg}
+                      </button>
+                    </div>
+                  )}
+
+                  <Lazy tall>
+                    {gameView === "csgo" ? (
+                      <CsgoOverview
+                        nickname={data.nickname}
+                        matches={(data.game_history || []).find((g) => g.game === "csgo")?.matches}
+                      />
+                    ) : renderTab()}
+                  </Lazy>
                 </div>
               </div>
-
             </>
           )}
 
@@ -1394,20 +1464,27 @@ export default function App({ lang = DEFAULT_LOCALE }) {
         </div>
       </div>
 
-      {/* Announce what's new — but not to someone who followed a shared link
-          straight to a player, and not while they're already reading the
-          page it would send them to. */}
       <SocialDock />
-      <CommandPalette
-        groups={buildNav(t, lang)}
-        onPlayer={go}
-        onNav={pickNav}
-        onPath={(p) => {
-          const page = p.split("?")[0].replace(/^\//, "");
-          if (page === "matchroom") setMode("matchroom");
-          nav(p);
-        }}
-      />
+      {paletteLoaded && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            lang={lang}
+            groups={navGroups}
+            tabs={showProfile && gameView !== "csgo" ? [...primaryTabs, ...moreTabs] : null}
+            tabsLabel={data ? `${data.nickname} · ${t("cp.profileTab")}` : undefined}
+            onTab={goToTab}
+            onPlayer={go}
+            onNav={pickNav}
+            onPath={(p) => {
+              const page = p.split("?")[0].replace(/^\//, "");
+              if (page === "matchroom") setMode("matchroom");
+              nav(p);
+            }}
+          />
+        </Suspense>
+      )}
 
       <WhatsNewPopup
         unread={changelog.unread}

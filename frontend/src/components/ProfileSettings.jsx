@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "../icons.jsx";
 import DiscordRoles from "./DiscordRoles.jsx";
+import { FaceitIcon } from "./BrandIcons.jsx";
+import { useFaceitLogin, FACEIT_LOGIN_URL, STEAM_LOGIN_URL } from "../lib/account-api.js";
+import "../styles/account.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -65,6 +68,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const fileRef = useRef(null);
+  const faceitEnabled = useFaceitLogin();
 
   const load = useCallback(() => {
     setLoading(true);
@@ -251,9 +255,17 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
           <div className="empty-ico">{Icon.personCheck}</div>
           <h3>Sign in to set up your profile</h3>
           <p>Signing in with Steam links your FACEIT account automatically — no codes to paste.</p>
-          <a className="btn primary" href={`${API_BASE}/api/auth/steam/login/`}>
-            Sign in with Steam
-          </a>
+          <div className="ps-btn-row acc-center-row">
+            <a className="btn primary" href={STEAM_LOGIN_URL}>
+              Sign in with Steam
+            </a>
+            {faceitEnabled && (
+              <a className="btn faceit-login" href={FACEIT_LOGIN_URL}>
+                <FaceitIcon size={15} />
+                Sign in with FACEIT
+              </a>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -270,7 +282,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
       <div className="panel ps-card">
         <div className="panel-head">
           <h2 className="panel-title">Your profile</h2>
-          {status && <span className="ps-status">{status}</span>}
+          <span className="ps-status" role="status" aria-live="polite">{status}</span>
         </div>
 
         {/* --- Picture --------------------------------------------------- */}
@@ -307,6 +319,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
             <input
               ref={fileRef}
               type="file"
+              aria-label="Upload profile picture"
               accept="image/png,image/jpeg,image/webp,image/gif"
               hidden
               onChange={(e) => { uploadAvatar(e.target.files?.[0]); e.target.value = ""; }}
@@ -325,15 +338,19 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
               value={handle}
               maxLength={30}
               spellCheck="false"
+              aria-describedby="ps-handle-hint"
+              aria-invalid={!!errors.handle || handleState === "taken"}
               onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase())}
             />
-            {handleState === "checking" && <span className="ps-tag">checking…</span>}
-            {handleState === "free" && <span className="ps-tag ok">available</span>}
-            {handleState === "taken" && <span className="ps-tag bad">taken</span>}
+            <span aria-live="polite">
+              {handleState === "checking" && <span className="ps-tag">checking…</span>}
+              {handleState === "free" && <span className="ps-tag ok">available</span>}
+              {handleState === "taken" && <span className="ps-tag bad">taken</span>}
+            </span>
           </div>
           {errors.handle
-            ? <p className="ps-err">{errors.handle}</p>
-            : <p className="ps-hint">This never changes on its own — links you share keep working.</p>}
+            ? <p className="ps-err" id="ps-handle-hint" role="alert">{errors.handle}</p>
+            : <p className="ps-hint" id="ps-handle-hint">This never changes on its own — links you share keep working.</p>}
         </div>
 
         {/* --- Name + bio -------------------------------------------------- */}
@@ -399,7 +416,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
             </p>
 
             {linkError === "taken" && (
-              <p className="ps-err">
+              <p className="ps-err" role="alert">
                 That FACEIT account is already linked to another FaceitLens profile.
               </p>
             )}
@@ -427,6 +444,22 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
               </button>
             </div>
 
+            {faceitEnabled && (
+              <>
+                <div className="ps-alt"><span className="ps-alt-line">or</span></div>
+                <div className="ps-btn-row">
+                  <a className="btn faceit-login" href={FACEIT_LOGIN_URL}>
+                    <FaceitIcon size={15} />
+                    Link with FACEIT
+                  </a>
+                </div>
+                <p className="ps-hint">
+                  Sign in on FACEIT itself to prove the account is yours, even if it
+                  isn't connected to this Steam account.
+                </p>
+              </>
+            )}
+
             <p className="ps-hint dim">
               We only ever read your nickname and account id, and only for the
               account FACEIT says owns your Steam ID. We never see your password
@@ -445,6 +478,7 @@ export default function ProfileSettings({ user, onSaved, onOpenProfile }) {
         <label className="ps-toggle">
           <input
             type="checkbox"
+            aria-label="Public profile"
             checked={isPublic}
             onChange={(e) => setIsPublic(e.target.checked)}
           />

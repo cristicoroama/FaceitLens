@@ -24,7 +24,11 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from tracker import faceit
-from tracker.models import EloSnapshot, TrackedPlayer, UserProfile
+from tracker import notifications, privacy
+from tracker.models import EloSnapshot, PlayerMeta, TrackedPlayer, UserProfile
+from tracker.profiles import _level_for
+
+SWING = 100
 
 
 class Command(BaseCommand):
@@ -34,6 +38,7 @@ class Command(BaseCommand):
         parser.add_argument("--days", type=int, default=45)
         parser.add_argument("--members", action="store_true")
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--no-notify", action="store_true")
 
     def handle(self, *args, **options):
         today = date.today()
@@ -56,7 +61,8 @@ class Command(BaseCommand):
             f"({member_count} member(s), {len(targets) - member_count} searched)."
         )
 
-        saved = skipped = failed = 0
+        saved = skipped = failed = told = 0
+        notify = not dry and not options["no_notify"]
         for player_id, label in targets.items():
             try:
                 player = faceit._get(f"/players/{player_id}")
@@ -70,6 +76,17 @@ class Command(BaseCommand):
                     EloSnapshot.objects.update_or_create(
                         player_id=player_id, date=today, defaults={"elo": elo}
                     )
+                    cs2 = (player.get("games") or {}).get(faceit.GAME, {})
+                    PlayerMeta.objects.update_or_create(
+                        player_id=player_id,
+                        defaults={
+                            "nickname": (player.get("nickname") or "")[:100],
+                            "region": (cs2.get("region") or "")[:16],
+                            "skill_level": cs2.get("skill_level"),
+                        },
+                    )
+                    if notify:
+                        told += self._milestones(player_id, player.get("nickname") or label, elo, today)
                 saved += 1
             except Exception as exc:
                 failed += 1
@@ -81,4 +98,29 @@ class Command(BaseCommand):
             msg += f" Skipped {skipped} with no CS2 ELO."
         if failed:
             msg += f" {failed} failed."
+        if told:
+            msg += f" {told} milestone notification(s)."
         self.stdout.write(self.style.SUCCESS(msg))
+
+    def _milestones(self, player_id, nickname, elo, today):
+        if privacy.is_suppressed(player_id, None, nickname):
+            return 0
+        prev = (
+            EloSnapshot.objects.filter(player_id=player_id, date__lt=today)
+            .order_by("-date")
+            .values_list("elo", flat=True)
+            .first()
+        )
+        if prev is None:
+            return 0
+        aliases = list(
+            TrackedPlayer.objects.filter(player_id=player_id).values_list("nickname", flat=True)
+        )
+        sent = 0
+        old_level, new_level = _level_for(prev), _level_for(elo)
+        if new_level > old_level:
+            sent += notifications.notify_levelup(player_id, nickname, old_level, new_level, elo, today, aliases)
+        delta = elo - prev
+        if abs(delta) >= SWING:
+            sent += notifications.notify_elo_swing(player_id, nickname, delta, elo, today, aliases)
+        return sent

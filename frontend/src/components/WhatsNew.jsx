@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "../icons.jsx";
+import { getJson } from "../api.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
 const SEEN_KEY = "faceitlens_news_seen";
 
 const KIND_META = {
@@ -36,15 +36,29 @@ function writeSeen(id) {
  * this visitor hasn't seen. Used by the page, the popup and the bell so all
  * three agree without fetching three times.
  */
+let changelogPromise = null;
+
+function loadChangelog() {
+  if (!changelogPromise) {
+    changelogPromise = getJson("/api/changelog/", { ttl: 0 })
+      .catch(() => ({ entries: [], latest_id: 0 }));
+  }
+  return changelogPromise;
+}
+
 export function useChangelog() {
   const [data, setData] = useState(null);
   const [seen, setSeen] = useState(readSeen);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/changelog/`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setData)
-      .catch(() => setData({ entries: [], latest_id: 0 }));
+    let live = true;
+    loadChangelog().then((d) => { if (live) setData(d); });
+    const onSeen = () => setSeen(readSeen());
+    window.addEventListener("fl:changelog-seen", onSeen);
+    return () => {
+      live = false;
+      window.removeEventListener("fl:changelog-seen", onSeen);
+    };
   }, []);
 
   const entries = data?.entries || [];
@@ -54,6 +68,7 @@ export function useChangelog() {
     const latest = data?.latest_id || 0;
     writeSeen(latest);
     setSeen(latest);
+    window.dispatchEvent(new Event("fl:changelog-seen"));
   }
 
   return { data, entries, unread, markSeen, loaded: !!data };

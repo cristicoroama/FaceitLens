@@ -1,5 +1,5 @@
-import { DISCORD_INVITE, GITHUB_REPO, TELEGRAM_URL, CONTACT_EMAIL, COFFEE_URL } from "../links.js";
-import { DiscordIcon, TelegramIcon, GitHubIcon, MailIcon } from "./BrandIcons.jsx";
+import { GITHUB_REPO, TELEGRAM_URL, CONTACT_EMAIL, COFFEE_URL } from "../links.js";
+import { TelegramIcon, GitHubIcon, MailIcon } from "./BrandIcons.jsx";
 
 /**
  * Floating brand links, pinned bottom-right on every page.
@@ -10,14 +10,13 @@ import { DiscordIcon, TelegramIcon, GitHubIcon, MailIcon } from "./BrandIcons.js
  * fixed dock on a phone would sit on top of the content it should sit beside.
  */
 const LINKS = [
-  { key: "discord", label: "Discord", href: DISCORD_INVITE, icon: <DiscordIcon size={19} /> },
   { key: "telegram", label: "Telegram", href: TELEGRAM_URL, icon: <TelegramIcon size={19} /> },
   { key: "github", label: "Source on GitHub", href: GITHUB_REPO, icon: <GitHubIcon size={19} /> },
   { key: "mail", label: `Email — ${CONTACT_EMAIL}`, href: `mailto:${CONTACT_EMAIL}`, icon: <MailIcon size={19} /> },
   { key: "coffee", label: "Buy me a coffee", href: COFFEE_URL, icon: <CoffeeIcon size={19} /> },
 ];
 
-function CoffeeIcon({ size = 16 }) {
+export function CoffeeIcon({ size = 16 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
          strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

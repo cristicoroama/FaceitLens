@@ -45,7 +45,14 @@ export default function DiscordRoles() {
       </p>
 
       {!state.faceit_verified ? (
-        <p className="ps-hint dim">Link your FACEIT account above first. Roles are only given to verified accounts.</p>
+        <>
+          <p className="ps-hint dim">Link your FACEIT account above first. Roles are only given to verified accounts.</p>
+          {state.linked && (
+            <div className="ps-btn-row">
+              <button type="button" className="btn ghost" onClick={unlink}>Unlink Discord</button>
+            </div>
+          )}
+        </>
       ) : (
         <>
           {code ? (

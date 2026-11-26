@@ -12,9 +12,12 @@ export default async function handler(req, res) {
   let image = "https://faceit-lens.com/og.png";
   let card = "summary_large_image";
 
+  let found = false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
   try {
     if (backend && nick) {
-      const r = await fetch(`${backend}/api/player/${encodeURIComponent(nick)}/`);
+      const r = await fetch(`${backend}/api/player/${encodeURIComponent(nick)}/`, { signal: ctrl.signal });
       if (r.ok) {
         const p = await r.json();
         title = `${p.nickname} — Level ${p.skill_level ?? "?"} · ${p.elo ?? "?"} FACEIT ELO`;
@@ -26,13 +29,22 @@ export default async function handler(req, res) {
           [wr, kd, hs, matches].filter(Boolean).join(" · ") ||
           `View ${p.nickname}'s full FACEIT CS2 stats, trust score and match history on FaceitLens.`;
         image = `https://faceit-lens.com/og/${encodeURIComponent(p.nickname)}.png`;
+        found = true;
       }
     }
   } catch {
     // fall back to defaults
+  } finally {
+    clearTimeout(timer);
   }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader(
+    "Cache-Control",
+    found
+      ? "public, s-maxage=600, stale-while-revalidate=86400"
+      : "public, s-maxage=60, stale-while-revalidate=600",
+  );
   res.status(200).send(`<!doctype html>
 <html lang="en">
 <head>
@@ -43,6 +55,8 @@ export default async function handler(req, res) {
 <meta property="og:site_name" content="FaceitLens" />
 <meta property="og:url" content="https://faceit-lens.com${appUrl}" />
 <meta property="og:image" content="${escapeHtml(image)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta name="theme-color" content="#8b5cf6" />
 <meta name="twitter:card" content="${card}" />
 <meta name="twitter:title" content="${escapeHtml(title)}" />

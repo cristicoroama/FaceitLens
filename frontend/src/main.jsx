@@ -7,7 +7,7 @@ import App from "./App.jsx";
 import OverlayRoute from "./components/OverlayRoute.jsx";
 import { ALL_LOCALES, DEFAULT_LOCALE } from "./i18n.js";
 import "./index.css";
-import "./effects.js";
+import "./styles/shell.css";
 
 /* Every route exists once per language: /faq, /ru/faq, /pl/faq, /uk/faq.
    Generated rather than written out, because four copies of six routes drift

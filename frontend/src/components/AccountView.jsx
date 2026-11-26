@@ -42,8 +42,8 @@ export default function AccountView({ nickname }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nickname]);
 
-  if (loading) return <div className="state">Loading account trust &amp; inventory…</div>;
-  if (error) return <div className="state error">{error}</div>;
+  if (loading) return <div className="state" role="status">Loading account trust &amp; inventory…</div>;
+  if (error) return <div className="state error" role="alert">{error}</div>;
   if (!data) return null;
 
   const inv = data.inventory;

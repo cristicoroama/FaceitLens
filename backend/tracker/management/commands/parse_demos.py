@@ -16,9 +16,11 @@ the web request cycle — a demo is ~100-300 MB and parsing takes seconds.
 import os
 import time
 
+from django.db import close_old_connections
+
 from django.core.management.base import BaseCommand, CommandError
 
-from tracker import demo_parser, demo_stats, faceit
+from tracker import demo_parser, demo_queue, demo_stats, faceit
 
 
 class Command(BaseCommand):
@@ -30,9 +32,20 @@ class Command(BaseCommand):
         parser.add_argument("--limit", type=int, default=10, help="matches for --player")
         parser.add_argument("--file", help="parse a local .dem instead of downloading")
         parser.add_argument("--force", action="store_true", help="re-parse even if stored")
+        parser.add_argument("--queue", action="store_true", help="process queued on-demand parse requests")
+        parser.add_argument("--max", type=int, default=5, help="max queued requests per pass")
+        parser.add_argument("--watch", type=int, default=0, help="keep polling the queue every N seconds")
 
     def handle(self, *args, **opts):
         api_key = os.environ.get("FACEIT_API_KEY", "")
+
+        explicit = opts["file"] or opts["match"] or opts["player"]
+        if opts["queue"] or not explicit:
+            if not api_key:
+                raise CommandError("FACEIT_API_KEY is not set")
+            self._run_queue(api_key, opts["max"], opts["watch"])
+            if not explicit:
+                return
 
         if opts["file"]:
             if not opts["match"]:
@@ -50,11 +63,41 @@ class Command(BaseCommand):
             self._parse_player(opts["player"], api_key, opts["limit"], opts["force"])
             return
 
-        raise CommandError("Give one of --match, --player or --file")
+    def _run_queue(self, api_key, limit, watch):
+        while True:
+            close_old_connections()
+            stale = demo_queue.requeue_stale()
+            if stale:
+                self.stdout.write(f"requeued {stale} stale request(s)")
+            handled = 0
+            while handled < max(1, limit):
+                req = demo_queue.claim_next()
+                if req is None:
+                    break
+                handled += 1
+                self.stdout.write(f"queue: {req.match_id} (attempt {req.attempts + 1}) ...")
+                t0 = time.time()
+                ok = demo_queue.process(
+                    req,
+                    lambda mid: demo_parser.stats_for_match(mid, api_key),
+                    demo_stats.store_match,
+                )
+                if ok:
+                    self.stdout.write(self.style.SUCCESS(f"  done ({time.time() - t0:.1f}s)"))
+                else:
+                    self.stdout.write(self.style.WARNING(f"  failed: {req.error}"))
+            if not handled:
+                self.stdout.write("queue: nothing to do")
+            if watch <= 0:
+                return
+            time.sleep(watch)
 
     # -- helpers ---------------------------------------------------------- #
     def _store(self, data):
         demo_stats.store_match(data)
+        if not data["players"]:
+            self.stdout.write(self.style.WARNING("  stored, but no players were found"))
+            return
         top = max(data["players"].values(), key=lambda p: p["rating"])
         self.stdout.write(self.style.SUCCESS(
             f"  ✓ {data['map']} · {data['rounds']}r · top {top['name']} "

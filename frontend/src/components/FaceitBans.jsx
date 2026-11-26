@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { countBy } from "../lib/account-api.js";
+import "../styles/account.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -15,19 +17,62 @@ function ago(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+function typeOf(b) {
+  return b.ban_type || b.type || "banned";
+}
+
+function normaliseCounts(j, items) {
+  const raw = j.counts || j.by_type || j.type_counts || j.counts_by_type;
+  let pairs = [];
+  if (Array.isArray(raw)) {
+    pairs = raw
+      .map((r) => [r.ban_type || r.type || r.key || r.label, Number(r.count ?? r.n ?? r.total)])
+      .filter(([k, n]) => k && Number.isFinite(n));
+  } else if (raw && typeof raw === "object") {
+    pairs = Object.entries(raw)
+      .map(([k, n]) => [k, Number(typeof n === "object" && n ? n.count ?? n.n : n)])
+      .filter(([, n]) => Number.isFinite(n));
+  }
+  if (!pairs.length) pairs = Object.entries(countBy(items, typeOf));
+  return pairs.sort((a, b) => b[1] - a[1]);
+}
+
+function activate(fn) {
+  return (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn();
+    }
+  };
+}
+
 export default function FaceitBans({ onPick }) {
   const [items, setItems] = useState(null);
+  const [counts, setCounts] = useState([]);
+  const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
     fetch(`${API_BASE}/api/bans/`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((j) => alive && setItems(j.items || []))
-      .catch(() => alive && setItems([]))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`The server is having trouble (${r.status}).`))))
+      .then((j) => {
+        if (!alive) return;
+        const list = j.items || [];
+        setItems(list);
+        setCounts(normaliseCounts(j, list));
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setItems([]);
+        setError(e?.message || "Couldn't load bans.");
+      })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, []);
+
+  const shown = (items || []).filter((b) => !filter || typeOf(b) === filter);
 
   return (
     <>
@@ -47,22 +92,47 @@ export default function FaceitBans({ onPick }) {
         </div>
       </div>
 
-      {loading && <div className="state">Loading bans…</div>}
+      {loading && <div className="state" role="status">Loading bans…</div>}
 
-      {!loading && items && items.length === 0 && (
+      {!loading && error && <div className="state error" role="alert">{error}</div>}
+
+      {!loading && counts.length > 1 && (
+        <div className="acc-ban-filter" role="group" aria-label="Filter bans by type">
+          <button type="button" className={`acc-chip ${filter ? "" : "on"}`} aria-pressed={!filter} onClick={() => setFilter("")}>
+            All <b>{counts.reduce((a, [, n]) => a + n, 0)}</b>
+          </button>
+          {counts.map(([type, n]) => (
+            <button
+              type="button"
+              key={type}
+              className={`acc-chip ${filter === type ? "on" : ""}`}
+              aria-pressed={filter === type}
+              onClick={() => setFilter(filter === type ? "" : type)}
+            >
+              {type} <b>{n}</b>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && items && items.length === 0 && (
         <div className="state">
           No bans recorded yet. This feed fills up as banned players get searched —
           look one up and it'll appear here.
         </div>
       )}
 
-      {!loading && items && items.length > 0 && (
+      {!loading && shown.length > 0 && (
         <div className="lrows stagger">
-          {items.map((b, i) => (
+          {shown.map((b, i) => (
             <div
               className={`lrow ${onPick ? "lrow-click" : ""} ban-row`}
               key={`${b.player_id}-${i}`}
               onClick={onPick ? () => onPick(b.nickname) : undefined}
+              role={onPick ? "button" : undefined}
+              tabIndex={onPick ? 0 : undefined}
+              aria-label={onPick ? `Open ${b.nickname}` : undefined}
+              onKeyDown={onPick ? activate(() => onPick(b.nickname)) : undefined}
             >
               {b.avatar ? (
                 <img className="lrow-ava img" src={b.avatar} alt="" loading="lazy"
@@ -72,9 +142,12 @@ export default function FaceitBans({ onPick }) {
               )}
               <div className="lrow-main">
                 <div className="lrow-name">{b.nickname}</div>
-                <div className="lrow-dim">{ago(b.detected_at)}</div>
+                <div className="lrow-dim">
+                  {ago(b.detected_at)}
+                  {b.reason && <span className="acc-ban-reason"> · {b.reason}</span>}
+                </div>
               </div>
-              <span className="ban-tag">{b.ban_type || "banned"}</span>
+              <span className="ban-tag">{typeOf(b)}</span>
             </div>
           ))}
         </div>

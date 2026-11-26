@@ -3,10 +3,15 @@ Allow: /
 
 # Account-only pages: nothing here is useful in search results.
 Disallow: /settings
+Disallow: /ru/settings
+Disallow: /pl/settings
+Disallow: /uk/settings
 
 # Individual overlay links carry a private token.
 Disallow: /overlay/
 
-Sitemap: https://faceit-lens.com/sitemap.xml
+# Client-only fallback shell, never a landing page.
+Disallow: /spa.html
 
+Sitemap: https://faceit-lens.com/sitemap.xml
 Sitemap: https://faceit-lens.com/sitemap-players.xml

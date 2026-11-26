@@ -1,77 +1,53 @@
 import Activity from "./Activity.jsx";
 import BanStatus from "./BanStatus.jsx";
-import { SteamIcon, FaceitIcon, TwitchIcon } from "./BrandIcons.jsx";
 import { FaceitLevel } from "./RankIcons.jsx";
-
-/**
- * The column that stays put while the tabs change.
- *
- * Everything here answers a question you might have on ANY tab — is this
- * account clean, who do they play with, when are they online — so none of it
- * belongs to a tab. Putting it beside the content instead of inside one means
- * it stops being something you have to go and find.
- *
- * Deliberately not a copy of the tab content it resembles. The Hubs tab has a
- * twelve-column sortable table; this shows five rows and a bar. The sidebar is
- * the glance, the tab is the answer.
- */
+import { DEFAULT_LOCALE, makeT } from "../i18n.js";
 
 function Bar({ pct, tone }) {
   const v = Math.max(0, Math.min(100, Number(pct) || 0));
   return (
-    <span className="psb-bar">
+    <span className="psb-bar" aria-hidden="true">
       <span className={`psb-bar-fill ${tone || ""}`} style={{ width: `${v}%` }} />
     </span>
   );
 }
 
-function Card({ title, count, children }) {
+function Card({ title, count, more, children, className = "" }) {
   return (
-    <div className="psb-card">
+    <section className={`psb-card ${className}`} aria-label={title}>
       <div className="psb-head">
         <span className="psb-title">{title}</span>
         {count != null && <span className="psb-count">{count}</span>}
+        {more}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
-export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGameView }) {
+export default function ProfileSidebar({ player, onPick, onTab, gameView = "cs2", onGameView, lang = DEFAULT_LOCALE }) {
+  const t = makeT(lang);
   if (!player) return null;
 
-  const hubs = (player.competitions || []).slice(0, 5);
-  const mates = (player.teammates_full || player.best_teammates || []).slice(0, 5);
-  const socials = [
-    player.faceit_url && { label: "FACEIT", href: player.faceit_url, icon: <FaceitIcon size={14} /> },
-    player.steam_id && {
-      label: "Steam",
-      href: `https://steamcommunity.com/profiles/${player.steam_id}`,
-      icon: <SteamIcon size={14} />,
-    },
-    player.platforms?.twitch && {
-      label: "Twitch",
-      href: `https://twitch.tv/${encodeURIComponent(player.platforms.twitch)}`,
-      icon: <TwitchIcon size={14} />,
-    },
-  ].filter(Boolean);
+  const hubs = (player.competitions || []).slice(0, 3);
+  const mates = (player.teammates_full || player.best_teammates || []).slice(0, 3);
+  const seeAll = (tab, label) => onTab ? (
+    <button type="button" className="sh-psb-more" onClick={() => onTab(tab)} aria-label={`${t("psb.seeAll")}: ${label}`}>
+      {t("psb.seeAll")} <span aria-hidden="true">→</span>
+    </button>
+  ) : null;
 
   return (
     <aside className="psb">
       {player.activity && (
         <div className="psb-card psb-activity">
           <Activity activity={player.activity} />
+          {onTab && <div className="sh-psb-foot">{seeAll("activity", t("psb.activity"))}</div>}
         </div>
       )}
 
-      {/* Both Counter-Strike titles. Only worth a card when there are two —
-          a lone CS2 row restates what the whole page already says. */}
       {(player.game_history || []).length > 1 && (
-        <Card title="Game history">
-          {/* Also the switch for the Overview: picking a title swaps the
-              stats below it. The row already names the game and its match
-              count, so a separate toggle above would say the same thing
-              twice. */}
+        <Card title={t("psb.gameHistory")}>
           <div className="psb-games">
             {player.game_history.map((g) => (
               <button
@@ -81,18 +57,13 @@ export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGam
                 onClick={onGameView ? () => onGameView(g.game) : undefined}
                 aria-pressed={gameView === g.game}
               >
-                <img
-                  className="psb-game-ic"
-                  src={`/games/${g.game}.png`}
-                  alt=""
-                  loading="lazy"
-                />
+                <img className="psb-game-ic" src={`/games/${g.game}.png`} alt="" loading="lazy" />
                 <div className="psb-game-body">
                   <span className="psb-game-name">{g.label}</span>
                   <span className="psb-game-sub">
                     {g.matches != null
-                      ? `${g.matches.toLocaleString()} matches`
-                      : "no lifetime stats"}
+                      ? t("psb.matchesN", { n: g.matches.toLocaleString(lang) })
+                      : t("psb.noLifetime")}
                   </span>
                 </div>
                 {g.level != null && <FaceitLevel level={g.level} size={20} />}
@@ -102,8 +73,8 @@ export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGam
         </Card>
       )}
 
-      {hubs.length > 0 && (
-        <Card title="Top hubs" count={hubs.length}>
+      {hubs.length > 0 && gameView !== "csgo" && (
+        <Card title={t("psb.topHubs")} more={seeAll("hubs", t("psb.topHubs"))}>
           {hubs.map((h) => (
             <div className="psb-row" key={h.competition_id || h.name}>
               <span className="psb-name" title={h.name}>{h.name}</span>
@@ -117,16 +88,15 @@ export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGam
         </Card>
       )}
 
-      {mates.length > 0 && (
-        <Card title="Top teammates" count={mates.length}>
+      {mates.length > 0 && gameView !== "csgo" && (
+        <Card title={t("psb.topMates")} more={seeAll("teammates", t("psb.topMates"))}>
           {mates.map((m) => (
-            <div
-              className={`psb-row ${onPick ? "clickable" : ""}`}
+            <button
+              type="button"
+              className={`psb-row sh-psb-rowbtn ${onPick ? "clickable" : ""}`}
               key={m.nickname}
               onClick={onPick ? () => onPick(m.nickname) : undefined}
-              role={onPick ? "button" : undefined}
-              tabIndex={onPick ? 0 : undefined}
-              onKeyDown={onPick ? (e) => { if (e.key === "Enter") onPick(m.nickname); } : undefined}
+              disabled={!onPick}
             >
               <span className="psb-name" title={m.nickname}>{m.nickname}</span>
               <span className="psb-figs">
@@ -134,33 +104,14 @@ export default function ProfileSidebar({ player, onPick, gameView = "cs2", onGam
                 <span className={`psb-wr ${m.win_rate >= 50 ? "pos" : "neg"}`}>{m.win_rate}%</span>
               </span>
               <Bar pct={m.win_rate} tone={m.win_rate >= 50 ? "pos" : "neg"} />
-            </div>
+            </button>
           ))}
         </Card>
       )}
 
-      <Card title="Security &amp; bans">
+      <Card title={t("psb.security")} more={gameView !== "csgo" ? seeAll("bans", t("psb.security")) : null}>
         <BanStatus bans={player.bans} steam={player.steam} compact />
       </Card>
-
-      {socials.length > 0 && (
-        <Card title="Social">
-          <div className="psb-socials">
-            {socials.map((sc) => (
-              <a
-                key={sc.label}
-                className="psb-social"
-                href={sc.href}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {sc.icon}
-                {sc.label}
-              </a>
-            ))}
-          </div>
-        </Card>
-      )}
     </aside>
   );
 }

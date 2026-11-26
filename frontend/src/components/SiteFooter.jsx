@@ -69,11 +69,11 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
         <span className="site-foot-sep">·</span>
         <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer">Telegram</a>
         <span className="site-foot-sep">·</span>
-        <a href={`mailto:${CONTACT_EMAIL}`}>Email</a>
+        <a href={`mailto:${CONTACT_EMAIL}`}>{t("foot.email")}</a>
         {langSwitch}
       </div>
 
-      <nav className="site-foot-tools" aria-label="Tools">
+      <nav className="site-foot-tools" aria-label={t("foot.tools")}>
         {CRAWL_LINKS.map(([href, label]) => (
           <a key={href} href={localePath(lang, href)}
             onClick={(e) => {
@@ -86,45 +86,22 @@ export default function SiteFooter({ onNav, lang = DEFAULT_LOCALE }) {
         ))}
       </nav>
 
+      <p className="site-foot-note">{t("foot.indep")}</p>
+
       <p className="site-foot-note">
-        Faceit-Lens is an independent open-source project. It is <b>not affiliated
-        with, endorsed by or sponsored by</b> FACEIT Ltd., Valve Corporation,
-        Leetify or Allstar. Counter-Strike and Steam are trademarks of Valve
-        Corporation; FACEIT is a trademark of FACEIT Ltd. All trademarks belong
-        to their respective owners.
+        {t("foot.dataA")}{" "}
+        <a href="https://liquipedia.net/counterstrike" target="_blank" rel="noopener noreferrer">Liquipedia</a>{" "}
+        {t("foot.dataB")}
       </p>
 
       <p className="site-foot-note">
-        Data from FACEIT, Steam, Leetify and Allstar. Pro roster and transfer
-        data from{" "}
-        <a href="https://liquipedia.net/counterstrike" target="_blank" rel="noopener noreferrer">
-          Liquipedia
-        </a>{" "}
-        (CC BY-SA 3.0). Trust and smurf scores are automated estimates from
-        public stats — not accusations.
-      </p>
-
-      {/* Required, not optional. The Solar set is CC BY 4.0, which permits
-          commercial use only with credit — the same reason Liquipedia is named
-          above. Map icons are Valve's own artwork. */}
-      <p className="site-foot-note">
-        Interface icons from{" "}
-        <a href="https://solar-icons.vercel.app" target="_blank" rel="noopener noreferrer">
-          Solar Icons
-        </a>{" "}
-        by{" "}
-        <a
-          href="https://www.figma.com/community/file/1166831539721848736"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          480 Design
-        </a>{" "}
-        (CC BY 4.0) and{" "}
-        <a href="https://icons.getbootstrap.com" target="_blank" rel="noopener noreferrer">
-          Bootstrap Icons
-        </a>{" "}
-        (MIT). Map icons are the property of Valve Corporation.
+        {t("foot.iconsA")}{" "}
+        <a href="https://solar-icons.vercel.app" target="_blank" rel="noopener noreferrer">Solar Icons</a>{" "}
+        {t("foot.by")}{" "}
+        <a href="https://www.figma.com/community/file/1166831539721848736" target="_blank" rel="noopener noreferrer">480 Design</a>{" "}
+        {t("foot.and")}{" "}
+        <a href="https://icons.getbootstrap.com" target="_blank" rel="noopener noreferrer">Bootstrap Icons</a>{" "}
+        {t("foot.iconsB")}
       </p>
     </footer>
   );

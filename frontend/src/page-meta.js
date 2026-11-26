@@ -25,12 +25,18 @@ export const DEFAULT_DESC =
   "Free FACEIT analyzer for CS2. Check any player's ELO, win rate, K/D and map stats, or paste a match room link to analyse all 10 players and spot smurfs.";
 
 export const PAGE_META = {
+  "lobby-check": ["FACEIT Lobby Check — Scan Every Player in Your CS2 Lobby",
+    "Check every player in your FACEIT CS2 lobby at once: ELO, level, recent form and smurf signals side by side."],
   leaderboard: ["FACEIT CS2 Leaderboard — Top Players by ELO",
     "Live FACEIT CS2 leaderboard: the highest ELO players ranked, with level, win rate and recent form."],
   worldmap: ["CS2 World Map — Which Countries Have the Best FACEIT Players",
     "An interactive world map of the FACEIT CS2 Challenger pool: how many top players each country has, their average ELO and who leads them."],
   watchlist: ["Watchlist — Track FACEIT Players",
     "Keep an eye on any FACEIT CS2 player. Track ELO changes, recent matches and form across your whole watchlist."],
+  community: ["FACEIT Community — Top Climbers, Rank Distribution & New Players",
+    "Biggest FACEIT ELO climbers this week, the level distribution of tracked CS2 players, recent renames and newly joined profiles."],
+  higherlower: ["Pro Higher or Lower — CS2 Pro Settings Game",
+    "Guess whether the next CS2 pro plays with a higher or lower eDPI. Build a streak and beat your best."],
   matchroom: ["FACEIT Match Room Analyser — Scout Your Lobby",
     "Free FACEIT match room analyzer: paste a lobby link and scout all 10 players instantly — ELO, level, trust score to spot smurfs, and recent form."],
   compare: ["Compare FACEIT Players — Head to Head CS2 Stats",
@@ -96,7 +102,7 @@ export const TOOL_PAGES = new Set([
   "squad", "hubs", "teams", "competitions", "pickem", "discordbot", "smurf-checker", "faceit-elo-checker", "faceit-levels", "proguesser", "games", "docs",
   "faceitstatus", "prosettings", "bans", "steamstatus", "news",
   "settings", "whatsnew", "feedback", "privacy", "terms", "faq", "overlay",
-  "support",
+  "support", "lobby-check", "community", "higherlower",
 ]);
 
 /**

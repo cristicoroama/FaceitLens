@@ -151,11 +151,17 @@ try {
 console.log("\n/player/:nick");
 
 const shell = await readFile(join(dist, "index.html"), "utf8");
+let spaShell = "";
+try {
+  spaShell = await readFile(join(dist, "spa.html"), "utf8");
+} catch {
+  bad("no spa.html in dist/");
+}
 const realFetch = globalThis.fetch;
 
 function mockFetch({ shellOk = true, backend }) {
   return async (url) => {
-    if (String(url).endsWith("/index.html")) {
+    if (String(url).endsWith("/index.html") || String(url).endsWith("/spa.html")) {
       return shellOk
         ? { ok: true, text: async () => shell }
         : { ok: false, text: async () => "" };
@@ -360,6 +366,7 @@ await run("no such player", {
 
 await run("shell unreachable", {
   shellOk: false,
+  env: { RENDER_SHELL_FILES: "" },
   backend: answers,
 }, (res, name) => {
   if (res.code !== 307 || !String(res.redirected).includes("__spa=1")) {
@@ -367,6 +374,147 @@ await run("shell unreachable", {
   }
   ok(`${name} — falls back to the SPA instead of erroring`);
 });
+
+await run("shell over the network", { backend: answers, env: { RENDER_SHELL_FILES: "" } }, (res, name) => {
+  if (res.code !== 200) return bad(`${name}: expected 200, got ${res.code}`);
+  if (tag(res.body, /<link rel="canonical" href="([^"]+)"/) !== `${SITE}/player/s1mple`) return bad(`${name}: wrong canonical`);
+  ok(`${name} — disk shell missing, network fallback still renders`);
+});
+
+await run("shell read from disk", { backend: answers, shellOk: false }, (res, name) => {
+  if (res.code !== 200) return bad(`${name}: network was down and the bundled shell was not used (${res.code})`);
+  if (!/neutral SPA shell/.test(spaShell)) return bad(`${name}: dist/spa.html is not the neutral shell`);
+  ok(`${name} — built from the bundled spa.html`);
+});
+
+await run("case redirect", { backend: answers, query: { nick: "S1MPLE", lang: "ru", tab: "maps" } }, (res, name) => {
+  if (res.code !== 301) return bad(`${name}: expected 301, got ${res.code}`);
+  if (res.redirected !== "/ru/player/s1mple?tab=maps") return bad(`${name}: redirected to ${res.redirected}`);
+  ok(`${name} — 301 to the canonical-case path, lang and query kept`);
+});
+
+await run("canonical uses real nickname", {
+  backend: async () => ({ ok: true, status: 200, json: async () => ({ ...PLAYER, nickname: "s1mple-renamed" }) }),
+}, (res, name) => {
+  const c = tag(res.body, /<link rel="canonical" href="([^"]+)"/);
+  if (c !== `${SITE}/player/s1mple-renamed`) return bad(`${name}: canonical is ${c}`);
+  if (!res.body.includes(`hreflang="ru" href="${SITE}/ru/player/s1mple-renamed"`)) return bad(`${name}: hreflang not on the real nickname`);
+  ok(`${name} — canonical and hreflang follow player.nickname`);
+});
+
+await run("player data inlined", {
+  backend: async () => ({
+    ok: true, status: 200,
+    json: async () => ({ ...PLAYER, fetched_at: 1767323045, fetched_at_iso: "2026-01-02T03:04:05Z", bio: "</script><b>x</b>" }),
+  }),
+}, (res, name) => {
+  const raw = tag(res.body, /<script id="__PLAYER__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!raw) return bad(`${name}: no __PLAYER__ script`);
+  if (/<\/script><b>/.test(res.body)) return bad(`${name}: player JSON broke out of its script tag`);
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) { return bad(`${name}: __PLAYER__ does not parse — ${e.message}`); }
+  if (parsed.elo !== 3247 || parsed.bio !== "</script><b>x</b>") return bad(`${name}: __PLAYER__ content altered`);
+  if (!res.body.includes('"dateModified":"2026-01-02T03:04:05Z"')) return bad(`${name}: dateModified ignores fetched_at_iso`);
+  ok(`${name} — __PLAYER__ JSON escaped and parseable, dateModified from fetched_at_iso`);
+});
+
+await run("no player data without a player", {
+  backend: async () => ({ ok: false, status: 404, json: async () => ({}) }),
+}, (res, name) => {
+  if (/__PLAYER__/.test(res.body)) return bad(`${name}: inlined data for a missing player`);
+  ok(`${name} — nothing inlined`);
+});
+
+console.log("\nShell and static files");
+const before = failures;
+
+if (!/rel="canonical"/.test(spaShell) && !/hreflang=/.test(spaShell) && !/class="seo-intro"/.test(spaShell)) {
+  ok("spa.html is neutral: no canonical, no hreflang, no homepage body");
+} else bad("spa.html carries a canonical, hreflang or the homepage body");
+if (/name="robots" content="[^"]*noindex/.test(spaShell)) bad("spa.html is noindex, which would stop Google rendering real SPA routes");
+if (!/<script type="module"/.test(spaShell)) bad("spa.html lost the app bundle");
+
+try {
+  const page404 = await readFile(join(dist, "404.html"), "utf8");
+  if (!/name="robots" content="noindex, follow"/.test(page404)) bad("404.html is not noindex");
+  if (/rel="canonical"/.test(page404)) bad("404.html claims a canonical");
+  if (/<script type="module"/.test(page404)) bad("404.html boots the SPA, which has no route for unmatched paths");
+} catch {
+  bad("no 404.html in dist/");
+}
+
+for (const region of ["EU", "NA", "SA", "SEA", "OCE"]) {
+  for (const prefix of ["", "/ru", "/pl", "/uk"]) {
+    if (!seen.has(`${SITE}${prefix}/leaderboard/${region}`)) bad(`${prefix}/leaderboard/${region} was not prerendered`);
+  }
+}
+
+if (/SearchAction/.test(shell)) bad("retired SearchAction JSON-LD is still in the shell");
+if (/name="keywords"/.test(shell)) bad("meta keywords is still in the shell");
+if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(shell)) bad("Google Fonts is still linked");
+if (!/rel="preload" href="\/fonts\/inter-[^"]+\.woff2"/.test(shell)) bad("main Inter font is not preloaded");
+if (!/rel="manifest" href="\/site\.webmanifest"/.test(shell)) bad("web manifest is not linked");
+for (const [, f] of shell.matchAll(/url\((\/fonts\/[^)]+)\)/g)) {
+  try { await stat(join(dist, f)); } catch { bad(`font ${f} is referenced but missing`); }
+}
+
+try {
+  const manifest = JSON.parse(await readFile(join(dist, "site.webmanifest"), "utf8"));
+  if (!manifest.icons?.some((i) => i.sizes === "512x512")) bad("manifest has no 512px icon");
+  for (const icon of manifest.icons || []) {
+    try { await stat(join(dist, icon.src)); } catch { bad(`manifest icon ${icon.src} is missing`); }
+  }
+  if (manifest.display !== "standalone") bad("manifest display is not standalone");
+} catch (e) {
+  bad(`site.webmanifest missing or invalid — ${e.message}`);
+}
+
+const robotsTxt = await readFile(join(dist, "robots.txt"), "utf8");
+for (const rule of ["Disallow: /settings", "Disallow: /ru/settings", "Disallow: /pl/settings", "Disallow: /uk/settings"]) {
+  if (!robotsTxt.includes(rule)) bad(`robots.txt is missing "${rule}"`);
+}
+for (const sm of ["sitemap.xml", "sitemap-players.xml"]) {
+  if (!robotsTxt.includes(`Sitemap: ${SITE}/${sm}`)) bad(`robots.txt does not reference ${sm}`);
+}
+
+const vercel = JSON.parse(await readFile(resolve(here, "..", "vercel.json"), "utf8"));
+const catchAll = (vercel.rewrites || []).find((r) => r.source.endsWith("[^/.]+/?)"));
+if (!catchAll || catchAll.destination !== "/spa.html") bad("SPA catch-all does not point at /spa.html");
+const assetHeader = (vercel.headers || []).find((h) => h.source === "/assets/(.*)");
+if (!assetHeader || !/immutable/.test(JSON.stringify(assetHeader))) bad("/assets is not cached immutable");
+if (!vercel.functions?.["api/render.js"]?.includeFiles) bad("api/render.js does not bundle the shell");
+
+if (failures === before) ok("region pages, fonts, manifest, robots and vercel.json all consistent");
+
+console.log("\nPlayer sitemap");
+{
+  const saved = { ...process.env };
+  process.env.BACKEND_URL = "https://backend.test";
+  const many = Array.from({ length: 60000 }, (_, i) => ({ nickname: `p${i}`, lastmod: "2026-01-01" }));
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ items: many }) });
+  try {
+    const handler = (await import(`../api/sitemap-players.js?t=${n++}`)).default;
+    const index = mockRes();
+    await handler({ query: {} }, index);
+    const start = failures;
+    const parts = [...index.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    if (!/<sitemapindex/.test(index.body) || parts.length !== 5) bad(`player sitemap index lists ${parts.length} sitemaps, expected 5 for 60000 players`);
+    if (parts[0] !== `${SITE}/sitemap-players-1.xml`) bad(`player sitemap index points at ${parts[0]}`);
+    const beyond = mockRes();
+    await handler({ query: { page: "6" } }, beyond);
+    if (beyond.code !== 404) bad(`player sitemap page beyond the end answered ${beyond.code}`);
+    const res = mockRes();
+    await handler({ query: { page: "1" } }, res);
+    const count = (res.body.match(/<url>/g) || []).length;
+    if (count > 50000) bad(`player sitemap has ${count} URLs, the limit is 50000`);
+    if (!res.body.includes(`hreflang="ru" href="${SITE}/ru/player/p0"`)) bad("player sitemap lacks hreflang alternates");
+    if (!/hreflang="x-default"/.test(res.body)) bad("player sitemap lacks x-default");
+    if (failures === start) ok(`index of ${parts.length} sitemaps, ${count} URLs per page (cap 50000), with hreflang alternates`);
+  } finally {
+    globalThis.fetch = realFetch;
+    process.env = saved;
+  }
+}
 
 console.log(
   failures ? `\n${failures} check(s) failed\n` : "\nAll SEO checks passed\n",

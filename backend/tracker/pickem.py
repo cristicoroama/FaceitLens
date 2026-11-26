@@ -11,18 +11,20 @@
 import json
 import secrets
 
+from django.core.cache import cache
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
 from .models import (
-    PickemEntry, PickemEvent, PickemLeague, PickemLeagueMember, PickemStage, UserProfile,
+    PickemEntry, PickemEvent, PickemLeague, PickemLeagueMember, PickemStage, SteamProfile, UserProfile,
 )
 
 SLOTS = ("30", "03", "adv")
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 MAX_LEAGUES = 10
+GLOBAL_TTL = 60
 
 
 def _event(slug=None):
@@ -45,25 +47,27 @@ def _auth(request):
     return None
 
 
-def _name(user):
-    p = UserProfile.objects.filter(user=user).first()
+def _identities(users):
+    ids = [u.id for u in users]
+    profiles = {p.user_id: p for p in UserProfile.objects.filter(user_id__in=ids).defer("avatar")}
+    steams = {s.user_id: s for s in SteamProfile.objects.filter(user_id__in=ids)}
+    return {u.id: _identity(u, profiles.get(u.id), steams.get(u.id)) for u in users}
+
+
+def _identity(user, p, sp):
     if p and (p.display_name or p.handle):
-        return p.display_name or p.handle
-    sp = getattr(user, "steam_profile", None)
-    return (sp.name if sp and sp.name else None) or user.username
-
-
-def _avatar(user):
-    p = UserProfile.objects.filter(user=user).first()
+        name = p.display_name or p.handle
+    else:
+        name = (sp.name if sp and sp.name else None) or user.username
     if p and p.avatar_updated:
-        return f"/api/avatar/{p.handle}/?v={int(p.avatar_updated.timestamp())}"
-    sp = getattr(user, "steam_profile", None)
-    return (sp.avatar if sp else None) or None
+        avatar = f"/api/avatar/{p.handle}/?v={int(p.avatar_updated.timestamp())}"
+    else:
+        avatar = (sp.avatar if sp else None) or None
+    return {"name": name, "avatar": avatar, "handle": p.handle if p and p.is_public else None}
 
 
-def _handle(user):
-    p = UserProfile.objects.filter(user=user).first()
-    return p.handle if p and p.is_public else None
+def _name(user):
+    return _identities([user])[user.id]["name"]
 
 
 def score_picks(picks, results):
@@ -253,6 +257,7 @@ def _standings(event, users):
     entries = {}
     for e in PickemEntry.objects.filter(stage__event=event, user__in=users):
         entries.setdefault(e.user_id, {})[e.stage_id] = e.picks
+    people = _identities(users)
     rows = []
     for u in users:
         per = []
@@ -265,8 +270,7 @@ def _standings(event, users):
             pts, _ = score_picks(picks, results[s.id])
             per.append(pts)
             total += pts
-        rows.append({"name": _name(u), "avatar": _avatar(u), "handle": _handle(u),
-                     "total": total, "stages": per, "user_id": u.id})
+        rows.append({**people[u.id], "total": total, "stages": per, "user_id": u.id})
     rows.sort(key=lambda r: (-r["total"], r["name"].lower()))
     pos = 0
     last = None
@@ -300,14 +304,19 @@ def global_board(request):
     ev = _event(request.GET.get("event"))
     if not ev:
         return JsonResponse({"stages": [], "rows": []})
-    from django.contrib.auth import get_user_model
-    ids = PickemEntry.objects.filter(stage__event=ev).values_list("user_id", flat=True).distinct()
-    users = list(get_user_model().objects.filter(id__in=list(ids)[:2000]))
-    stage_names, rows = _standings(ev, users)
+    key = f"pickem:global:{ev.id}"
+    board = cache.get(key)
+    if board is None:
+        from django.contrib.auth import get_user_model
+        ids = PickemEntry.objects.filter(stage__event=ev).values_list("user_id", flat=True).distinct()
+        users = list(get_user_model().objects.filter(id__in=list(ids)[:2000]))
+        stage_names, rows = _standings(ev, users)
+        board = {"stages": stage_names, "rows": rows}
+        cache.set(key, board, GLOBAL_TTL)
     me = request.user.id if request.user.is_authenticated else None
+    rows = [{**r, "me": r["user_id"] == me} for r in board["rows"]]
     mine = None
     for r in rows:
-        r["me"] = r.pop("user_id") == me
-        if r["me"]:
+        if r.pop("user_id") == me:
             mine = r
-    return JsonResponse({"stages": stage_names, "rows": rows[:50], "me": mine, "players": len(rows)})
+    return JsonResponse({"stages": board["stages"], "rows": rows[:50], "me": mine, "players": len(rows)})
