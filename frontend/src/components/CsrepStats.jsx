@@ -7,6 +7,8 @@ import { MapIcon, mapLabel } from "../map-art.jsx";
 import Medals from "./Medals.jsx";
 import { FaceitIcon, SteamIcon, GamersClubIcon, CybershokeIcon } from "./BrandIcons.jsx";
 import { Icon } from "../icons.jsx";
+import { requestJson, fmtDay } from "../lib/account-api.js";
+import "../styles/account.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -76,9 +78,7 @@ function fmtNum(n) {
 }
 
 function fmtDate(v) {
-  if (!v) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+  return fmtDay(v, { day: "numeric", month: "short", year: "numeric" });
 }
 
 function scalar(v) {
@@ -572,8 +572,229 @@ export function CsrepView({ data }) {
   );
 }
 
-/** Self-fetching wrapper for the FACEIT profile tab. */
-export default function CsrepStats({ nickname }) {
+const RESCAN_COPY = {
+  cooldown: "This profile was re-scanned recently. CSRep allows one manual re-scan every few minutes.",
+  "no steam id": "This FACEIT account has no Steam ID, so CSRep can't scan it.",
+  no_steamid: "This FACEIT account has no Steam ID, so CSRep can't scan it.",
+  not_configured: "CSRep is not configured on this deployment.",
+  quota_exhausted: "The monthly CSRep request allowance has been used up.",
+  ratelimited: "CSRep is rate-limiting requests right now. Try again shortly.",
+};
+
+function waitText(seconds) {
+  if (!seconds) return "";
+  if (seconds >= 3600) return ` Try again in about ${Math.round(seconds / 3600)} h.`;
+  if (seconds >= 60) return ` Try again in about ${Math.round(seconds / 60)} min.`;
+  return ` Try again in ${seconds} s.`;
+}
+
+function Rescan({ nickname }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  async function run() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const j = await requestJson(
+        `/api/player/${encodeURIComponent(nickname)}/csrep/refresh/`,
+        { method: "POST" },
+      );
+      if (j.queued || j.available) {
+        setMsg({ tone: "ok", text: "Re-scan requested. CSRep usually updates the profile within a few minutes." });
+      } else {
+        setMsg({
+          tone: "warn",
+          text: (RESCAN_COPY[j.reason] || "CSRep couldn't take a re-scan right now.") + waitText(j.retry_after),
+        });
+      }
+    } catch (e) {
+      if (e.status === 429) {
+        setMsg({
+          tone: "warn",
+          text: "Too many re-scans from this connection." + (waitText(e.retryAfter) || " Try again later."),
+        });
+      } else {
+        setMsg({ tone: "bad", text: e.message || "Couldn't request a re-scan." });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="acc-csrep-bar">
+      <button type="button" className="btn ghost" onClick={run} disabled={busy} aria-busy={busy}>
+        {busy ? "Requesting…" : "Re-scan on CSRep"}
+      </button>
+      {msg && (
+        <span className={`acc-csrep-msg ${msg.tone}`} role={msg.tone === "bad" ? "alert" : "status"}>
+          {msg.text}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function AnalysisValue({ value, depth = 0 }) {
+  if (value == null || value === "") return <span className="acc-dim">—</span>;
+  if (typeof value !== "object") {
+    return <span className="csrep-row-val" title={String(value)}>{scalar(value) ?? String(value)}</span>;
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) return <span className="acc-dim">None</span>;
+    if (value.every((v) => v == null || typeof v !== "object")) {
+      return <span className="csrep-row-val">{value.map((v) => scalar(v) ?? String(v)).join(", ")}</span>;
+    }
+    if (depth > 2) return <span className="acc-dim">{value.length} entries</span>;
+    return (
+      <div className="acc-analysis-list">
+        {value.slice(0, 20).map((v, i) => (
+          <div className="acc-analysis-item" key={i}>
+            <AnalysisValue value={v} depth={depth + 1} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (depth > 2) return <span className="acc-dim">{Object.keys(value).length} fields</span>;
+  return <AnalysisRows obj={value} depth={depth + 1} />;
+}
+
+function AnalysisRows({ obj, depth = 0 }) {
+  const entries = Object.entries(obj || {}).filter(([, v]) => v != null);
+  if (!entries.length) return <span className="acc-dim">No details.</span>;
+  return (
+    <dl className="acc-analysis">
+      {entries.map(([k, v]) => (
+        <div className="acc-analysis-row" key={k}>
+          <dt>{humanise(k)}</dt>
+          <dd><AnalysisValue value={v} depth={depth} /></dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const MATCH_COPY = {
+  not_found: "CSRep hasn't analysed this match.",
+  not_configured: "CSRep is not configured on this deployment.",
+  quota_exhausted: "The monthly CSRep request allowance has been used up.",
+  ratelimited: "CSRep is rate-limiting requests right now. Try again shortly.",
+};
+
+function MatchAnalysis({ matchId }) {
+  const [state, setState] = useState({ loading: true });
+
+  useEffect(() => {
+    let alive = true;
+    setState({ loading: true });
+    requestJson(`/api/csrep/match/?source=faceit&id=${encodeURIComponent(matchId)}`)
+      .then((j) => alive && setState({ data: j }))
+      .catch((e) => alive && setState({ error: e.message }));
+    return () => { alive = false; };
+  }, [matchId]);
+
+  if (state.loading) return <div className="acc-dim acc-pad" role="status">Loading CSRep analysis…</div>;
+  if (state.error) return <div className="acc-err acc-pad" role="alert">{state.error}</div>;
+  const d = state.data || {};
+  if (d.available === false) {
+    return <div className="acc-dim acc-pad">{MATCH_COPY[d.reason] || "CSRep has no record of this match."}</div>;
+  }
+  if (d.restricted) {
+    return (
+      <div className="acc-pad">
+        <p className="acc-dim">This match is private on CSRep, so its analysis is not shown.</p>
+        <CsrepCredit attribution={d.attribution} />
+      </div>
+    );
+  }
+  const hasAnalysis = d.analysis && typeof d.analysis === "object" && Object.keys(d.analysis).length > 0;
+  return (
+    <div className="acc-pad">
+      {hasAnalysis ? (
+        <AnalysisRows obj={d.analysis} />
+      ) : (
+        <p className="acc-dim">CSRep has this match but no behaviour analysis for it yet.</p>
+      )}
+      <div className="acc-analysis-foot">
+        {d.analyzed_at && <span>Analysed {fmtDate(d.analyzed_at)}</span>}
+        {d.analysis_url && (
+          <a href={d.analysis_url} target="_blank" rel="noopener noreferrer">Full analysis on CSRep →</a>
+        )}
+      </div>
+      <CsrepCredit attribution={d.attribution} />
+    </div>
+  );
+}
+
+function MatchRow({ m }) {
+  const [open, setOpen] = useState(false);
+  const id = `acc-csm-${m.match_id}`;
+  const map = m.map ? (mapLabel(m.map) || String(m.map).replace(/^(de|cs)_/, "")) : "Match";
+  return (
+    <li className={`acc-csm ${open ? "open" : ""}`}>
+      <button
+        type="button"
+        className="acc-csm-head"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className={`acc-csm-res ${m.won === true ? "win" : m.won === false ? "loss" : ""}`}>
+          {m.won === true ? "W" : m.won === false ? "L" : "–"}
+        </span>
+        {m.map && <MapIcon map={m.map} size={16} />}
+        <span className="acc-csm-map">{map}</span>
+        {m.score && <span className="acc-csm-score">{m.score}</span>}
+        <span className="acc-csm-date">{fmtDate(m.finished_at || m.started_at)}</span>
+        <span className="acc-csm-chev" aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div id={id} className="acc-csm-body">
+          <MatchAnalysis matchId={m.match_id} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+function CsrepMatches({ nickname, matches }) {
+  const [rows, setRows] = useState(matches || null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (matches) { setRows(matches); return undefined; }
+    let alive = true;
+    setRows(null);
+    setError("");
+    requestJson(`/api/player/${encodeURIComponent(nickname)}/`)
+      .then((j) => alive && setRows(j.recent_matches || []))
+      .catch((e) => alive && setError(e.message));
+    return () => { alive = false; };
+  }, [nickname, matches]);
+
+  const list = (rows || []).filter((m) => m.match_id).slice(0, 10);
+
+  return (
+    <section className="acc-csm-wrap" aria-labelledby="acc-csm-title">
+      <div className="csrep-group-head" id="acc-csm-title">Behaviour per match</div>
+      <p className="acc-dim acc-csm-note">
+        Open a match to see CSRep&apos;s behavioural analysis for it, when CSRep has one.
+      </p>
+      {error && <div className="acc-err" role="alert">{error}</div>}
+      {!error && rows == null && <div className="acc-dim" role="status">Loading recent matches…</div>}
+      {!error && rows != null && !list.length && <div className="acc-dim">No recent matches.</div>}
+      {!!list.length && (
+        <ul className="acc-csm-list">
+          {list.map((m) => <MatchRow key={m.match_id} m={m} />)}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export default function CsrepStats({ nickname, matches }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -591,6 +812,17 @@ export default function CsrepStats({ nickname }) {
     return () => { cancelled = true; };
   }, [nickname]);
 
-  if (loading) return <div className="csrep-empty">Loading CSRep data…</div>;
-  return <CsrepView data={data} />;
+  if (loading) return <div className="csrep-empty" role="status">Loading CSRep data…</div>;
+  const usable = data && data.reason !== "not_configured" && data.reason !== "no steam id";
+  return (
+    <>
+      {usable && <Rescan nickname={nickname} />}
+      <CsrepView data={data} />
+      {usable && data.available !== false && !data.restricted && (
+        <div className="csrep-block acc-csm-block">
+          <CsrepMatches nickname={nickname} matches={matches} />
+        </div>
+      )}
+    </>
+  );
 }

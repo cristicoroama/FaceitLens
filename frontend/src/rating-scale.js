@@ -13,3 +13,9 @@ export function tier(kind, value) {
   for (const c of cuts) if (v >= c) t += 1;
   return `rs-${t}`;
 }
+
+export function tone(value, pivot = 0) {
+  const v = Number(value);
+  if (value == null || value === "" || !Number.isFinite(v) || v === pivot) return "";
+  return v > pivot ? "tone-up" : "tone-down";
+}

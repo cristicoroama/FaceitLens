@@ -397,6 +397,7 @@ class ParsedMatch(models.Model):
     rounds = models.IntegerField(default=0)
     finished_at = models.DateTimeField(null=True, blank=True)
     parsed_at = models.DateTimeField(auto_now_add=True)
+    economy = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"{self.match_id} ({self.map_name}, {self.rounds}r)"
@@ -430,6 +431,28 @@ class DemoPlayerStat(models.Model):
     blind_time = models.FloatField(default=0.0)
     clutch_attempts = models.IntegerField(default=0)
     clutch_won = models.IntegerField(default=0)
+    impact = models.FloatField(default=0.0)
+    rounds_won = models.IntegerField(default=0)
+    flashes_thrown = models.IntegerField(default=0)
+    smokes_thrown = models.IntegerField(default=0)
+    he_thrown = models.IntegerField(default=0)
+    molotovs_thrown = models.IntegerField(default=0)
+    teammates_flashed = models.IntegerField(default=0)
+    he_damage = models.FloatField(default=0.0)
+    fire_damage = models.FloatField(default=0.0)
+    deaths_with_utility = models.IntegerField(default=0)
+    unused_utility_value = models.IntegerField(default=0)
+    equip_value = models.FloatField(default=0.0)
+    pistol_rounds = models.IntegerField(default=0)
+    pistol_wins = models.IntegerField(default=0)
+    eco_rounds = models.IntegerField(default=0)
+    eco_wins = models.IntegerField(default=0)
+    force_rounds = models.IntegerField(default=0)
+    force_wins = models.IntegerField(default=0)
+    full_buy_rounds = models.IntegerField(default=0)
+    full_buy_wins = models.IntegerField(default=0)
+    save_rounds = models.IntegerField(default=0)
+    broken_eco_rounds = models.IntegerField(default=0)
 
     class Meta:
         unique_together = ("match", "steamid")
@@ -907,3 +930,106 @@ class BotState(models.Model):
     key = models.CharField(max_length=40, unique=True)
     data = models.JSONField(default=dict)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class DemoParseRequest(models.Model):
+    STATUS_CHOICES = [
+        ("queued", "Queued"),
+        ("processing", "Processing"),
+        ("done", "Done"),
+        ("failed", "Failed"),
+    ]
+
+    match_id = models.CharField(max_length=64, db_index=True)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="queued", db_index=True)
+    requested_ip = models.CharField(max_length=64, blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="demo_parse_requests",
+    )
+    error = models.TextField(blank=True)
+    attempts = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.match_id} [{self.status}]"
+
+
+class PlayerMeta(models.Model):
+    player_id = models.CharField(max_length=64, unique=True)
+    nickname = models.CharField(max_length=100, blank=True)
+    region = models.CharField(max_length=16, blank=True, db_index=True)
+    skill_level = models.PositiveSmallIntegerField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nickname or self.player_id} [{self.region}]"
+
+
+class PlayerGoal(models.Model):
+    METRIC_CHOICES = [
+        ("elo", "ELO"),
+        ("kd", "K/D"),
+        ("hs", "Headshot %"),
+        ("adr", "ADR"),
+        ("winrate", "Win rate"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_goals"
+    )
+    metric = models.CharField(max_length=12, choices=METRIC_CHOICES)
+    target = models.FloatField()
+    start_value = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    achieved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.user_id}: {self.metric} -> {self.target}"
+
+
+class BanCheckState(models.Model):
+    player_id = models.CharField(max_length=64, unique=True)
+    nickname = models.CharField(max_length=100, blank=True)
+    banned = models.BooleanField(default=False)
+    ban_type = models.CharField(max_length=64, blank=True)
+    ban_started = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(db_index=True)
+
+    def __str__(self):
+        return f"{self.nickname or self.player_id}: {'banned' if self.banned else 'clean'}"
+
+
+class EncounterBan(models.Model):
+    RELATION_CHOICES = [
+        ("opponent", "Opponent"),
+        ("teammate", "Teammate"),
+    ]
+
+    owner_player_id = models.CharField(max_length=64, db_index=True)
+    player_id = models.CharField(max_length=64)
+    nickname = models.CharField(max_length=100)
+    avatar = models.URLField(blank=True)
+    relation = models.CharField(max_length=10, choices=RELATION_CHOICES, default="opponent")
+    match_id = models.CharField(max_length=64, blank=True)
+    match_url = models.CharField(max_length=300, blank=True)
+    played_at = models.DateTimeField(null=True, blank=True)
+    ban_type = models.CharField(max_length=64, blank=True)
+    ban_started = models.DateTimeField(null=True, blank=True)
+    detected_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("owner_player_id", "player_id", "ban_type")
+        ordering = ["-detected_at"]
+
+    def __str__(self):
+        return f"{self.owner_player_id} met {self.nickname} ({self.ban_type})"

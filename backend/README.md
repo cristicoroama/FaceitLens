@@ -55,3 +55,25 @@ Parsed results are stored (`ParsedMatch` / `DemoPlayerStat`) and surfaced at
 parsing takes seconds, so it will block/OOM a small web dyno. A cheap VPS or a
 cron box that periodically runs `parse_demos --player <nick>` for tracked
 players is the pattern csrep/Leetify use.
+
+### On-demand parse queue (worker)
+
+Visitors can ask for a match demo to be parsed with `POST /api/match/<match_id>/parse/`
+(rate-limited per IP, deduplicated) and poll `GET /api/match/<match_id>/demo/`.
+There is no Celery/Redis queue: requests are rows in `DemoParseRequest`, and the
+existing worker/cron drains them. Running `parse_demos` with no arguments processes
+the queue.
+
+```bash
+# one pass over the queue (cron, e.g. every minute)
+python manage.py parse_demos --queue --max 5
+
+# long-running Render background worker
+python manage.py parse_demos --queue --watch 20
+```
+
+Needs `FACEIT_API_KEY`. Requests stuck in `processing` for 30 minutes are requeued;
+a failed match is retried up to 3 times when someone asks again.
+Related endpoints: `GET /api/player/<nickname>/demo-matches/` (per-match stats incl.
+utility/economy) and `GET /api/player/<nickname>/coach/` (`?ai=1` adds an LLM-phrased
+summary when `ANTHROPIC_API_KEY` is set).

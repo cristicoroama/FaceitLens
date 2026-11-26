@@ -4,6 +4,7 @@ import { ResultChip } from "./FormStrip.jsx";
 import { mapKey, mapLabel, MapIcon } from "../map-art.jsx";
 import { Icon } from "../icons.jsx";
 import csrepLogo from "../assets/csrep-logo.webp";
+import "../styles/match.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -606,7 +607,17 @@ function Scoreboard({ team, side, onPick, view = "general" }) {
                         : <span className="mr-sb-ava ph">{initials(p.nickname)}</span>}
                       <FaceitLevel level={p.level || 1} size={16} />
                       {p.country && <Flag country={p.country} size={13} />}
-                      <span className="mr-sb-nick">{p.nickname || "—"}</span>
+                      {p.nickname ? (
+                        <button
+                          type="button"
+                          className="mr-sb-nick mr-sb-nick-btn"
+                          onClick={(e) => { e.stopPropagation(); onPick(p.nickname); }}
+                        >
+                          {p.nickname}
+                        </button>
+                      ) : (
+                        <span className="mr-sb-nick">—</span>
+                      )}
                       {/* A stand-in changes how you read every number next to
                           them: their ELO is real but their practice with these
                           four teammates is not. FACEIT marks them on the match
@@ -809,6 +820,187 @@ function MapBanner({ data }) {
   );
 }
 
+function MatchRoomSkeleton() {
+  return (
+    <div className="mr-skel" role="status" aria-live="polite">
+      <span className="sr-only">Scouting the lobby…</span>
+      <div className="sk mr-skel-banner" />
+      <div className="sk mr-skel-bar" />
+      <div className="mr-skel-grid">
+        {[0, 1].map((t) => (
+          <div className="mr-skel-team" key={t}>
+            {[0, 1, 2, 3, 4].map((i) => <div className="sk mr-skel-row" key={i} />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function confidenceNote(c) {
+  if (c === "low") return "small sample";
+  if (c === "medium") return "fair sample";
+  return "solid sample";
+}
+
+function VetoSide({ rows, side, teamName, kind }) {
+  const sign = side === 1 ? 1 : -1;
+  const sorted = [...rows].sort((a, b) => sign * (b.delta - a.delta));
+  const list = kind === "pick" ? sorted.slice(0, 3) : sorted.slice(-3).reverse();
+  return (
+    <div className={`mv-col mv-${kind}`}>
+      <div className="mv-col-h">{kind === "pick" ? "Pick" : "Ban first"}</div>
+      <ol className="mv-list">
+        {list.map((r) => {
+          const us = side === 1 ? r.team1 : r.team2;
+          const them = side === 1 ? r.team2 : r.team1;
+          const edge = Math.round(sign * r.delta * 10) / 10;
+          return (
+            <li key={r.key} className="mv-row">
+              <MapIcon map={`de_${r.key}`} size={20} />
+              <span className="mv-map">{r.map}</span>
+              <span
+                className={`mv-edge ${edge >= 0 ? "pos" : "neg"}`}
+                title={`${teamName}: ${us.win_rate ?? "—"}% over ${us.matches} matches (recent ${us.recent_win_rate ?? "—"}% of ${us.recent_matches}). Opponents: ${them.win_rate ?? "—"}% over ${them.matches} (recent ${them.recent_win_rate ?? "—"}% of ${them.recent_matches}).`}
+              >
+                {edge >= 0 ? "+" : ""}{edge}
+              </span>
+              <span className="mv-wr">
+                {us.win_rate ?? "—"}% <i>vs</i> {them.win_rate ?? "—"}%
+              </span>
+              <span className={`mv-conf c-${r.confidence}`}>{confidenceNote(r.confidence)}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function MatchPrep({ data }) {
+  const [intel, setIntel] = useState(null);
+  const [intelErr, setIntelErr] = useState("");
+  const [side, setSide] = useState(1);
+  const [brief, setBrief] = useState(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefErr, setBriefErr] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setIntel(null);
+    setIntelErr("");
+    fetch(`${API_BASE}/api/match/${encodeURIComponent(data.match_id)}/intel/`)
+      .then(async (r) => {
+        let j = null;
+        try { j = await r.json(); } catch { j = null; }
+        if (!r.ok) throw new Error(j?.error || `Error ${r.status}`);
+        if (alive) setIntel(j);
+      })
+      .catch((e) => { if (alive) setIntelErr(e.message || "Map data unavailable."); });
+    return () => { alive = false; };
+  }, [data.match_id]);
+
+  useEffect(() => { setBrief(null); setBriefErr(""); }, [side, data.match_id]);
+
+  async function generate() {
+    setBriefBusy(true);
+    setBriefErr("");
+    try {
+      const r = await fetch(`${API_BASE}/api/match/${encodeURIComponent(data.match_id)}/briefing/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ side }),
+      });
+      let j = null;
+      try { j = await r.json(); } catch { j = null; }
+      if (!r.ok) throw new Error(j?.error || `Error ${r.status}`);
+      setBrief(j);
+    } catch (e) {
+      setBriefErr(e.message || "Couldn't build a briefing.");
+    } finally {
+      setBriefBusy(false);
+    }
+  }
+
+  const names = [data.team1?.name || "Team 1", data.team2?.name || "Team 2"];
+  const rows = intel?.veto || [];
+
+  return (
+    <section className="mv" aria-label="Match preparation">
+      <div className="mv-head">
+        <div className="mv-title">{Icon.grid1x2} Map veto assistant</div>
+        <div className="mv-side" role="radiogroup" aria-label="Your team">
+          <span className="mv-side-l">I'm on</span>
+          {[1, 2].map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={side === s}
+              className={`mv-side-b s${s}${side === s ? " on" : ""}`}
+              onClick={() => setSide(s)}
+            >
+              {names[s - 1]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!intel && !intelErr && (
+        <div className="mv-cols" aria-hidden="true">
+          <div className="sk mv-skel" />
+          <div className="sk mv-skel" />
+        </div>
+      )}
+      {intelErr && <div className="mv-note">{intelErr}</div>}
+      {rows.length > 0 && (
+        <>
+          <div className="mv-cols">
+            <VetoSide rows={rows} side={side} teamName={names[side - 1]} kind="pick" />
+            <VetoSide rows={rows} side={side} teamName={names[side - 1]} kind="ban" />
+          </div>
+          <div className="mv-note">
+            Edge blends both rosters' lifetime map win rates (pulled toward 50% when a
+            player has few games on the map) with their last 50 matches.
+            {intel.pool_source === "default" && " This room hasn't published its map pool, so the usual competitive pool is shown."}
+            {" "}Small samples swing hard; treat them as hints.
+          </div>
+        </>
+      )}
+
+      <div className="mv-brief">
+        <div className="mv-brief-head">
+          <span className="mv-title">{Icon.lightbulb} Pre-match briefing</span>
+          <button type="button" className="mv-brief-btn" onClick={generate} disabled={briefBusy}>
+            {briefBusy ? "Writing…" : brief ? "Regenerate" : "Generate briefing"}
+          </button>
+        </div>
+        {briefErr && <div className="mv-note err">{briefErr}</div>}
+        {briefBusy && !brief && (
+          <div aria-hidden="true">
+            <div className="sk mv-skel-line" />
+            <div className="sk mv-skel-line" />
+            <div className="sk mv-skel-line short" />
+          </div>
+        )}
+        {brief && (
+          <div className="mv-brief-body" aria-live="polite">
+            {String(brief.briefing || "").split("\n").filter((l) => l.trim()).map((l, i) => <p key={i}>{l}</p>)}
+            <div className="mv-brief-src">
+              {brief.source === "ai" ? "Written by AI from the stats above." : "Rule-based summary from the stats above."}
+            </div>
+          </div>
+        )}
+        {!brief && !briefBusy && !briefErr && (
+          <div className="mv-note">
+            How to beat {names[2 - side]}: dangerous players, their best maps, AWPers and entries, who is on tilt and possible smurfs.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function MatchRoom({ onPick }) {
   const [url, setUrl] = useState(() =>
     typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("room") || "");
@@ -833,6 +1025,12 @@ export default function MatchRoom({ onPick }) {
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || `Error ${resp.status}`);
       setData(json);
+      if (typeof window !== "undefined" && json.match_id) {
+        const u = new URL(window.location.href);
+        u.searchParams.delete("url");
+        u.searchParams.set("room", json.match_id);
+        window.history.replaceState(window.history.state, "", u.toString());
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -880,7 +1078,9 @@ export default function MatchRoom({ onPick }) {
       </div>
 
       <div className="search">
+        <label htmlFor="mr-room-url" className="sr-only">FACEIT match room link</label>
         <input
+          id="mr-room-url"
           type="text"
           placeholder="https://www.faceit.com/en/cs2/room/1-…"
           value={url}
@@ -891,7 +1091,7 @@ export default function MatchRoom({ onPick }) {
       </div>
 
       {error && <div className="state error">{error}</div>}
-      {loading && <div className="state">Scouting the lobby…</div>}
+      {loading && <MatchRoomSkeleton />}
 
       {data && (
         <>
@@ -937,6 +1137,8 @@ export default function MatchRoom({ onPick }) {
               </div>
             </div>
           )}
+
+          {!data.finished && data.match_id && <MatchPrep data={data} />}
 
           {data.finished ? (
             <>

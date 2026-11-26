@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactionTest from "./ReactionTest.jsx";
 import { WEAPONS, TRIVIA } from "../games-data.js";
 import { Icon } from "../icons.jsx";
@@ -46,10 +46,12 @@ function buildQuestions(game) {
 function Leaderboard({ game, refresh, unit }) {
   const [items, setItems] = useState([]);
   useEffect(() => {
+    let alive = true;
     fetch(`${API_BASE}/api/games/leaderboard/?game=${game}`)
       .then((r) => r.json())
-      .then((j) => setItems(j.items || []))
-      .catch(() => setItems([]));
+      .then((j) => { if (alive) setItems(j.items || []); })
+      .catch(() => { if (alive) setItems([]); });
+    return () => { alive = false; };
   }, [game, refresh]);
 
   return (
@@ -80,8 +82,19 @@ export default function Games() {
   const [name, setName] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const timer = useRef(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(timer.current);
+    };
+  }, []);
 
   function start(g) {
+    clearTimeout(timer.current);
     setGame(g);
     setQuestions(buildQuestions(g));
     setIdx(0);
@@ -97,7 +110,9 @@ export default function Games() {
     setPicked(i);
     const correct = i === questions[idx].answer;
     if (correct) setScore((s) => s + 10);
-    setTimeout(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!mounted.current) return;
       if (idx + 1 >= questions.length) {
         setDone(true);
       } else {
@@ -114,10 +129,11 @@ export default function Games() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ game, name: name.trim() || "Anonymous", score }),
       });
+      if (!mounted.current) return;
       setSubmitted(true);
       setRefresh((r) => r + 1);
     } catch {
-      setSubmitted(true);
+      if (mounted.current) setSubmitted(true);
     }
   }
 
@@ -201,7 +217,7 @@ export default function Games() {
                      unit={game === "reaction" ? "ms" : undefined} />
         <div className="game-again">
           <button className="act-btn" onClick={() => start(game)}>Play again</button>
-          <button className="act-btn" onClick={() => setGame(null)}>Back to games</button>
+          <button className="act-btn" onClick={() => { clearTimeout(timer.current); setGame(null); }}>Back to games</button>
         </div>
       </div>
     );

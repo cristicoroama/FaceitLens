@@ -21,6 +21,8 @@
  * use it).
  */
 
+import { SHELL_UI } from "./i18n-shell.js";
+
 export const DEFAULT_LOCALE = "en";
 export const LOCALES = ["ru", "pl", "uk"];
 export const ALL_LOCALES = [DEFAULT_LOCALE, ...LOCALES];
@@ -293,8 +295,16 @@ export const UI = {
 export function makeT(locale) {
   const dict = UI[locale] || UI[DEFAULT_LOCALE];
   const fallback = UI[DEFAULT_LOCALE];
-  return (key) => dict[key] ?? fallback[key] ?? key;
+  const shell = SHELL_UI[locale] || SHELL_UI[DEFAULT_LOCALE];
+  const shellFallback = SHELL_UI[DEFAULT_LOCALE];
+  return (key, vars) => {
+    const raw = dict[key] ?? shell[key] ?? fallback[key] ?? shellFallback[key] ?? key;
+    if (!vars) return raw;
+    return raw.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? String(vars[k]) : m));
+  };
 }
+
+export const DATE_LOCALE = { en: "en-GB", ru: "ru-RU", pl: "pl-PL", uk: "uk-UA" };
 
 /* ---------------- Homepage <head> ---------------- */
 
@@ -323,6 +333,12 @@ export const PAGE_META_I18N = {
       "Интерактивная карта пула Challenger в FACEIT CS2: сколько топовых игроков у каждой страны, их средний Эло и кто их возглавляет."],
     watchlist: ["Список наблюдения — следите за игроками FACEIT",
       "Держите под наблюдением любого игрока FACEIT CS2. Отслеживайте изменения Эло, последние матчи и форму всего списка."],
+    "lobby-check": ["Проверка лобби FACEIT — все игроки CS2 за один раз",
+      "Вставьте вывод команды status из консоли CS2 или ссылки на Steam и сразу увидите уровень FACEIT, Эло, оценку доверия и баны каждого игрока."],
+    "community": ["Сообщество FACEIT — лучший рост Эло и распределение уровней",
+      "Игроки FACEIT с самым большим ростом Эло за неделю, распределение уровней среди отслеживаемых игроков CS2, недавние смены ников и новые профили."],
+    "higherlower": ["Больше или меньше — игра по настройкам профи CS2",
+      "Угадайте, у следующего профи CS2 eDPI больше или меньше. Соберите серию и побейте свой рекорд."],
     matchroom: ["Анализ матчрума FACEIT — проверьте своё лобби",
       "Вставьте ссылку на матчрум FACEIT и мгновенно проверьте всех 10 игроков: Эло, уровень, оценку аккаунта на смурфа и текущую форму."],
     compare: ["Сравнение игроков FACEIT — статистика CS2 один на один",
@@ -385,6 +401,12 @@ export const PAGE_META_I18N = {
       "Interaktywna mapa puli Challenger w FACEIT CS2: ilu najlepszych graczy ma każdy kraj, ich średnie ELO i kto im przewodzi."],
     watchlist: ["Lista obserwowanych — śledź graczy FACEIT",
       "Miej na oku dowolnego gracza FACEIT CS2. Śledź zmiany ELO, ostatnie mecze i formę całej listy."],
+    "lobby-check": ["Sprawdzanie lobby FACEIT — wszyscy gracze CS2 naraz",
+      "Wklej wynik komendy status z konsoli CS2 lub linki do Steam i od razu zobacz poziom FACEIT, Elo, wynik zaufania i bany każdego gracza."],
+    "community": ["Społeczność FACEIT — najwięksi wspinacze i rozkład poziomów",
+      "Gracze FACEIT z największym wzrostem Elo w tym tygodniu, rozkład poziomów wśród śledzonych graczy CS2, ostatnie zmiany nicków i nowe profile."],
+    "higherlower": ["Więcej czy mniej — gra o ustawieniach profesjonalistów CS2",
+      "Zgadnij, czy następny profesjonalista CS2 gra z wyższym czy niższym eDPI. Zbuduj serię i pobij swój rekord."],
     matchroom: ["Analiza match roomu FACEIT — prześwietl swoje lobby",
       "Wklej link do match roomu FACEIT i natychmiast sprawdź wszystkich 10 graczy: ELO, poziom, ocenę konta pod kątem smurfów i aktualną formę."],
     compare: ["Porównaj graczy FACEIT — statystyki CS2 jeden na jednego",
@@ -447,6 +469,12 @@ export const PAGE_META_I18N = {
       "Інтерактивна карта пулу Challenger у FACEIT CS2: скільки топових гравців має кожна країна, їхнє середнє Ело і хто їх очолює."],
     watchlist: ["Список спостереження — стежте за гравцями FACEIT",
       "Тримайте під наглядом будь-якого гравця FACEIT CS2. Відстежуйте зміни Ело, останні матчі та форму всього списку."],
+    "lobby-check": ["Перевірка лобі FACEIT — усі гравці CS2 за один раз",
+      "Вставте вивід команди status з консолі CS2 або посилання на Steam і одразу побачите рівень FACEIT, Ело, оцінку довіри та бани кожного гравця."],
+    "community": ["Спільнота FACEIT — найбільший ріст Ело та розподіл рівнів",
+      "Гравці FACEIT з найбільшим ростом Ело за тиждень, розподіл рівнів серед відстежуваних гравців CS2, нещодавні зміни ніків і нові профілі."],
+    "higherlower": ["Більше чи менше — гра за налаштуваннями профі CS2",
+      "Вгадайте, у наступного профі CS2 eDPI більший чи менший. Зберіть серію та побийте свій рекорд."],
     matchroom: ["Аналіз матчруму FACEIT — перевірте своє лобі",
       "Вставте посилання на матчрум FACEIT і миттєво перевірте всіх 10 гравців: Ело, рівень, оцінку акаунта на смурфа та поточну форму."],
     compare: ["Порівняння гравців FACEIT — статистика CS2 один на один",

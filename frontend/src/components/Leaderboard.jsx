@@ -1,4 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import StatsPlayerLink from "./StatsPlayerLink.jsx";
+import { localePath, splitLocale } from "../i18n.js";
+import "../styles/stats.css";
 import { FaceitLevel, Flag, ChallengerBadge } from "./RankIcons.jsx";
 import { COUNTRY_NAMES } from "../country-names.js";
 import { Icon } from "../icons.jsx";
@@ -42,8 +46,20 @@ const PAGE = 100;
 
 export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
   const [regions, setRegions] = useState(DEFAULT_REGIONS);
-  const [region, setRegion] = useState((initialRegion || "EU").toUpperCase());
-  const [country, setCountry] = useState((initialCountry || "").toLowerCase());
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routeRegion = params.region && params.region.toLowerCase() !== "map" ? params.region : null;
+  const region = (routeRegion || initialRegion || "EU").toUpperCase();
+  const country = (searchParams.get("country") ?? initialCountry ?? "").toLowerCase();
+  const [moreError, setMoreError] = useState("");
+
+  function go(nextRegion, nextCountry) {
+    const { locale } = splitLocale(location.pathname);
+    const qs = nextCountry ? `?country=${encodeURIComponent(nextCountry)}` : "";
+    navigate(`${localePath(locale, `/leaderboard/${nextRegion}`)}${qs}`);
+  }
   const [items, setItems] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -66,6 +82,7 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
     let alive = true;
     setLoading(true);
     setError("");
+    setMoreError("");
     setItems([]);
     fetchPage(0)
       .then((j) => {
@@ -81,11 +98,14 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
 
   async function loadMore() {
     setLoadingMore(true);
+    setMoreError("");
     try {
       const j = await fetchPage(items.length);
       setItems((prev) => [...prev, ...(j.items || [])]);
       setHasMore(!!j.has_more);
-    } catch { /* keep what we already have on screen */ } finally {
+    } catch (e) {
+      setMoreError(e.message || "Couldn't load more players.");
+    } finally {
       setLoadingMore(false);
     }
   }
@@ -113,23 +133,31 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
         </p>
       </div>
 
-      <div className="lb-tabs">
+      <nav className="lb-tabs" aria-label="Region">
         {regions.map((r) => (
-          <button
+          <a
             key={r.key}
+            href={localePath(splitLocale(location.pathname).locale, `/leaderboard/${r.key}`)}
             className={`lb-tab ${region === r.key ? "on" : ""}`}
-            onClick={() => { setRegion(r.key); setCountry(""); }}
+            aria-current={region === r.key ? "page" : undefined}
+            onClick={(e) => {
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              go(r.key, "");
+            }}
           >
             {r.label}
-          </button>
+          </a>
         ))}
-      </div>
+      </nav>
 
       <div className="lb-bar">
+        <label className="sr-only" htmlFor="lb-country">Country</label>
         <select
+          id="lb-country"
           className="fb-select"
           value={country}
-          onChange={(e) => setCountry(e.target.value)}
+          onChange={(e) => go(region, e.target.value)}
         >
           <option value="">All of {regionLabel}</option>
           {countryList.map(([code, name]) => (
@@ -164,10 +192,11 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
         <>
           <div className="panel lb-list">
             {items.map((p) => (
-              <button
+              <StatsPlayerLink
                 className="lb-row"
                 key={p.player_id || `${p.position}-${p.nickname}`}
-                onClick={() => onPick(p.nickname)}
+                nickname={p.nickname}
+                onPick={onPick}
               >
                 <span className={`lb-pos ${p.position <= 3 ? "top" : ""}`}>
                   {p.position}
@@ -179,14 +208,17 @@ export default function Leaderboard({ onPick, initialRegion, initialCountry }) {
                   {p.nickname}
                 </span>
                 <span className="lb-elo">{p.elo?.toLocaleString() ?? "—"}</span>
-              </button>
+              </StatsPlayerLink>
             ))}
           </div>
 
           {hasMore && (
             <div className="lb-more">
-              <button className="btn" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : "Load more"}
+              {moreError && (
+                <span className="lb-more-error" role="alert">{moreError}</span>
+              )}
+              <button type="button" className="btn" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading…" : moreError ? "Retry" : "Load more"}
               </button>
             </div>
           )}

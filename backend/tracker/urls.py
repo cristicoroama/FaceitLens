@@ -1,7 +1,9 @@
 from django.urls import path
-from . import discord_link, og, pickem, webhooks
+from . import discord_link, lobby, og, pickem, webhooks
 from . import auth, faceit_oauth, feedback, overlay, profiles, support, views
 from .apikeys import require_api_key
+from . import demo_views
+from . import community
 
 urlpatterns = [
     path("support/ticket/", support.create_ticket, name="support-create"),
@@ -35,6 +37,7 @@ urlpatterns = [
 
     path("player/<str:nickname>/", require_api_key(views.player_summary), name="player-summary"),
     path("player/<str:nickname>/real/", require_api_key(views.real_stats), name="player-real-stats"),
+    path("player/<str:nickname>/demo-matches/", require_api_key(views.demo_matches), name="player-demo-matches"),
     path("player/<str:nickname>/collectibles/", require_api_key(views.collectibles), name="player-collectibles"),
     path("player/<str:nickname>/leetify/", require_api_key(views.leetify_stats), name="player-leetify"),
     path("player/<str:nickname>/csrep/", require_api_key(views.csrep_stats), name="player-csrep"),
@@ -52,6 +55,10 @@ urlpatterns = [
     path("leetify/match/", views.leetify_match, name="leetify-match"),
     path("steam/", require_api_key(views.player_by_steam), name="player-by-steam"),
     path("steamprofile/", require_api_key(views.steam_profile), name="steam-profile"),
+    path("lobby/check/", lobby.lobby_check, name="lobby-check"),
+    path("match/<str:match_id>/intel/", lobby.match_intel, name="match-intel"),
+    path("match/<str:match_id>/stakes/", lobby.match_stakes, name="match-stakes"),
+    path("match/<str:match_id>/briefing/", lobby.match_briefing, name="match-briefing"),
     path("match/<str:match_id>/", require_api_key(views.match_detail), name="match-detail"),
     path("og/maps/<str:nickname>", og.og_maps, name="og-maps"),
     path("og/match/<str:match_id>", og.og_match, name="og-match"),
@@ -121,4 +128,15 @@ urlpatterns = [
     path("games/leaderboard/", views.game_leaderboard, name="game-leaderboard"),
     path("games/score/", views.game_score, name="game-score"),
     path("avatar/", views.avatar_proxy, name="avatar-proxy"),
+    path("community/climbers/", require_api_key(community.climbers), name="community-climbers"),
+    path("community/renamed/", require_api_key(community.renamed), name="community-renamed"),
+    path("community/searched/", require_api_key(community.searched), name="community-searched"),
+    path("community/distribution/", require_api_key(community.distribution), name="community-distribution"),
+    path("community/goals/", community.goals, name="community-goals"),
+    path("community/goals/<int:goal_id>/", community.goal_detail, name="community-goal-detail"),
+    path("player/<str:nickname>/synergy/", require_api_key(community.synergy), name="player-synergy"),
+    path("player/<str:nickname>/banned-opponents/", require_api_key(community.banned_opponents), name="player-banned-opponents"),
+    path("match/<str:match_id>/parse/", require_api_key(demo_views.match_parse), name="match-demo-parse"),
+    path("match/<str:match_id>/demo/", require_api_key(demo_views.match_demo), name="match-demo"),
+    path("player/<str:nickname>/coach/", require_api_key(demo_views.player_coach), name="player-coach"),
 ]

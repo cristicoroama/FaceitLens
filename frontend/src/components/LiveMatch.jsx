@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { MapIcon, mapLabel } from "../map-art.jsx";
+import "../styles/match.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const POLL_MS = 30000;
@@ -77,7 +78,7 @@ function useLiveStatus(playerId, initial) {
       schedule();
     }
 
-    check();
+    if (initial === undefined) check();
     schedule();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -109,6 +110,21 @@ function useLiveStatus(playerId, initial) {
  * self-evidently live and costs no visual noise, which is why the pulsing dot
  * is kept small and slow rather than made the main event.
  */
+function useEloStakes(matchId, playerId) {
+  const [stakes, setStakes] = useState(null);
+  useEffect(() => {
+    setStakes(null);
+    if (!matchId || !playerId || PREVIEW) return undefined;
+    let alive = true;
+    fetch(`${API_BASE}/api/match/${encodeURIComponent(matchId)}/stakes/?player=${encodeURIComponent(playerId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j?.stakes) setStakes(j.stakes); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [matchId, playerId]);
+  return stakes;
+}
+
 function elapsedLabel(startedAt) {
   if (!startedAt) return null;
   const mins = Math.floor((Date.now() / 1000 - startedAt) / 60);
@@ -121,6 +137,7 @@ function elapsedLabel(startedAt) {
 
 export default function LiveMatch({ playerId, initial, nickname }) {
   const live = useLiveStatus(playerId, initial);
+  const stakes = useEloStakes(live?.match_id, playerId);
   // Re-render on a timer so the counter moves. Thirty seconds, not one: the
   // number only changes by the minute, and a per-second interval would wake
   // the tab sixty times for fifty-nine no-ops.
@@ -158,6 +175,24 @@ export default function LiveMatch({ playerId, initial, nickname }) {
           <span className="lv-fact" key={i}>{f}</span>
         ))}
       </span>
+
+      {stakes && (
+        <span
+          className="lv-stakes"
+          title={`About ${stakes.win_probability}% to win (${stakes.source === "faceit" ? "FACEIT's forecast" : "estimated from the ELO gap"}). ELO changes are approximate.`}
+        >
+          <span className="lv-win">+{stakes.win}</span>
+          <span className="lv-sep">/</span>
+          <span className="lv-loss">-{stakes.loss}</span>
+          <span className="sr-only"> ELO for a win or a loss</span>
+        </span>
+      )}
+
+      {live.match_id && live.match_id !== "preview" && (
+        <a className="lv-go lv-scout" href={`/matchroom?room=${encodeURIComponent(live.match_id)}`}>
+          Scout this room
+        </a>
+      )}
 
       {live.faceit_url && (
         <a

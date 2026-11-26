@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "../icons.jsx";
+import { fmtDay } from "../lib/account-api.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -11,7 +12,7 @@ function ago(iso) {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   const d = Math.floor(s / 86400);
-  return d < 7 ? `${d}d ago` : new Date(t).toLocaleDateString();
+  return d < 7 ? `${d}d ago` : fmtDay(t, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /**
@@ -49,8 +50,13 @@ export default function NotificationBell({ user, onOpen }) {
     function onDoc(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
+    function onKey(e) { if (e.key === "Escape") setOpen(false); }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   async function markRead(ids) {
@@ -76,7 +82,10 @@ export default function NotificationBell({ user, onOpen }) {
   return (
     <div className="notif" ref={ref}>
       <button
+        type="button"
         className="tb-btn notif-trigger"
+        aria-expanded={open}
+        aria-controls="notif-pop"
         onClick={() => { setOpen((o) => { if (!o) load(); return !o; }); }}
         title={unread ? `${unread} unread` : "Notifications"}
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
@@ -86,11 +95,11 @@ export default function NotificationBell({ user, onOpen }) {
       </button>
 
       {open && (
-        <div className="notif-pop">
+        <div className="notif-pop" id="notif-pop" aria-label="Notifications">
           <div className="notif-pop-head">
             <span>Notifications</span>
             {unread > 0 && (
-              <button className="notif-clear" onClick={() => markRead(null)}>
+              <button type="button" className="notif-clear" onClick={() => markRead(null)}>
                 Mark all read
               </button>
             )}
@@ -106,6 +115,7 @@ export default function NotificationBell({ user, onOpen }) {
               {items.map((n) => (
                 <li key={n.id}>
                   <button
+                    type="button"
                     className={`notif-item${n.read ? "" : " unread"}`}
                     onClick={() => {
                       if (!n.read) markRead([n.id]);

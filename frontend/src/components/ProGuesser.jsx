@@ -102,7 +102,7 @@ export default function ProGuesser() {
       }).join("");
     }).join("\n");
     const head = `ProGuesser — ${won ? guesses.length + "/" + MAX_TRIES : "X/" + MAX_TRIES}`;
-    navigator.clipboard.writeText(`${head}\n${grid}\nfaceit-lens.com/proguesser`);
+    navigator.clipboard?.writeText(`${head}\n${grid}\nfaceit-lens.com/proguesser`)?.catch(() => {});
   }
 
   return (

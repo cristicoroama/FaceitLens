@@ -195,7 +195,7 @@ export function injectBody(html, { heading, body, facts, sections, extraHtml } =
   if (start === -1 || end === -1 || end < start || !heading) return html;
 
   let content =
-    `${BODY_START}<div class="seo-intro"><h1>${escapeHtml(heading)}</h1>` +
+    `${BODY_START}<div class="seo-prerender"><div class="seo-intro"><h1>${escapeHtml(heading)}</h1>` +
     `<p>${escapeHtml(body || "")}</p></div>`;
 
   if ((facts && facts.length) || (sections && sections.length)) {
@@ -206,8 +206,41 @@ export function injectBody(html, { heading, body, facts, sections, extraHtml } =
   }
 
   if (extraHtml) content += extraHtml;
+  content += `</div>`;
 
   return html.slice(0, start) + content + html.slice(end);
+}
+
+export function buildSpaShell(html, { title, description }) {
+  const start = html.indexOf(START);
+  const end = html.indexOf(END);
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error("SEO markers not found in index.html");
+  }
+  const block = [
+    `${START} — neutral SPA shell. Source of truth: lib/seo.js -->`,
+    `    <title>${escapeHtml(title)}</title>`,
+    `    <meta name="description" content="${escapeHtml(description)}" />`,
+    `    <meta property="og:title" content="${escapeHtml(title)}" />`,
+    `    <meta property="og:description" content="${escapeHtml(description)}" />`,
+    `    <meta property="og:type" content="website" />`,
+    `    <meta property="og:image" content="${SITE_URL}/og.png" />`,
+    `    <meta name="twitter:card" content="summary_large_image" />`,
+    `    ${END}`,
+  ].join("\n");
+  const bodyStart = html.indexOf(BODY_START);
+  const bodyEnd = html.indexOf(BODY_END);
+  let out = html.slice(0, start) + block + html.slice(end + END.length);
+  if (bodyStart !== -1 && bodyEnd > bodyStart) {
+    const bs = out.indexOf(BODY_START);
+    const be = out.indexOf(BODY_END);
+    out = out.slice(0, bs + BODY_START.length) + out.slice(be);
+  }
+  return setHtmlLang(out, "en");
+}
+
+export function playerDataScript(player) {
+  return `<script id="__PLAYER__" type="application/json">${jsonLdScript(player)}</script>`;
 }
 
 /**

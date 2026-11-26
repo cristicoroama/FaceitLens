@@ -11,6 +11,8 @@
  * next to the rows it did record.
  */
 
+import "../styles/stats.css";
+
 const num = (v) => {
   if (v == null || v === "") return null;
   const n = Number(v);
@@ -61,7 +63,114 @@ function Panel({ title, rows }) {
   );
 }
 
-export default function StatPanels({ stats }) {
+function lifePct(v) {
+  const n = num(v);
+  if (n == null) return null;
+  return n <= 1 ? n * 100 : n;
+}
+
+function perRound(total, rounds) {
+  const t = num(total);
+  const r = num(rounds);
+  if (t == null || !r) return null;
+  return t / r;
+}
+
+function sumRate(w1, c1, w2, c2) {
+  const c = (num(c1) || 0) + (num(c2) || 0);
+  if (!c) return null;
+  return (((num(w1) || 0) + (num(w2) || 0)) / c) * 100;
+}
+
+function careerRows(s, r) {
+  return [
+    { label: "Entry rate", kind: "pct", now: num(r.entry_rate), then: lifePct(s.entry_rate), better: null, sample: r.entries != null && r.rounds ? `${r.entries} in ${r.rounds} rds` : null },
+    { label: "Entry success", kind: "pct", now: num(r.entry_success), then: lifePct(s.entry_success), better: "high", sample: r.entries != null ? `${r.entry_wins ?? 0}/${r.entries}` : null },
+    { label: "First kills / match", kind: "dec", now: r.matches ? perRound(r.first_kills, r.matches) : null, then: null, better: "high" },
+    { label: "1v1 win rate", kind: "pct", now: num(r.v1_rate), then: lifePct(s.clutch_1v1), better: "high", sample: r.v1_count != null ? `${r.v1_wins ?? 0}/${r.v1_count}` : null },
+    { label: "1v2 win rate", kind: "pct", now: num(r.v2_rate), then: lifePct(s.clutch_1v2), better: "high", sample: r.v2_count != null ? `${r.v2_wins ?? 0}/${r.v2_count}` : null },
+    { label: "Clutch rate", kind: "pct", now: num(r.clutch_rate), then: sumRate(s.total_1v1_wins, s.total_1v1_count, s.total_1v2_wins, s.total_1v2_count), better: "high" },
+    { label: "Flashes / round", kind: "dec", now: perRound(r.flashes, r.rounds), then: num(s.flashes_per_round), better: null },
+    { label: "Flash success", kind: "pct", now: num(r.flash_success), then: lifePct(s.flash_success), better: "high" },
+    { label: "Enemies flashed / round", kind: "dec", now: perRound(r.enemies_flashed, r.rounds), then: num(s.enemies_flashed_per_round), better: "high" },
+    { label: "Utility damage / round", kind: "dec1", now: perRound(r.util_damage, r.rounds), then: num(s.util_damage_per_round), better: "high" },
+    { label: "Utility success", kind: "pct", now: num(r.util_success), then: lifePct(s.util_success), better: "high" },
+  ].filter((row) => row.now != null);
+}
+
+function fmtKind(kind, v) {
+  if (v == null) return null;
+  if (kind === "pct") return `${Math.round(v)}%`;
+  if (kind === "dec1") return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function Change({ row }) {
+  if (row.now == null || row.then == null) return <span className="nvc-na">—</span>;
+  const raw = row.now - row.then;
+  const d = row.kind === "pct" ? Math.round(raw) : row.kind === "dec1" ? Math.round(raw * 10) / 10 : Math.round(raw * 100) / 100;
+  if (d === 0) {
+    return (
+      <span className="nvc-delta flat">
+        <span aria-hidden="true">= </span>same
+      </span>
+    );
+  }
+  const up = d > 0;
+  const judged = row.better ? (up ? "good" : "bad") : "flat";
+  const shown = row.kind === "pct" ? `${Math.abs(d)} pts` : Math.abs(d).toFixed(row.kind === "dec1" ? 1 : 2);
+  return (
+    <span className={`nvc-delta ${judged}`}>
+      <span aria-hidden="true">{up ? "▲" : "▼"} </span>
+      {up ? "+" : "−"}{shown}
+      <span className="sr-only">{up ? " higher than career" : " lower than career"}</span>
+    </span>
+  );
+}
+
+function NowVsCareer({ stats, recent }) {
+  if (!recent) return null;
+  const rows = careerRows(stats || {}, recent);
+  if (!rows.length) return null;
+  return (
+    <div className="nvc">
+      <div className="nvc-head">
+        <span className="nvc-title" id="nvc-title">Now vs career</span>
+        <span className="nvc-sub">last {recent.matches} matches against lifetime, from FACEIT&apos;s own counts</span>
+      </div>
+      <div className="nvc-scroll">
+        <table className="nvc-table" aria-labelledby="nvc-title">
+          <thead>
+            <tr>
+              <th scope="col" className="nvc-l">Stat</th>
+              <th scope="col">Last {recent.matches}</th>
+              <th scope="col">Career</th>
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <th scope="row" className="nvc-l">
+                  {row.label}
+                  {!row.better && <span className="nvc-role" title="A role signal, not better or worse"> · role</span>}
+                </th>
+                <td>
+                  <b>{fmtKind(row.kind, row.now)}</b>
+                  {row.sample && <span className="nvc-sample">{row.sample}</span>}
+                </td>
+                <td className="nvc-then">{fmtKind(row.kind, row.then) ?? "—"}</td>
+                <td><Change row={row} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default function StatPanels({ stats, recent }) {
   if (!stats) return null;
   const s = stats;
 
@@ -120,7 +229,12 @@ export default function StatPanels({ stats }) {
 
   // All four gone means a pre-CS2 account with none of these stats — no point
   // in a heading over an empty grid.
-  if (!live.length) return null;
+  if (!live.length) return <NowVsCareer stats={s} recent={recent} />;
 
-  return <div className="sp-grid">{live}</div>;
+  return (
+    <>
+      <NowVsCareer stats={s} recent={recent} />
+      <div className="sp-grid">{live}</div>
+    </>
+  );
 }

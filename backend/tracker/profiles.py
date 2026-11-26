@@ -433,9 +433,17 @@ def public_profile(request, handle):
 
 def profile_directory(request):
     """Recently joined public profiles — a small 'community' feed."""
+    from django.db.models import BooleanField, Case, Value, When
     rows = (
         UserProfile.objects.filter(is_public=True)
         .exclude(faceit_nickname="")
+        .select_related("user__steam_profile")
+        .defer("avatar")
+        .annotate(avatar_present=Case(
+            When(avatar__isnull=True, then=Value(False)),
+            default=Value(True),
+            output_field=BooleanField(),
+        ))
         .order_by("-created_at")[:40]
     )
     return JsonResponse({
@@ -447,7 +455,7 @@ def profile_directory(request):
                 "faceit_nickname": p.faceit_nickname,
                 "verified": p.faceit_verified,
                 "avatar": (
-                    f"/api/avatar/{p.handle}/" if p.has_avatar else None
+                    f"/api/avatar/{p.handle}/" if p.avatar_present else None
                 ),
             }
             for p in rows

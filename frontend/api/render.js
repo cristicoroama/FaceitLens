@@ -17,7 +17,10 @@
  * Env: BACKEND_URL = https://<your-service>.onrender.com
  */
 
-import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL, renderCrawlLinks } from "../lib/seo.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { injectMeta, injectBody, canonicalUrl, buildAlternates, SITE_URL, renderCrawlLinks, playerDataScript } from "../lib/seo.js";
 import { CRAWL_LINKS } from "../src/page-meta.js";
 import { ALL_LOCALES, DEFAULT_LOCALE, PLAYER_META, STAT_LABELS, FACT_LABELS, localePath } from "../src/i18n.js";
 import { COUNTRY_NAMES } from "../src/country-names.js";
@@ -39,37 +42,74 @@ const pct = (v) => (v === null || v === undefined || v === "" ? null : `${v}%`);
  * real person to save a nicer <title>, which is a bad trade — the canonical is
  * what actually matters here and it doesn't need the backend at all. So: a
  * short leash, and generic-but-correct tags if it isn't met. */
-const BACKEND_TIMEOUT_MS = 2500;
+const BACKEND_TIMEOUT_MS = 1500;
 
-/* Reused across invocations on a warm lambda, so the shell is normally fetched
+/* Reused across invocations on a warm lambda, so the shell is normally loaded
  * once per instance rather than once per request. */
 let shellCache = null;
+
+const isShell = (html) => html.includes("<!-- SEO:START") && html.includes('id="root"');
+
+function shellFiles() {
+  if (process.env.RENDER_SHELL_FILES !== undefined) {
+    return process.env.RENDER_SHELL_FILES.split(",").filter(Boolean);
+  }
+  const fromModule = fileURLToPath(new URL("../dist/", import.meta.url));
+  return [
+    join(process.cwd(), "dist", "spa.html"),
+    join(fromModule, "spa.html"),
+    join(process.cwd(), "dist", "index.html"),
+    join(fromModule, "index.html"),
+  ];
+}
 
 async function getShell() {
   if (shellCache) return shellCache;
 
-  // The production domain first: it's CDN-backed and stable. VERCEL_URL is the
-  // per-deployment host, which is what preview builds have to use.
+  for (const file of shellFiles()) {
+    try {
+      const html = await readFile(file, "utf8");
+      if (isShell(html)) {
+        shellCache = html;
+        return shellCache;
+      }
+    } catch {
+    }
+  }
+
   const origins = [SITE_URL];
   if (process.env.VERCEL_URL) origins.push(`https://${process.env.VERCEL_URL}`);
 
   for (const origin of origins) {
-    try {
-      const r = await fetch(`${origin}/index.html`);
-      if (r.ok) {
-        const html = await r.text();
-        // Only trust it if it's the real shell. A CDN error page would
-        // otherwise get cached here and served for every player.
-        if (html.includes("<!-- SEO:START") && html.includes('id="root"')) {
-          shellCache = html;
-          return shellCache;
+    for (const page of ["/spa.html", "/index.html"]) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3000);
+      try {
+        const r = await fetch(`${origin}${page}`, { signal: ctrl.signal });
+        if (r.ok) {
+          const html = await r.text();
+          if (isShell(html)) {
+            shellCache = html;
+            return shellCache;
+          }
         }
+      } catch {
+      } finally {
+        clearTimeout(timer);
       }
-    } catch {
-      // try the next origin
     }
   }
   return null;
+}
+
+function forwardedQuery(query) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query || {})) {
+    if (k === "nick" || k === "lang" || k === "__spa") continue;
+    for (const item of [].concat(v)) params.append(k, String(item));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
 }
 
 /**
@@ -123,6 +163,21 @@ export default async function handler(req, res) {
 
   const { answered, player } = await getPlayer(nick);
   const found = Boolean(player);
+
+  if (found && player.nickname && player.nickname !== nick
+      && player.nickname.toLowerCase() === nick.toLowerCase()) {
+    const target = localePath(lang, `/player/${encodeURIComponent(player.nickname)}`);
+    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+    res.redirect(301, `${target}${forwardedQuery(req.query)}`);
+    return;
+  }
+
+  const canonicalPath = found && player.nickname
+    ? localePath(lang, `/player/${encodeURIComponent(player.nickname)}`)
+    : localised;
+  const canonicalBase = found && player.nickname
+    ? `/player/${encodeURIComponent(player.nickname)}`
+    : path;
 
   const name = player?.nickname || nick;
   const L = STAT_LABELS[lang] || STAT_LABELS[DEFAULT_LOCALE];
@@ -214,12 +269,12 @@ export default async function handler(req, res) {
     jsonLd = {
       "@context": "https://schema.org",
       "@type": "ProfilePage",
-      dateModified: new Date().toISOString(),
+      dateModified: player.fetched_at_iso || new Date().toISOString(),
       mainEntity: {
         "@type": "Person",
         name: player.nickname || nick,
         alternateName: nick,
-        url: canonicalUrl(localised),
+        url: canonicalUrl(canonicalPath),
         ...(player.avatar ? { image: player.avatar } : {}),
         ...(player.country
           ? { nationality: COUNTRY_NAMES[player.country.toLowerCase()] || player.country.toUpperCase() }
@@ -242,10 +297,10 @@ export default async function handler(req, res) {
       title,
       description,
       jsonLd,
-      canonical: canonicalUrl(localised),
+      canonical: canonicalUrl(canonicalPath),
       // The same player exists in all four languages, so the cluster is
       // complete by construction — no page here is ever missing a sibling.
-      alternates: buildAlternates(path, ALL_LOCALES),
+      alternates: buildAlternates(canonicalBase, ALL_LOCALES),
       locale: lang,
       robots,
       ogType: "profile",
@@ -258,6 +313,7 @@ export default async function handler(req, res) {
       heading: bareTitle, body: description, facts, sections,
       extraHtml: renderCrawlLinks(CRAWL_LINKS.map(([h, l]) => [localePath(lang, h), l])),
     });
+    if (found) html = html.replace("</body>", () => `${playerDataScript(player)}\n  </body>`);
   } catch {
     html = shell; // markers missing: still serve a working page
   }

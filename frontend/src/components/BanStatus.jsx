@@ -1,3 +1,11 @@
+import { fmtDay, countBy } from "../lib/account-api.js";
+import "../styles/account.css";
+
+function banLabel(b) {
+  const raw = String(b?.type || b?.ban_type || "").replace(/[_-]+/g, " ").trim();
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase() : "Ban";
+}
+
 /**
  * Account standing across the three places a CS2 player can be sanctioned:
  * FACEIT itself, Valve Anti-Cheat, and developer-issued game bans.
@@ -37,6 +45,7 @@ export default function BanStatus({ bans, steam, compact = false }) {
   // not, and must not be read as clean.
   const faceitBanned = Array.isArray(bans) ? bans.length > 0 : null;
   const active = Array.isArray(bans) && bans.length ? bans[0] : null;
+  const byType = Object.entries(countBy(Array.isArray(bans) ? bans : [], banLabel));
 
   const vac = steam ? (steam.vac_banned == null ? null : !!steam.vac_banned) : null;
   const gameBans = steam && steam.game_ban_count != null ? steam.game_ban_count > 0 : null;
@@ -56,13 +65,18 @@ export default function BanStatus({ bans, steam, compact = false }) {
           an accusation without a charge. */}
       {active && (
         <div className="bst-detail">
-          {active.reason || active.type || "Ban"}
-          {active.ends_at && (
-            <i> · until {new Date(active.ends_at).toLocaleDateString("en-GB", {
-              day: "2-digit", month: "short", year: "numeric",
-            })}</i>
-          )}
+          {active.reason || banLabel(active)}
+          {active.reason && (active.type || active.ban_type) && <i> · {banLabel(active)}</i>}
+          {fmtDay(active.ends_at) && <i> · until {fmtDay(active.ends_at)}</i>}
         </div>
+      )}
+
+      {!compact && byType.length > 0 && (bans.length > 1 || byType.length > 1) && (
+        <ul className="acc-ban-counts" aria-label="FACEIT bans by type">
+          {byType.map(([type, n]) => (
+            <li key={type} className="acc-ban-count"><b>{n}</b> {type}</li>
+          ))}
+        </ul>
       )}
 
       {steam && steam.vac_count > 0 && (

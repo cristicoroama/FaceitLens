@@ -31,7 +31,8 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { injectMeta, injectBody, canonicalUrl, buildAlternates, renderCopy, renderCrawlLinks, faqJsonLd } from "../lib/seo.js";
+import { injectMeta, injectBody, canonicalUrl, buildAlternates, renderCopy, renderCrawlLinks, faqJsonLd, buildSpaShell } from "../lib/seo.js";
+import { LEADERBOARD_REGIONS, leaderboardRegionMeta } from "../lib/leaderboard-meta.js";
 import { TOOL_COPY } from "../src/tool-copy.js";
 import { CRAWL_LINKS } from "../src/page-meta.js";
 import {
@@ -58,10 +59,36 @@ try {
   process.exit(1);
 }
 
-const routes = prerenderRoutes();
+await writeFile(
+  join(dist, "spa.html"),
+  buildSpaShell(shell, { title: "Faceit-Lens — FACEIT CS2 Stats", description: DEFAULT_DESC }),
+  "utf8",
+);
+console.log("  prerender: spa.html neutral shell for client-only routes");
+
+const notFound = injectBody(
+  injectMeta(shell, {
+    title: "Page not found | Faceit-Lens",
+    description: "That page doesn't exist. Search for a CS2 player instead.",
+    robots: "noindex, follow",
+  }),
+  {
+    heading: "Page not found",
+    body: "That page doesn't exist. Search for a CS2 player from the home page, or open one of the tools below.",
+    extraHtml: renderCrawlLinks([["/", "Faceit-Lens home"], ...CRAWL_LINKS]),
+  },
+)
+  .replace(/\s*<script type="module"[^>]*><\/script>/g, "")
+  .replace(/\s*<link rel="modulepreload"[^>]*>/g, "")
+  .replace("</head>", "  <style>.seo-prerender { animation: none; }</style>\n  </head>");
+await writeFile(join(dist, "404.html"), notFound, "utf8");
+console.log("  prerender: 404.html static not-found page");
+
+const regionRoutes = LEADERBOARD_REGIONS.map((region) => [`/leaderboard/${region}`, "leaderboard", region]);
+const routes = [...prerenderRoutes(), ...regionRoutes];
 let written = 0;
 
-for (const [path, key] of routes) {
+for (const [path, key, region] of routes) {
   const english = key ? PAGE_META[key] : null;
 
   if (key && !english) {
@@ -76,9 +103,9 @@ for (const [path, key] of routes) {
   const alternates = buildAlternates(path, ALL_LOCALES);
 
   for (const locale of ALL_LOCALES) {
-    const [rawTitle, description] = metaFor(
-      locale, key, english, [DEFAULT_TITLE, DEFAULT_DESC],
-    );
+    const [rawTitle, description] = region
+      ? leaderboardRegionMeta(locale, region)
+      : metaFor(locale, key, english, [DEFAULT_TITLE, DEFAULT_DESC]);
 
     // Sub-pages carry the brand, the homepage already has it in its title.
     // Some entries spell it out themselves ("FAQ — как работает Faceit-Lens"),
@@ -87,7 +114,7 @@ for (const [path, key] of routes) {
     const title =
       key && !/faceit-lens/i.test(rawTitle) ? `${rawTitle} | Faceit-Lens` : rawTitle;
 
-    const copy = locale === "en" && key ? TOOL_COPY[key] : null;
+    const copy = locale === "en" && key && !region ? TOOL_COPY[key] : null;
     let html = injectMeta(shell, {
       title,
       description,
@@ -143,6 +170,7 @@ const CRAWL_HINTS = {
   "/": ["daily", "1.0"],
   "/leaderboard": ["daily", "0.9"],
   "/leaderboard/map": ["daily", "0.8"],
+  ...Object.fromEntries(LEADERBOARD_REGIONS.map((r) => [`/leaderboard/${r}`, ["daily", "0.8"]])),
   "/bans": ["daily", "0.9"],
   "/faceitstatus": ["hourly", "0.9"],
   "/steamstatus": ["hourly", "0.9"],

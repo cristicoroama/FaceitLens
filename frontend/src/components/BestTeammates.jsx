@@ -1,8 +1,11 @@
+import { SynergyDelta, useSynergy } from "./TeammatesFull.jsx";
+
 function initials(name) {
   return (name || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
 }
 
-export default function BestTeammates({ mates, onPick }) {
+export default function BestTeammates({ mates, onPick, nickname }) {
+  const syn = useSynergy(nickname);
   if (!mates || mates.length === 0) return null;
   return (
     <div className="panel">
@@ -33,7 +36,7 @@ export default function BestTeammates({ mates, onPick }) {
                 <div className="lrow-ava">{initials(m.nickname)}</div>
               )}
               <div className="lrow-main">
-                <div className="lrow-name">{m.nickname}</div>
+                <div className="lrow-name">{m.nickname}<SynergyDelta row={syn.find(m)} /></div>
                 <div className="lrow-track">
                   <div className="lrow-fill" style={{ width: `${wr}%`, background: color }} />
                 </div>

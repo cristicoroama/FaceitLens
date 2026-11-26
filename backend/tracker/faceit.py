@@ -7,8 +7,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+import logging
+
 import requests
 from django.core.cache import cache
+from requests.adapters import HTTPAdapter
+
+logger = logging.getLogger(__name__)
 
 FACEIT_API_KEY = os.environ.get("FACEIT_API_KEY", "")
 BASE_URL = "https://open.faceit.com/data/v4"
@@ -26,24 +31,107 @@ class FaceitNotFound(FaceitError):
     pass
 
 
+class FaceitRateLimited(FaceitError):
+    def __init__(self, retry_after=5):
+        self.retry_after = max(1, int(retry_after))
+        super().__init__("FACEIT is rate limiting us, try again in a few seconds")
+
+
+class FaceitUnavailable(FaceitError, requests.ConnectionError):
+    pass
+
+
 def _headers():
     if not FACEIT_API_KEY:
         raise FaceitError("FACEIT_API_KEY is not set in the environment.")
     return {"Authorization": f"Bearer {FACEIT_API_KEY}"}
 
 
+MAX_RETRIES = 2
+MAX_RETRY_WAIT = 5.0
+RETRY_STATUSES = (502, 503, 504)
+PLAYER_TTL = 60
+MATCH_STATS_TTL = CACHE_TTL + 120
+
+_session = requests.Session()
+_session.mount("https://", HTTPAdapter(pool_connections=4, pool_maxsize=32))
+_sleep = time.sleep
+
+
+def _retry_after(resp, default=2.0):
+    raw = (resp.headers.get("Retry-After") or "").strip()
+    if not raw:
+        return default
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        when = parsedate_to_datetime(raw)
+        return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+    except (TypeError, ValueError):
+        return default
+
+
 def _get(path, params=None):
-    resp = requests.get(f"{BASE_URL}{path}", headers=_headers(), params=params, timeout=10)
-    if resp.status_code == 404:
-        raise FaceitNotFound("Resource not found (404).")
-    if resp.status_code != 200:
-        raise FaceitError(f"FACEIT API responded with {resp.status_code}: {resp.text[:200]}")
-    return resp.json()
+    headers = _headers()
+    waited = 0.0
+    attempt = 0
+    while True:
+        try:
+            resp = _session.get(f"{BASE_URL}{path}", headers=headers, params=params, timeout=10)
+        except (requests.ConnectionError, requests.exceptions.ConnectTimeout) as exc:
+            delay = 0.5 * (2 ** attempt)
+            if attempt < MAX_RETRIES and waited + delay <= MAX_RETRY_WAIT:
+                attempt += 1
+                waited += delay
+                _sleep(delay)
+                continue
+            logger.warning("FACEIT %s unreachable: %s", path, exc)
+            raise FaceitUnavailable("FACEIT is not responding, try again in a few seconds") from exc
+        except requests.Timeout as exc:
+            logger.warning("FACEIT %s timed out", path)
+            raise FaceitUnavailable("FACEIT is not responding, try again in a few seconds") from exc
+
+        status = resp.status_code
+        if status == 200:
+            return resp.json()
+        if status == 404:
+            raise FaceitNotFound("Resource not found (404).")
+        if status == 429:
+            delay = _retry_after(resp)
+            if attempt < MAX_RETRIES and waited + delay <= MAX_RETRY_WAIT:
+                attempt += 1
+                waited += delay
+                _sleep(delay)
+                continue
+            logger.warning("FACEIT %s rate limited, retry after %.1fs", path, delay)
+            raise FaceitRateLimited(retry_after=max(delay, 1))
+        if status in RETRY_STATUSES:
+            delay = 0.5 * (2 ** attempt)
+            if attempt < MAX_RETRIES and waited + delay <= MAX_RETRY_WAIT:
+                attempt += 1
+                waited += delay
+                _sleep(delay)
+                continue
+        logger.warning("FACEIT %s responded %s: %s", path, status, resp.text[:200])
+        raise FaceitError(f"FACEIT API responded with {status}.")
+
+
+def _now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def get_player_by_nickname(nickname):
     """Return a player's basic details by nickname."""
-    return _get("/players", params={"nickname": nickname})
+    key = f"pnick:{(nickname or '').strip().lower()}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    player = _get("/players", params={"nickname": nickname})
+    cache.set(key, player, PLAYER_TTL)
+    return player
 
 
 def _extract_steam_id(text):
@@ -726,16 +814,25 @@ def get_match_stats(player_id, limit=30, offset=0):
 
 def get_recent_match_stats(player_id, total=200):
     """Fetch up to `total` recent matches, paginating 100 at a time."""
+    key = f"rms:{player_id}"
+    hit = cache.get(key)
+    if hit and (hit.get("complete") or len(hit.get("items") or []) >= total):
+        return hit["items"][:total]
     items = []
     offset = 0
+    complete = False
     while len(items) < total:
         batch = get_match_stats(player_id, limit=100, offset=offset)
         if not batch:
+            complete = True
             break
         items.extend(batch)
         if len(batch) < 100:
+            complete = True
             break
         offset += 100
+    if not hit or complete or len(items) >= len(hit.get("items") or []):
+        cache.set(key, {"items": items, "complete": complete}, MATCH_STATS_TTL)
     return items[:total]
 
 
@@ -3746,7 +3843,7 @@ def _build_insights(recent_all, history_all, player, player_id, current_elo, sna
              "total_matches": total, "csgo_matches": csgo, "verified": player.get("verified")},
         )
     except Exception:
-        import traceback; traceback.print_exc()
+        logger.exception("insights build failed for %s", player_id)
         return None
     rep = out.get("season_report")
     try:
@@ -3763,7 +3860,7 @@ def _build_insights(recent_all, history_all, player, player_id, current_elo, sna
         elif stored:
             out["season_report"] = stored.data
     except Exception:
-        pass
+        logger.warning("could not store season snapshot for %s", player_id, exc_info=True)
     return out
 
 
@@ -3936,8 +4033,7 @@ def build_player_summary(nickname):
             for s in EloSnapshot.objects.filter(player_id=player_id).order_by("date")
         ]
     except Exception:
-        # DB not migrated yet or unavailable - degrade gracefully.
-        pass
+        logger.warning("could not record tracked player %s", player_id, exc_info=True)
 
     from . import allstar as _allstar
     from . import skills as _skills
@@ -4085,6 +4181,7 @@ def build_player_summary(nickname):
         # was served — which is the whole point of showing it. Without this the
         # refresh button would be a button with nothing to say.
         "fetched_at": int(time.time()),
+        "fetched_at_iso": _now_iso(),
         "recent_matches": [
             {
                 "match_id": m.get("match_id"),

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { MapIcon, mapLabel } from "../map-art.jsx";
 import { tier } from "../rating-scale.js";
+import { fmtDate } from "../stats-format.js";
 
 /**
  * The long list — 250 matches, filtered and paged.
@@ -19,7 +20,7 @@ const PAGE = 25;
 
 function shortDate(ts) {
   if (!ts) return "—";
-  return new Date(ts * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+  return fmtDate(ts, { day: "2-digit", month: "short", year: "2-digit" });
 }
 
 const n2 = (v) => (v == null ? "—" : Number(v).toFixed(2));
@@ -46,7 +47,7 @@ function sessionsOf(rows) {
 
 function sessLabel(ts) {
   if (!ts) return "";
-  return new Date(ts * 1000).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return fmtDate(ts, { weekday: "short", day: "numeric", month: "short" });
 }
 
 export default function AllMatches({ matches }) {
