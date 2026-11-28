@@ -1113,6 +1113,22 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 </div>
               )}
 
+              <a
+                className="home-promo sh-home-promo"
+                href={localePath(lang, "/discordbot")}
+                onClick={(e) => { if (isPlainClick(e)) { e.preventDefault(); pickNav("discordbot"); } }}
+              >
+                <span className="home-promo-ic" aria-hidden="true"><DiscordIcon size={22} /></span>
+                <span className="home-promo-txt">
+                  <span className="home-promo-tag">{t("home.new")}</span>
+                  <b>{t("home.discordTitle")}</b>
+                  <span>{t("home.discordDesc")}</span>
+                </span>
+                <span className="home-promo-go">{t("home.discordGo")}</span>
+              </a>
+
+              <AdBanner />
+
               <h2 className="home-section-label">{t("home.features")}</h2>
               <div className="home-features sh-home-features">
                 {homeFeatures.map((f) => {
@@ -1150,21 +1166,6 @@ export default function App({ lang = DEFAULT_LOCALE }) {
                 })}
               </div>
 
-              <a
-                className="home-promo sh-home-promo"
-                href={localePath(lang, "/discordbot")}
-                onClick={(e) => { if (isPlainClick(e)) { e.preventDefault(); pickNav("discordbot"); } }}
-              >
-                <span className="home-promo-ic" aria-hidden="true"><DiscordIcon size={22} /></span>
-                <span className="home-promo-txt">
-                  <span className="home-promo-tag">{t("home.new")}</span>
-                  <b>{t("home.discordTitle")}</b>
-                  <span>{t("home.discordDesc")}</span>
-                </span>
-                <span className="home-promo-go">{t("home.discordGo")}</span>
-              </a>
-
-              <AdBanner />
             </div>
           )}
 
