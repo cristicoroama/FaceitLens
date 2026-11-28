@@ -803,12 +803,12 @@ def get_recent_history(player_id, total=250):
 ELO_PER_MATCH = 25
 
 
-def get_match_stats(player_id, limit=30, offset=0):
+def get_match_stats(player_id, limit=30, offset=0, to=None):
     """Per-match stats (contain the win/loss result and the date)."""
-    data = _get(
-        f"/players/{player_id}/games/{GAME}/stats",
-        params={"offset": offset, "limit": limit},
-    )
+    params = {"offset": offset, "limit": limit}
+    if to:
+        params["to"] = int(to)
+    data = _get(f"/players/{player_id}/games/{GAME}/stats", params=params)
     return data.get("items", [])
 
 
@@ -818,19 +818,41 @@ def get_recent_match_stats(player_id, total=200):
     hit = cache.get(key)
     if hit and (hit.get("complete") or len(hit.get("items") or []) >= total):
         return hit["items"][:total]
+    def ms(it):
+        ts = _to_int((it.get("stats") or {}).get("Match Finished At"))
+        if ts is not None and ts < 1_000_000_000_000:
+            ts *= 1000
+        return ts
+
     items = []
-    offset = 0
+    seen = set()
+    to = None
     complete = False
     while len(items) < total:
-        batch = get_match_stats(player_id, limit=100, offset=offset)
+        batch = get_match_stats(player_id, limit=100, to=to)
+        if to and batch and any((ms(it) or 0) > to for it in batch):
+            batch = get_match_stats(player_id, limit=100, to=to // 1000)
+            if batch and any((ms(it) or 0) > to for it in batch):
+                break
         if not batch:
             complete = True
             break
-        items.extend(batch)
-        if len(batch) < 100:
-            complete = True
+        oldest = None
+        for it in batch:
+            st = it.get("stats") or {}
+            mid = st.get("Match Id") or st.get("Match ID")
+            ts = ms(it)
+            if ts is not None and (oldest is None or ts < oldest):
+                oldest = ts
+            if mid and mid in seen:
+                continue
+            if mid:
+                seen.add(mid)
+            items.append(it)
+        if len(batch) < 100 or oldest is None or (to is not None and oldest >= to):
+            complete = len(batch) < 100
             break
-        offset += 100
+        to = oldest - 1
     if not hit or complete or len(items) >= len(hit.get("items") or []):
         cache.set(key, {"items": items, "complete": complete}, MATCH_STATS_TTL)
     return items[:total]
